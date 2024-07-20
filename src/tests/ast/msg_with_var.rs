@@ -1,4 +1,6 @@
+use super::assert_gen;
 use super::bundle;
+use crate::tests::ast::AstResourceExt;
 use crate::typed::*;
 use fluent_syntax::ast;
 use fluent_syntax::parser;
@@ -45,7 +47,7 @@ fn ast_use() {
     let pattern = msg.value().expect("Message has no value.");
     let mut errors = vec![];
 
-    let mut args = fluent::FluentArgs::new();
+    let mut args = fluent_bundle::FluentArgs::new();
     args.set("first-name", "Tom");
     let value = bundle.format_pattern(pattern, Some(&args), &mut errors);
     assert_eq!(&value, "Hi Tom!");
@@ -54,10 +56,7 @@ fn ast_use() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let message = match &resource.body[0] {
-        ast::Entry::Message(message) => Message::parse(message),
-        _ => panic!("Expected a message."),
-    };
+    let message = resource.first_message();
 
     println!("{:#?}", message);
     assert_eq!(
@@ -72,4 +71,9 @@ fn typed() {
             attributes: vec![],
         }
     );
+}
+
+#[test]
+fn typed_gen() {
+    assert_gen(module_path!(), true, FTL);
 }

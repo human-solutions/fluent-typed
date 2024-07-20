@@ -1,3 +1,4 @@
+use crate::tests::ast::AstResourceExt;
 use crate::typed::*;
 use fluent_syntax::ast;
 use fluent_syntax::parser;
@@ -60,10 +61,7 @@ fn ast() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let message = match &resource.body[0] {
-        ast::Entry::Message(message) => Message::parse(message),
-        _ => panic!("Expected a message."),
-    };
+    let message = resource.first_message();
 
     println!("{:#?}", message);
     assert_eq!(
