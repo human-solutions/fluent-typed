@@ -1,5 +1,10 @@
+mod ext;
+mod gen;
 mod parse_ast;
 mod type_in_comment;
+
+pub use ext::BundleMessageExt;
+pub use gen::generate_extension;
 
 #[derive(Debug, PartialEq)]
 pub struct Message<'ast> {

@@ -7,8 +7,8 @@ use fluent_syntax::parser;
 
 const FTL: &str = r#"
 
-# $name (String) - The name.
-greeting = Hi { $name }
+# $duration (Number) - The duration in seconds.
+time-elapsed = Time elapsed: { $duration }s.
 
 "#;
 
@@ -21,19 +21,24 @@ fn ast() {
         resource.body[0],
         ast::Entry::Message(ast::Message {
             comment: Some(ast::Comment {
-                content: vec!["$name (String) - The name."]
+                content: vec!["$duration (Number) - The duration in seconds."]
             }),
-            id: ast::Identifier { name: "greeting" },
+            id: ast::Identifier {
+                name: "time-elapsed"
+            },
             value: Some(ast::Pattern {
                 elements: vec![
-                    ast::PatternElement::TextElement { value: "Hi " },
+                    ast::PatternElement::TextElement {
+                        value: "Time elapsed: "
+                    },
                     ast::PatternElement::Placeable {
                         expression: ast::Expression::Inline(
                             ast::InlineExpression::VariableReference {
-                                id: ast::Identifier { name: "name" }
+                                id: ast::Identifier { name: "duration" }
                             }
                         )
                     },
+                    ast::PatternElement::TextElement { value: "s." },
                 ]
             }),
             attributes: vec![],
@@ -46,15 +51,15 @@ fn ast_use() {
     let bundle = bundle(FTL);
 
     let msg = bundle
-        .get_message("greeting")
+        .get_message("time-elapsed")
         .expect("Message doesn't exist.");
     let pattern = msg.value().expect("Message has no value.");
     let mut errors = vec![];
 
     let mut args = fluent_bundle::FluentArgs::new();
-    args.set("name", "Tom");
+    args.set("duration", 10.2);
     let value = bundle.format_pattern(pattern, Some(&args), &mut errors);
-    assert_eq!(&value, "Hi Tom");
+    assert_eq!(&value, "Time elapsed: 10.2s.");
 }
 
 #[test]
@@ -66,11 +71,11 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec!["$name (String) - The name.",],
-            id: "greeting",
+            comment: vec!["$duration (Number) - The duration in seconds.",],
+            id: "time-elapsed",
             variables: vec![Variable {
-                id: "name",
-                typ: VarType::String,
+                id: "duration",
+                typ: VarType::Number,
             },],
             attributes: vec![],
         }
