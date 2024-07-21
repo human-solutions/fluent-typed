@@ -36,22 +36,6 @@ impl<'ast> Attribute<'ast> {
     }
 }
 
-impl<'ast> EnumEntry<'ast> {
-    pub fn parse_vec(variants: &[ast::Variant<&'ast str>]) -> Vec<EnumEntry<'ast>> {
-        variants.iter().map(EnumEntry::parse).collect()
-    }
-
-    pub fn parse(var: &ast::Variant<&'ast str>) -> EnumEntry<'ast> {
-        EnumEntry {
-            name: match var.key {
-                ast::VariantKey::Identifier { name } => name,
-                ast::VariantKey::NumberLiteral { value } => value,
-            },
-            default: var.default,
-        }
-    }
-}
-
 pub fn find_variable_references<'ast>(pattern: &ast::Pattern<&'ast str>) -> Vec<Variable<'ast>> {
     let mut variables = vec![];
 
@@ -68,10 +52,13 @@ pub fn find_variable_references<'ast>(pattern: &ast::Pattern<&'ast str>) -> Vec<
                     selector: ast::InlineExpression::VariableReference { id },
                     variants,
                 } => {
-                    variables.push(Variable {
-                        id: id.name,
-                        typ: VarType::Enumeration(EnumEntry::parse_vec(variants)),
-                    });
+                    let is_num = variants.iter().all(|v| v.is_number());
+                    let typ = if is_num {
+                        VarType::Number
+                    } else {
+                        VarType::Any
+                    };
+                    variables.push(Variable { id: id.name, typ });
                 }
                 _ => {}
             },
@@ -85,4 +72,18 @@ pub fn find_attributes<'ast>(
     attributes: &'ast [ast::Attribute<&'ast str>],
 ) -> Vec<Attribute<'ast>> {
     attributes.iter().map(Attribute::parse).collect()
+}
+
+trait AstVariantExt {
+    fn is_number(&self) -> bool;
+}
+impl AstVariantExt for ast::Variant<&str> {
+    fn is_number(&self) -> bool {
+        match self.key {
+            ast::VariantKey::NumberLiteral { .. } => true,
+            ast::VariantKey::Identifier { name } => {
+                ["zero", "one", "two", "few", "many", "other"].contains(&name)
+            }
+        }
+    }
 }

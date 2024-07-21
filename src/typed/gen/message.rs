@@ -128,7 +128,6 @@ fn args_impl(vars: &[Variable<'_>]) -> String {
             VarType::Any => format!(r#"        args.set("{name}", {id});"#),
             VarType::String => format!(r#"        args.set("{name}", {id}.as_ref());"#),
             VarType::Number => format!(r#"        args.set("{name}", {id}.into());"#),
-            VarType::Enumeration(_) => continue,
         };
         impls.push(impl_);
     }
@@ -147,7 +146,6 @@ impl ArgInfo {
             VarType::Any => format!("F{num}: Into<FluentValue<'a>>"),
             VarType::String => format!("F{num}: AsRef<str>"),
             VarType::Number => format!("F{num}: Into<FluentNumber>"),
-            VarType::Enumeration(_) => return None,
         };
         let arg = format!("{}: F{num}", var.id.rust_id());
         Some(Self { generic, arg })

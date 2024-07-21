@@ -6,10 +6,10 @@ use fluent_syntax::parser;
 
 const FTL: &str = r#"
 
-key = { $var ->
-    [key1] Value 1
-   *[other] Value 2
-}
+liked-count = { $num ->
+        [0]     No likes yet.
+       *[other] { $num } people liked your message
+    }
 
 "#;
 
@@ -17,24 +17,26 @@ key = { $var ->
 #[test]
 fn ast() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-
+    println!("{:#?}", resource);
     assert_eq!(
         resource,
         ast::Resource {
             body: vec![ast::Entry::Message(ast::Message {
-                id: ast::Identifier { name: "key" },
+                id: ast::Identifier {
+                    name: "liked-count"
+                },
                 value: Some(ast::Pattern {
                     elements: vec![ast::PatternElement::Placeable {
                         expression: ast::Expression::Select {
                             selector: ast::InlineExpression::VariableReference {
-                                id: ast::Identifier { name: "var" },
+                                id: ast::Identifier { name: "num" },
                             },
                             variants: vec![
                                 ast::Variant {
-                                    key: ast::VariantKey::Identifier { name: "key1" },
+                                    key: ast::VariantKey::NumberLiteral { value: "0" },
                                     value: ast::Pattern {
                                         elements: vec![ast::PatternElement::TextElement {
-                                            value: "Value 1",
+                                            value: "No likes yet.",
                                         }]
                                     },
                                     default: false,
@@ -42,9 +44,18 @@ fn ast() {
                                 ast::Variant {
                                     key: ast::VariantKey::Identifier { name: "other" },
                                     value: ast::Pattern {
-                                        elements: vec![ast::PatternElement::TextElement {
-                                            value: "Value 2",
-                                        }]
+                                        elements: vec![
+                                            ast::PatternElement::Placeable {
+                                                expression: ast::Expression::Inline(
+                                                    ast::InlineExpression::VariableReference {
+                                                        id: ast::Identifier { name: "num" }
+                                                    }
+                                                )
+                                            },
+                                            ast::PatternElement::TextElement {
+                                                value: " people liked your message",
+                                            }
+                                        ]
                                     },
                                     default: true,
                                 },
@@ -63,14 +74,16 @@ fn ast() {
 fn ast_use() {
     let bundle = bundle(FTL);
 
-    let msg = bundle.get_message("key").expect("Message doesn't exist.");
+    let msg = bundle
+        .get_message("liked-count")
+        .expect("Message doesn't exist.");
     let pattern = msg.value().expect("Message has no value.");
     let mut errors = vec![];
 
     let mut args = fluent_bundle::FluentArgs::new();
-    args.set("var", "key1");
+    args.set("num", 3);
     let value = bundle.format_pattern(pattern, Some(&args), &mut errors);
-    assert_eq!(&value, "Value 1");
+    assert_eq!(&value, "3 people liked your message");
 }
 
 #[test]
@@ -83,10 +96,10 @@ fn typed() {
         message,
         Message {
             comment: vec![],
-            id: "key",
+            id: "liked-count",
             variables: vec![Variable {
-                id: "var",
-                typ: VarType::Any,
+                id: "num",
+                typ: VarType::Number,
             },],
             attributes: vec![],
         }
