@@ -1,3 +1,4 @@
+use crate::tests::ast::bundle;
 use crate::tests::ast::AstResourceExt;
 use crate::typed::*;
 use fluent_syntax::ast;
@@ -59,6 +60,20 @@ fn ast() {
 }
 
 #[test]
+fn ast_use() {
+    let bundle = bundle(FTL);
+
+    let msg = bundle.get_message("key").expect("Message doesn't exist.");
+    let pattern = msg.value().expect("Message has no value.");
+    let mut errors = vec![];
+
+    let mut args = fluent_bundle::FluentArgs::new();
+    args.set("var", "key1");
+    let value = bundle.format_pattern(pattern, Some(&args), &mut errors);
+    assert_eq!(&value, "Value 1");
+}
+
+#[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
     let message = resource.first_message();
@@ -71,16 +86,7 @@ fn typed() {
             id: "key",
             variables: vec![Variable {
                 id: "var",
-                typ: VarType::Enumeration(vec![
-                    EnumEntry {
-                        name: "key1",
-                        default: false,
-                    },
-                    EnumEntry {
-                        name: "other",
-                        default: true,
-                    },
-                ],),
+                typ: VarType::Any,
             },],
             attributes: vec![],
         }

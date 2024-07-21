@@ -23,19 +23,12 @@ pub struct Attribute<'ast> {
 #[derive(Debug, PartialEq)]
 pub struct Variable<'ast> {
     pub id: &'ast str,
-    pub typ: VarType<'ast>,
+    pub typ: VarType,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VarType<'ast> {
+pub enum VarType {
     Any,
     String,
     Number,
-    Enumeration(Vec<EnumEntry<'ast>>),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct EnumEntry<'ast> {
-    pub name: &'ast str,
-    pub default: bool,
 }
