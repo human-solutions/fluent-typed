@@ -2,8 +2,9 @@ mod ast;
 mod complex;
 mod gen;
 
-use crate::typed::generate_extension;
+use crate::typed::generate_code;
 use fluent_bundle::{FluentBundle, FluentResource};
+use fluent_syntax::parser;
 use std::{fs, path::PathBuf};
 use unic_langid::langid;
 
@@ -25,8 +26,9 @@ fn assert_gen(module: &str, update: bool, ftl: &str) {
     let mod_name = module.split("::").last().unwrap();
     let file = format!("src/tests/gen/{mod_name}_gen.rs");
     let path = PathBuf::from(file);
+    let resource = parser::parse(ftl).expect("Failed to parse an FTL string.");
 
-    let generated = generate_extension(ftl);
+    let generated = generate_code(resource);
 
     if update || !path.exists() {
         fs::write(&path, generated).unwrap();
