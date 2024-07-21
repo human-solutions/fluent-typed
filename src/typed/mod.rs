@@ -4,7 +4,7 @@ mod parse_ast;
 mod type_in_comment;
 
 pub use ext::BundleMessageExt;
-pub use gen::generate_extension;
+pub use gen::generate_code;
 
 #[derive(Debug, PartialEq)]
 pub struct Message<'ast> {

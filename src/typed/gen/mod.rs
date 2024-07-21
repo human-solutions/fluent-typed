@@ -1,11 +1,10 @@
 mod message;
 
-use fluent_syntax::parser;
+use fluent_syntax::ast::Resource;
 
 use crate::Message;
 
-pub fn generate_extension(ftl: &str) -> String {
-    let resource = parser::parse(ftl).expect("Failed to parse an FTL resource.");
+pub fn generate_code(resource: Resource<&str>) -> String {
     let messages = resource
         .body
         .iter()
