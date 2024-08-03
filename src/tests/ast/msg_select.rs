@@ -84,10 +84,10 @@ fn typed() {
         Message {
             comment: vec![],
             id: "key",
-            variables: vec![Variable {
+            variables: Some(vec![Variable {
                 id: "var",
                 typ: VarType::Any,
-            },],
+            }]),
             attributes: vec![],
         }
     );

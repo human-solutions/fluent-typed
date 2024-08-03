@@ -9,13 +9,11 @@ impl<'ast> Message<'ast> {
             .as_ref()
             .map(|v| v.content.clone())
             .unwrap_or_default();
-        let mut variables = message
-            .value
-            .as_ref()
-            .map(find_variable_references)
-            .unwrap_or_default();
+        let mut variables = message.value.as_ref().map(find_variable_references);
         let tic = TypeInComment::parse(&comment);
-        tic.update_types(&mut variables);
+        if let Some(variables) = variables.as_mut() {
+            tic.update_types(variables);
+        }
         let attributes = find_attributes(&message.attributes);
         Self {
             id: message.id.name,

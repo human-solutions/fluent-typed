@@ -1,4 +1,5 @@
 use super::bundle;
+use crate::tests::assert_gen;
 use crate::tests::ast::AstResourceExt;
 use crate::typed::*;
 use fluent_syntax::ast;
@@ -7,7 +8,7 @@ use fluent_syntax::parser;
 const FTL: &str = r#"
 
 # This is a message comment
-hello = Hello World!
+hello = 
     .tooltip = Tooltip for you, { $userName }.
 
 "#;
@@ -21,11 +22,7 @@ fn ast() {
         resource.body[0],
         ast::Entry::Message(ast::Message {
             id: ast::Identifier { name: "hello" },
-            value: Some(ast::Pattern {
-                elements: vec![ast::PatternElement::TextElement {
-                    value: "Hello World!"
-                },]
-            }),
+            value: None,
             attributes: vec![ast::Attribute {
                 id: ast::Identifier { name: "tooltip" },
                 value: ast::Pattern {
@@ -56,11 +53,7 @@ fn ast_use() {
     let bundle = bundle(FTL);
 
     let msg = bundle.get_message("hello").expect("Message doesn't exist.");
-    let pattern = msg.value().expect("Message has no value.");
     let mut errors = vec![];
-
-    let value = bundle.format_pattern(pattern, None, &mut errors);
-    assert_eq!(&value, "Hello World!");
 
     let mut args = fluent_bundle::FluentArgs::new();
     args.set("userName", "Tom");
@@ -83,7 +76,7 @@ fn typed() {
         Message {
             comment: vec!["This is a message comment",],
             id: "hello",
-            variables: Some(vec![]),
+            variables: None,
             attributes: vec![Attribute {
                 id: "tooltip",
                 variables: vec![Variable {
@@ -93,4 +86,9 @@ fn typed() {
             },],
         }
     );
+}
+
+#[test]
+fn typed_gen() {
+    assert_gen(module_path!(), true, FTL);
 }

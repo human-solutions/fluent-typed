@@ -97,10 +97,10 @@ fn typed() {
         Message {
             comment: vec![],
             id: "liked-count",
-            variables: vec![Variable {
+            variables: Some(vec![Variable {
                 id: "num",
                 typ: VarType::Number,
-            },],
+            }]),
             attributes: vec![],
         }
     );

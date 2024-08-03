@@ -10,7 +10,9 @@ pub use gen::generate_code;
 pub struct Message<'ast> {
     pub comment: Vec<&'ast str>,
     pub id: &'ast str,
-    pub variables: Vec<Variable<'ast>>,
+    /// A message without variables (None) doesn't have a corresponding function
+    /// call, it is only used for porting attributes.
+    pub variables: Option<Vec<Variable<'ast>>>,
     pub attributes: Vec<Attribute<'ast>>,
 }
 

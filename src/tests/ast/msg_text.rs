@@ -58,7 +58,7 @@ fn typed() {
         Message {
             id: "hello-world",
             comment: vec![],
-            variables: vec![],
+            variables: Some(vec![]),
             attributes: vec![],
         }
     );
