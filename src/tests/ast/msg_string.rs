@@ -68,10 +68,10 @@ fn typed() {
         Message {
             comment: vec!["$name (String) - The name.",],
             id: "greeting",
-            variables: vec![Variable {
+            variables: Some(vec![Variable {
                 id: "name",
                 typ: VarType::String,
-            },],
+            }]),
             attributes: vec![],
         }
     );

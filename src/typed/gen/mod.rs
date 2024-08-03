@@ -16,7 +16,7 @@ pub fn generate_code(resource: Resource<&str>) -> String {
 
     let signatures = messages
         .iter()
-        .map(|msg| msg.gen_signature())
+        .filter_map(|msg| msg.variables.as_ref().map(|vars| msg.gen_signature(vars)))
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -32,10 +32,12 @@ pub fn generate_code(resource: Resource<&str>) -> String {
 use fluent_bundle::{{types::FluentNumber, FluentArgs, FluentBundle, FluentResource, FluentValue}};
 use std::borrow::Cow;
 
-pub trait MyExt {{{signatures}
+pub trait MyExt {{
+{signatures}
 }}
 
-impl MyExt for FluentBundle<FluentResource> {{{impls}
+impl MyExt for FluentBundle<FluentResource> {{
+{impls}
 }}
 "#
     )

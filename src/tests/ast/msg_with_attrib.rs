@@ -83,7 +83,7 @@ fn typed() {
         Message {
             comment: vec!["This is a message comment",],
             id: "hello",
-            variables: vec![],
+            variables: Some(vec![]),
             attributes: vec![Attribute {
                 id: "tooltip",
                 variables: vec![Variable {

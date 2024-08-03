@@ -73,10 +73,10 @@ fn typed() {
         Message {
             comment: vec!["$duration (Number) - The duration in seconds.",],
             id: "time-elapsed",
-            variables: vec![Variable {
+            variables: Some(vec![Variable {
                 id: "duration",
                 typ: VarType::Number,
-            },],
+            }]),
             attributes: vec![],
         }
     );

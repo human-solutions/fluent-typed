@@ -1,4 +1,5 @@
 #![allow(unused)]
+mod attrib_only_gen;
 mod complex_gen;
 mod msg_number_gen;
 mod msg_string_gen;
