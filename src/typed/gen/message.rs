@@ -2,100 +2,135 @@ use super::super::{Message, VarType, Variable};
 
 trait StrExt {
     fn rust_id(&self) -> String;
+    fn with_semicolon(&self) -> String;
 }
 
 impl StrExt for str {
     fn rust_id(&self) -> String {
-        self.replace('-', "_")
+        let mut s = String::with_capacity(self.len());
+        for (i, c) in self.chars().enumerate() {
+            if c == '-' {
+                s.push('_');
+            } else if c.is_ascii_uppercase() {
+                if i != 0 {
+                    s.push('_');
+                }
+                s.push(c.to_ascii_lowercase());
+            } else {
+                s.push(c)
+            }
+        }
+        s
+    }
+
+    fn with_semicolon(&self) -> String {
+        format!("{self};")
     }
 }
 
 impl<'ast> Message<'ast> {
-    pub fn gen_signature(&self, variables: &[Variable]) -> String {
-        let sig = if variables.is_empty() {
-            self.signature_no_args()
-        } else {
-            self.signature(variables)
-        };
-
-        let comment = self.comment_lines();
-
-        format!("{comment}{sig};")
-    }
-
-    fn signature(&self, variables: &[Variable]) -> String {
-        let func = self.id.rust_id();
-        let ArgInfo { generic, arg } = args_declaration(variables);
-        let lt = lifetime(variables);
-
-        format!(r"    fn {func}<{lt}{generic}>(&self, {arg}) -> Cow<'_, str>")
-    }
-
-    fn signature_no_args(&self) -> String {
-        let comment = self.comment_lines();
-        let func = self.id.rust_id();
-        format!(r"{comment}    fn {func}(&self) -> Cow<'_, str>")
-    }
-
-    pub fn gen_implementation(&self) -> String {
+    pub fn trait_signature(&self) -> String {
+        let mut out = Vec::new();
+        let func_name = self.id.rust_id();
         if let Some(variables) = &self.variables {
-            if variables.is_empty() {
-                self.gen_impl()
-            } else {
-                self.gen_impl_args(variables)
-            }
+            out.push(self.comment_lines());
+            out.push(self.signature(variables, &func_name).with_semicolon());
+        }
+
+        for attr in &self.attributes {
+            let attr_name = format!("{func_name}_{}", attr.id.rust_id());
+            out.push(self.signature(&attr.variables, &attr_name).with_semicolon());
+        }
+
+        out.join("\n")
+    }
+
+    fn signature(&self, variables: &[Variable], func_name: &str) -> String {
+        if variables.is_empty() {
+            format!(r"    fn {func_name}(&self) -> Cow<'_, str>")
         } else {
-            String::new()
+            let ArgInfo { generic, arg } = args_declaration(variables);
+            let lt = lifetime(variables);
+            format!(r"    fn {func_name}<{lt}{generic}>(&self, {arg}) -> Cow<'_, str>")
         }
     }
 
-    fn gen_impl_args(&self, variables: &[Variable]) -> String {
-        let signature = self.signature(variables);
-        let args = args_impl(variables);
-        let id = self.id;
+    pub fn implementations(&self) -> String {
+        let mut impls = vec![];
 
-        format!(
-            r##"{signature} {{
-        let mut args = FluentArgs::new();
-{args}
-        self.msg_with_args("{id}", args).unwrap()
-    }}"##,
-        )
+        if let Some(variables) = &self.variables {
+            let signature = self.signature(variables, &self.id.rust_id());
+            impls.push(self.func_impl(variables, &self.id, &signature))
+        }
+
+        for attr in &self.attributes {
+            let func_name = format!("{}_{}", self.id.rust_id(), attr.id.rust_id());
+            let signature = self.signature(&attr.variables, &func_name);
+            impls.push(self.attr_impl(&attr.variables, &self.id, &attr.id, &signature));
+        }
+
+        impls.join("\n")
     }
 
-    fn gen_impl(&self) -> String {
-        let fn_signature = self.signature_no_args();
-        let id = self.id;
-
-        format!(
-            r##"{fn_signature} {{
-        self.msg("{id}").unwrap()
+    fn attr_impl(
+        &self,
+        variables: &[Variable],
+        msg_id: &str,
+        attr_id: &str,
+        signature: &str,
+    ) -> String {
+        if variables.is_empty() {
+            format!(
+                r##"{signature} {{
+        self.attr("{msg_id}", "{attr_id}", None).unwrap()
     }}"##,
-        )
+            )
+        } else {
+            let args = args_impl(variables);
+
+            format!(
+                r##"{signature} {{
+        let mut args = FluentArgs::new();
+{args}
+        self.attr("{msg_id}", "{attr_id}", Some(args)).unwrap()
+    }}"##,
+            )
+        }
+    }
+    fn func_impl(&self, variables: &[Variable], id: &str, signature: &str) -> String {
+        if variables.is_empty() {
+            format!(
+                r##"{signature} {{
+        self.msg("{id}", None).unwrap()
+    }}"##,
+            )
+        } else {
+            let args = args_impl(variables);
+
+            format!(
+                r##"{signature} {{
+        let mut args = FluentArgs::new();
+{args}
+        self.msg("{id}", Some(args)).unwrap()
+    }}"##,
+            )
+        }
     }
 
     fn comment_lines(&self) -> String {
-        if self.comment.is_empty() {
-            return String::new();
-        }
-
-        let comment = self
-            .comment
+        self.comment
             .iter()
-            .map(|c| format!("    /// {c}"))
+            .map(|c| format!("    /// {c}\n"))
             .collect::<Vec<_>>()
-            .join("\n");
-        format!("{comment}\n")
+            .join("")
     }
 }
 
 fn lifetime(vars: &[Variable<'_>]) -> &'static str {
-    let has_lifetime = vars.iter().any(|v| v.typ == VarType::Any);
-    if has_lifetime {
-        "'a, "
-    } else {
-        ""
-    }
+    vars.iter()
+        .any(|v| v.typ == VarType::Any)
+        .then_some("'a, ")
+        .unwrap_or_default()
 }
 
 fn args_declaration(vars: &[Variable<'_>]) -> ArgInfo {
