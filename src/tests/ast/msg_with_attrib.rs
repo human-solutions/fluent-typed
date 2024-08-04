@@ -1,4 +1,5 @@
 use super::bundle;
+use crate::tests::assert_gen;
 use crate::tests::ast::AstResourceExt;
 use crate::typed::*;
 use fluent_syntax::ast;
@@ -89,8 +90,13 @@ fn typed() {
                 variables: vec![Variable {
                     id: "userName",
                     typ: VarType::Any
-                },],
+                }],
             },],
         }
     );
+}
+
+#[test]
+fn typed_gen() {
+    assert_gen(module_path!(), true, FTL);
 }

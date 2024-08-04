@@ -82,8 +82,8 @@ fn typed() {
                 variables: vec![Variable {
                     id: "userName",
                     typ: VarType::Any
-                },],
-            },],
+                }],
+            }],
         }
     );
 }

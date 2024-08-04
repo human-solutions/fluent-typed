@@ -16,13 +16,13 @@ pub fn generate_code(resource: Resource<&str>) -> String {
 
     let signatures = messages
         .iter()
-        .filter_map(|msg| msg.variables.as_ref().map(|vars| msg.gen_signature(vars)))
+        .map(|msg| msg.trait_signature())
         .collect::<Vec<_>>()
         .join("\n");
 
     let impls = messages
         .iter()
-        .map(|msg| msg.gen_implementation())
+        .map(|msg| msg.implementations())
         .collect::<Vec<_>>()
         .join("\n");
 
