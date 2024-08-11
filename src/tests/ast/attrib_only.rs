@@ -74,15 +74,11 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec!["This is a message comment",],
-            id: "hello",
-            variables: None,
-            attributes: vec![Attribute {
-                id: "tooltip",
-                variables: vec![Variable {
-                    id: "userName",
-                    typ: VarType::Any
-                }],
+            comment: vec![],
+            id: Id::new_attr("hello", "tooltip"),
+            variables: vec![Variable {
+                id: "userName",
+                typ: VarType::Any
             }],
         }
     );
@@ -90,5 +86,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), true, FTL);
+    assert_gen(module_path!(), None, true, FTL);
 }

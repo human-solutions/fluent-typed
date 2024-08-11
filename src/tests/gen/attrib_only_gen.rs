@@ -4,6 +4,7 @@ use fluent_bundle::{types::FluentNumber, FluentArgs, FluentBundle, FluentResourc
 use std::borrow::Cow;
 
 pub trait MyExt {
+
     fn hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> Cow<'_, str>;
 }
 

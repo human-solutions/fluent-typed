@@ -76,27 +76,32 @@ fn ast_use() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let message = resource.first_message();
+    let [message, attr] = resource.two_messages();
 
     println!("{:#?}", message);
     assert_eq!(
         message,
         Message {
             comment: vec!["This is a message comment",],
-            id: "hello",
-            variables: Some(vec![]),
-            attributes: vec![Attribute {
-                id: "tooltip",
-                variables: vec![Variable {
-                    id: "userName",
-                    typ: VarType::Any
-                }],
-            },],
+            id: Id::new_msg("hello"),
+            variables: vec![],
+        }
+    );
+    println!("{:#?}", attr);
+    assert_eq!(
+        attr,
+        Message {
+            comment: vec![],
+            id: Id::new_attr("hello", "tooltip"),
+            variables: vec![Variable {
+                id: "userName",
+                typ: VarType::Any
+            }],
         }
     );
 }
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), true, FTL);
+    assert_gen(module_path!(), None, true, FTL);
 }

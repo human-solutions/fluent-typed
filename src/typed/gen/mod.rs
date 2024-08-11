@@ -4,14 +4,15 @@ use fluent_syntax::ast::Resource;
 
 use crate::Message;
 
-pub fn generate_code(resource: Resource<&str>) -> String {
+pub fn generate_code(name: Option<&str>, resource: Resource<&str>) -> String {
     let messages = resource
         .body
         .iter()
         .filter_map(|entry| match entry {
-            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(m)),
+            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name, m)),
             _ => None,
         })
+        .flatten()
         .collect::<Vec<_>>();
 
     let signatures = messages

@@ -1,13 +1,14 @@
 mod error;
+mod ext;
 #[cfg(test)]
 mod tests;
 mod typed;
-
 use fluent_syntax::parser;
 use std::fs;
 use std::process::ExitCode;
 
 pub use error::MessageError;
+use ext::StrExt;
 pub use typed::generate_code;
 pub use typed::BundleMessageExt;
 pub use typed::Message;
@@ -31,6 +32,6 @@ fn _generate(ftl: &str, rust: &str) -> Result<(), String> {
     let resource = parser::parse(ftl_file.as_str())
         .map_err(|e| format!("Could not parse ftl file '{ftl}' due to: {e:?}"))?;
 
-    let code = generate_code(resource);
+    let code = generate_code(Some(&ftl_file), resource);
     fs::write(rust, code).map_err(|e| format!("Could not write rust file '{rust}': {e}"))
 }

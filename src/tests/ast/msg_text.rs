@@ -56,15 +56,14 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            id: "hello-world",
+            id: Id::new_msg("hello-world"),
             comment: vec![],
-            variables: Some(vec![]),
-            attributes: vec![],
+            variables: vec![],
         }
     );
 }
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), true, FTL);
+    assert_gen(module_path!(), None, true, FTL);
 }

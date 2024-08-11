@@ -67,17 +67,16 @@ fn typed() {
         message,
         Message {
             comment: vec!["$name (String) - The name.",],
-            id: "greeting",
-            variables: Some(vec![Variable {
+            id: Id::new_msg("greeting"),
+            variables: vec![Variable {
                 id: "name",
                 typ: VarType::String,
-            }]),
-            attributes: vec![],
+            }],
         }
     );
 }
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), true, FTL);
+    assert_gen(module_path!(), None, true, FTL);
 }

@@ -72,17 +72,16 @@ fn typed() {
         message,
         Message {
             comment: vec!["$duration (Number) - The duration in seconds.",],
-            id: "time-elapsed",
-            variables: Some(vec![Variable {
+            id: Id::new_msg("time-elapsed"),
+            variables: vec![Variable {
                 id: "duration",
                 typ: VarType::Number,
-            }]),
-            attributes: vec![],
+            }],
         }
     );
 }
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), true, FTL);
+    assert_gen(module_path!(), None, true, FTL);
 }
