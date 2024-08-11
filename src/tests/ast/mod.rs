@@ -6,6 +6,7 @@ mod msg_string;
 mod msg_text;
 mod msg_with_attrib;
 mod msg_with_var;
+mod res_msg_text;
 
 use super::{assert_gen, bundle};
 use crate::Message;
@@ -27,13 +28,37 @@ fn load_bundle() {
 }
 
 trait AstResourceExt {
+    fn first_message_in_resource<'a>(&'a self, resource: &'a str) -> Message;
     fn first_message(&self) -> Message;
+    fn two_messages(&self) -> [Message; 2];
 }
 
 impl AstResourceExt for ast::Resource<&str> {
+    fn first_message_in_resource<'a>(&'a self, resource: &'a str) -> Message {
+        match &self.body[0] {
+            ast::Entry::Message(message) => Message::parse(Some(resource), message)
+                .into_iter()
+                .next()
+                .unwrap(),
+            _ => panic!("Expected a message."),
+        }
+    }
     fn first_message(&self) -> Message {
         match &self.body[0] {
-            ast::Entry::Message(message) => Message::parse(message),
+            ast::Entry::Message(message) => {
+                Message::parse(None, message).into_iter().next().unwrap()
+            }
+            _ => panic!("Expected a message."),
+        }
+    }
+
+    fn two_messages(&self) -> [Message; 2] {
+        match &self.body[0] {
+            ast::Entry::Message(message) => {
+                let msgs = Message::parse(None, message);
+                assert_eq!(msgs.len(), 2);
+                msgs.try_into().unwrap()
+            }
             _ => panic!("Expected a message."),
         }
     }

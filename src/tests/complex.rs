@@ -10,5 +10,5 @@ key = { $var ->
 }
    
     "#;
-    assert_gen(module_path!(), true, ftl);
+    assert_gen(module_path!(), None, true, ftl);
 }

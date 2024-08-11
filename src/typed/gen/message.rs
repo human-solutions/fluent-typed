@@ -1,46 +1,12 @@
 use super::super::{Message, VarType, Variable};
+use crate::StrExt;
 
-trait StrExt {
-    fn rust_id(&self) -> String;
-    fn with_semicolon(&self) -> String;
-}
-
-impl StrExt for str {
-    fn rust_id(&self) -> String {
-        let mut s = String::with_capacity(self.len());
-        for (i, c) in self.chars().enumerate() {
-            if c == '-' {
-                s.push('_');
-            } else if c.is_ascii_uppercase() {
-                if i != 0 {
-                    s.push('_');
-                }
-                s.push(c.to_ascii_lowercase());
-            } else {
-                s.push(c)
-            }
-        }
-        s
-    }
-
-    fn with_semicolon(&self) -> String {
-        format!("{self};")
-    }
-}
-
-impl<'ast> Message<'ast> {
+impl<'ast, 'res> Message<'ast, 'res> {
     pub fn trait_signature(&self) -> String {
         let mut out = Vec::new();
-        let func_name = self.id.rust_id();
-        if let Some(variables) = &self.variables {
-            out.push(self.comment_lines());
-            out.push(self.signature(variables, &func_name).with_semicolon());
-        }
-
-        for attr in &self.attributes {
-            let attr_name = format!("{func_name}_{}", attr.id.rust_id());
-            out.push(self.signature(&attr.variables, &attr_name).with_semicolon());
-        }
+        let func_name = self.id.func_name();
+        out.push(self.comment_lines());
+        out.push(self.signature(&self.variables, &func_name).with_semicolon());
 
         out.join("\n")
     }
@@ -56,20 +22,12 @@ impl<'ast> Message<'ast> {
     }
 
     pub fn implementations(&self) -> String {
-        let mut impls = vec![];
-
-        if let Some(variables) = &self.variables {
-            let signature = self.signature(variables, &self.id.rust_id());
-            impls.push(self.func_impl(variables, &self.id, &signature))
+        let signature = self.signature(&self.variables, &self.id.func_name());
+        if let Some(attr) = self.id.attribute {
+            self.attr_impl(&self.variables, self.id.message, attr, &signature)
+        } else {
+            self.func_impl(&self.variables, self.id.message, &signature)
         }
-
-        for attr in &self.attributes {
-            let func_name = format!("{}_{}", self.id.rust_id(), attr.id.rust_id());
-            let signature = self.signature(&attr.variables, &func_name);
-            impls.push(self.attr_impl(&attr.variables, &self.id, &attr.id, &signature));
-        }
-
-        impls.join("\n")
     }
 
     fn attr_impl(

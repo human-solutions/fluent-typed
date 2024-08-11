@@ -83,12 +83,11 @@ fn typed() {
         message,
         Message {
             comment: vec![],
-            id: "key",
-            variables: Some(vec![Variable {
+            id: Id::new_msg("key"),
+            variables: vec![Variable {
                 id: "var",
                 typ: VarType::Any,
-            }]),
-            attributes: vec![],
+            }],
         }
     );
 }

@@ -22,13 +22,13 @@ fn bundle(ftl: &str) -> FluentBundle<FluentResource> {
 }
 
 #[track_caller]
-fn assert_gen(module: &str, update: bool, ftl: &str) {
+fn assert_gen(module: &str, resource_name: Option<&str>, update: bool, ftl: &str) {
     let mod_name = module.split("::").last().unwrap();
     let file = format!("src/tests/gen/{mod_name}_gen.rs");
     let path = PathBuf::from(file);
     let resource = parser::parse(ftl).expect("Failed to parse an FTL string.");
 
-    let generated = generate_code(resource);
+    let generated = generate_code(resource_name, resource);
 
     if update || !path.exists() {
         fs::write(&path, generated).unwrap();

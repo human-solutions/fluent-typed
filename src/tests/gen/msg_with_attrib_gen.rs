@@ -7,6 +7,7 @@ pub trait MyExt {
     /// This is a message comment
 
     fn hello(&self) -> Cow<'_, str>;
+
     fn hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> Cow<'_, str>;
 }
 

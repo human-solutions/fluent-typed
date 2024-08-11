@@ -2,25 +2,43 @@ use super::*;
 use fluent_syntax::ast;
 use type_in_comment::TypeInComment;
 
-impl<'ast> Message<'ast> {
-    pub fn parse(message: &'ast ast::Message<&'ast str>) -> Self {
+impl<'ast, 'res> Message<'ast, 'res> {
+    pub fn parse(resource: Option<&'res str>, message: &'ast ast::Message<&'ast str>) -> Vec<Self> {
+        let mut found = Vec::new();
         let comment = message
             .comment
             .as_ref()
             .map(|v| v.content.clone())
             .unwrap_or_default();
-        let mut variables = message.value.as_ref().map(find_variable_references);
-        let tic = TypeInComment::parse(&comment);
-        if let Some(variables) = variables.as_mut() {
-            tic.update_types(variables);
+        if let Some(value) = message.value.as_ref() {
+            let mut variables = find_variable_references(value);
+            let tic = TypeInComment::parse(&comment);
+            tic.update_types(&mut variables);
+            let id = Id {
+                resource,
+                message: message.id.name,
+                attribute: None,
+            };
+            found.push(Self {
+                id,
+                comment,
+                variables,
+            });
         }
-        let attributes = find_attributes(&message.attributes);
-        Self {
-            id: message.id.name,
-            comment,
-            variables,
-            attributes,
+        for attribute in find_attributes(&message.attributes) {
+            let variables = attribute.variables;
+            let id = Id {
+                resource,
+                message: message.id.name,
+                attribute: Some(attribute.id),
+            };
+            found.push(Self {
+                id,
+                comment: vec![],
+                variables,
+            });
         }
+        found
     }
 }
 

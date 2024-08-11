@@ -96,12 +96,11 @@ fn typed() {
         message,
         Message {
             comment: vec![],
-            id: "liked-count",
-            variables: Some(vec![Variable {
+            id: Id::new_msg("liked-count"),
+            variables: vec![Variable {
                 id: "num",
                 typ: VarType::Number,
-            }]),
-            attributes: vec![],
+            }],
         }
     );
 }
