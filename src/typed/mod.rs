@@ -1,10 +1,8 @@
-mod ext;
-mod gen;
 mod parse_ast;
 mod type_in_comment;
 
-pub use ext::BundleMessageExt;
-pub use gen::{generate_code, generate_for_messages, to_messages};
+pub use crate::gen::ext::BundleMessageExt;
+pub use crate::gen::{generate_code, generate_for_messages, to_messages};
 
 use crate::ext::StrExt;
 
