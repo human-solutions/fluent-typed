@@ -1,6 +1,8 @@
 mod parse_ast;
 mod type_in_comment;
 
+use std::fmt::Display;
+
 pub use crate::gen::ext::BundleMessageExt;
 pub use crate::gen::{generate_code, generate_for_messages, to_messages};
 
@@ -18,6 +20,20 @@ pub struct Id {
     pub resource: Option<String>,
     pub message: String,
     pub attribute: Option<String>,
+}
+
+impl Display for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = &self.message;
+        match (&self.resource, &self.attribute) {
+            (Some(r), Some(a)) => {
+                write!(f, "message '{msg}' with attribute '{a}' in resource '{r}'")
+            }
+            (Some(r), None) => write!(f, "message '{msg}' in resource '{r}'"),
+            (None, Some(a)) => write!(f, "message '{msg}' with attribute '{a}'"),
+            (None, None) => write!(f, "message '{msg}'"),
+        }
+    }
 }
 
 impl Id {
@@ -65,13 +81,13 @@ pub struct Attribute {
     pub variables: Vec<Variable>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
     pub id: String,
     pub typ: VarType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum VarType {
     Any,
     String,

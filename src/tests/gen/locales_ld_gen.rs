@@ -6,27 +6,67 @@ use std::borrow::Cow;
 
 pub trait TypedMessages {
 
-    fn settings_twenty_four_hour(&self) -> Cow<'_, str>;
+    fn index_no_translation(&self) -> Cow<'_, str>;
 
-    fn hello_greeting(&self) -> Cow<'_, str>;
+    fn index_cookie_policy(&self) -> Cow<'_, str>;
 
-    fn settings_twenty_four_hour(&self) -> Cow<'_, str>;
+    fn index_tos(&self) -> Cow<'_, str>;
 
-    fn hello_greeting(&self) -> Cow<'_, str>;
+    fn index_privacy(&self) -> Cow<'_, str>;
+
+    fn index_sign_out(&self) -> Cow<'_, str>;
+
+    fn index_welcome(&self) -> Cow<'_, str>;
+
+    fn index_no_translation(&self) -> Cow<'_, str>;
+
+    fn index_cookie_policy(&self) -> Cow<'_, str>;
+
+    fn index_tos(&self) -> Cow<'_, str>;
+
+    fn index_privacy(&self) -> Cow<'_, str>;
+
+    fn index_sign_out(&self) -> Cow<'_, str>;
+
+    fn index_welcome(&self) -> Cow<'_, str>;
 }
 
 impl TypedMessages for FluentBundle<FluentResource> {
-    fn settings_twenty_four_hour(&self) -> Cow<'_, str> {
-        self.msg("twenty-four-hour", None).unwrap()
+    fn index_no_translation(&self) -> Cow<'_, str> {
+        self.msg("no-translation", None).unwrap()
     }
-    fn hello_greeting(&self) -> Cow<'_, str> {
-        self.msg("greeting", None).unwrap()
+    fn index_cookie_policy(&self) -> Cow<'_, str> {
+        self.msg("cookie-policy", None).unwrap()
     }
-    fn settings_twenty_four_hour(&self) -> Cow<'_, str> {
-        self.msg("twenty-four-hour", None).unwrap()
+    fn index_tos(&self) -> Cow<'_, str> {
+        self.msg("tos", None).unwrap()
     }
-    fn hello_greeting(&self) -> Cow<'_, str> {
-        self.msg("greeting", None).unwrap()
+    fn index_privacy(&self) -> Cow<'_, str> {
+        self.msg("privacy", None).unwrap()
+    }
+    fn index_sign_out(&self) -> Cow<'_, str> {
+        self.msg("sign-out", None).unwrap()
+    }
+    fn index_welcome(&self) -> Cow<'_, str> {
+        self.msg("welcome", None).unwrap()
+    }
+    fn index_no_translation(&self) -> Cow<'_, str> {
+        self.msg("no-translation", None).unwrap()
+    }
+    fn index_cookie_policy(&self) -> Cow<'_, str> {
+        self.msg("cookie-policy", None).unwrap()
+    }
+    fn index_tos(&self) -> Cow<'_, str> {
+        self.msg("tos", None).unwrap()
+    }
+    fn index_privacy(&self) -> Cow<'_, str> {
+        self.msg("privacy", None).unwrap()
+    }
+    fn index_sign_out(&self) -> Cow<'_, str> {
+        self.msg("sign-out", None).unwrap()
+    }
+    fn index_welcome(&self) -> Cow<'_, str> {
+        self.msg("welcome", None).unwrap()
     }
 }
 

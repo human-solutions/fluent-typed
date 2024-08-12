@@ -4,17 +4,17 @@ mod loader;
 #[cfg(test)]
 mod tests;
 mod typed;
+mod validations;
 
-use std::collections::HashMap;
 use std::fs;
 use std::process::ExitCode;
 use typed::generate_for_messages;
-use typed::Id;
 
 use ext::StrExt;
 pub use typed::generate_code;
 pub use typed::BundleMessageExt;
 pub use typed::Message;
+use validations::Analyzed;
 
 pub struct LangResource {
     pub name: String,
@@ -40,26 +40,36 @@ pub(crate) fn try_build_from_folder(
     locales_folder: &str,
     rust_code_folder: &str,
 ) -> Result<(), String> {
-    let generated = generate_from_locales(locales_folder)?;
+    let locales = loader::from_locales_folder(locales_folder)
+        .map_err(|e| format!("Could not read locales folder '{locales_folder}': {e:?}"))?;
+
+    let analyzed = validations::analyze(&locales);
+
+    let generated = generate_from_locales(&locales, &analyzed)?;
+
     fs::create_dir_all(rust_code_folder)
         .map_err(|e| format!("Could not create rust folder '{rust_code_folder}': {e:?}"))?;
+
     let filename = format!("{}/bundle_ext.rs", rust_code_folder);
 
     fs::write(filename, generated)
         .map_err(|e| format!("Could not write rust file '{rust_code_folder}': {e:?}"))?;
+
+    for warn in analyzed.missing_messages {
+        println!("cargo::warning={warn}");
+    }
+    for warn in analyzed.signature_mismatches {
+        println!("cargo::warning={warn}");
+    }
     Ok(())
 }
 
-pub(crate) fn generate_from_locales(locales_folder: &str) -> Result<String, String> {
-    let locales = loader::from_locales_folder(locales_folder)
-        .map_err(|e| format!("Could not read locales folder '{locales_folder}': {e:?}"))?;
-
+fn generate_from_locales(locales: &[LangBundle], analyzed: &Analyzed) -> Result<String, String> {
     let messages = locales
-        .into_iter()
-        .flat_map(|l| l.resources)
-        .flat_map(|r| r.content)
-        .map(|msg| (msg.id.clone(), msg))
-        .collect::<HashMap<Id, Message>>();
+        .iter()
+        .flat_map(|l| &l.resources)
+        .flat_map(|r| &r.content)
+        .filter(|msg| analyzed.common.contains(&msg.id));
 
-    Ok(generate_for_messages(messages.values()))
+    Ok(generate_for_messages(messages))
 }
