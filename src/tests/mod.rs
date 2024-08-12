@@ -2,7 +2,7 @@ mod ast;
 mod complex;
 mod gen;
 
-use crate::{generate_from_locales, typed::generate_code};
+use crate::{generate_from_locales, loader, typed::generate_code, validations};
 use fluent_bundle::{FluentBundle, FluentResource};
 use fluent_syntax::parser;
 use std::{fs, path::PathBuf};
@@ -50,12 +50,16 @@ fn write_generated(
 
 #[test]
 fn test_locales_folder() {
-    let locales = generate_from_locales("src/tests/test_locales").unwrap();
+    let locales = loader::from_locales_folder("src/tests/test_locales").unwrap();
+    let analyzed = validations::analyze(&locales);
+    let locales = generate_from_locales(&locales, &analyzed).unwrap();
     write_generated("locales_folder", true, &locales).unwrap();
 }
 
 #[test]
 fn test_locales_multi_resources() {
-    let locales = generate_from_locales("src/tests/test_locales_multi_resources").unwrap();
+    let locales = loader::from_locales_folder("src/tests/test_locales_multi_resources").unwrap();
+    let analyzed = validations::analyze(&locales);
+    let locales = generate_from_locales(&locales, &analyzed).unwrap();
     write_generated("locales_multi_resources", true, &locales).unwrap();
 }
