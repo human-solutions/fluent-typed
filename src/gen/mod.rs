@@ -1,3 +1,4 @@
+pub mod ext;
 mod message;
 
 use fluent_syntax::ast::Resource;
@@ -32,21 +33,34 @@ pub fn generate_for_messages<'a>(messages: impl Iterator<Item = &'a Message>) ->
 }
 
 pub fn format_generated(signatures: &[String], impls: &[String]) -> String {
+    let base_ext = include_str!("ext.rs");
+    let base_use = base_ext
+        .lines()
+        .filter(|l| l.starts_with("use"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let base_code = base_ext
+        .lines()
+        .filter(|l| !l.starts_with("use"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     let signatures = signatures.join("\n");
     let impls = impls.join("\n");
     format!(
-        r#"use crate::BundleMessageExt;
-#[allow(unused_imports)]
-use fluent_bundle::{{types::FluentNumber, FluentArgs, FluentBundle, FluentResource, FluentValue}};
-use std::borrow::Cow;
+        r#"#[allow(unused_imports)]
+use fluent_bundle::{{types::FluentNumber, FluentValue}};
+{base_use}
 
-pub trait MyExt {{
+pub trait TypedMessages {{
 {signatures}
 }}
 
-impl MyExt for FluentBundle<FluentResource> {{
+impl TypedMessages for FluentBundle<FluentResource> {{
 {impls}
 }}
+{base_code}
 "#
     )
 }

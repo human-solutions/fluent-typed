@@ -1,4 +1,4 @@
-use super::super::{Message, VarType, Variable};
+use crate::typed::{Message, VarType, Variable};
 use crate::StrExt;
 
 impl Message {
