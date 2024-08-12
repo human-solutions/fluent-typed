@@ -1,7 +1,7 @@
 use super::super::{Message, VarType, Variable};
 use crate::StrExt;
 
-impl<'ast, 'res> Message<'ast, 'res> {
+impl Message {
     pub fn trait_signature(&self) -> String {
         let mut out = Vec::new();
         let func_name = self.id.func_name();
@@ -23,10 +23,10 @@ impl<'ast, 'res> Message<'ast, 'res> {
 
     pub fn implementations(&self) -> String {
         let signature = self.signature(&self.variables, &self.id.func_name());
-        if let Some(attr) = self.id.attribute {
-            self.attr_impl(&self.variables, self.id.message, attr, &signature)
+        if let Some(attr) = self.id.attribute.as_ref() {
+            self.attr_impl(&self.variables, &self.id.message, attr, &signature)
         } else {
-            self.func_impl(&self.variables, self.id.message, &signature)
+            self.func_impl(&self.variables, &self.id.message, &signature)
         }
     }
 
@@ -84,14 +84,14 @@ impl<'ast, 'res> Message<'ast, 'res> {
     }
 }
 
-fn lifetime(vars: &[Variable<'_>]) -> &'static str {
+fn lifetime(vars: &[Variable]) -> &'static str {
     vars.iter()
         .any(|v| v.typ == VarType::Any)
         .then_some("'a, ")
         .unwrap_or_default()
 }
 
-fn args_declaration(vars: &[Variable<'_>]) -> ArgInfo {
+fn args_declaration(vars: &[Variable]) -> ArgInfo {
     let mut generics = vec![];
     let mut args = vec![];
 
@@ -112,11 +112,11 @@ fn args_declaration(vars: &[Variable<'_>]) -> ArgInfo {
     }
 }
 
-fn args_impl(vars: &[Variable<'_>]) -> String {
+fn args_impl(vars: &[Variable]) -> String {
     let mut impls = vec![];
 
     for var in vars {
-        let name = var.id;
+        let name = var.id.as_str();
         let id = var.id.rust_id();
 
         let impl_ = match var.typ {
@@ -136,7 +136,7 @@ struct ArgInfo {
 }
 
 impl ArgInfo {
-    fn new(num: usize, var: &Variable<'_>) -> Option<Self> {
+    fn new(num: usize, var: &Variable) -> Option<Self> {
         let generic = match var.typ {
             VarType::Any => format!("F{num}: Into<FluentValue<'a>>"),
             VarType::String => format!("F{num}: AsRef<str>"),

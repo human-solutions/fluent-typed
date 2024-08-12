@@ -82,7 +82,7 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec!["This is a message comment",],
+            comment: vec!["This is a message comment".to_string()],
             id: Id::new_msg("hello"),
             variables: vec![],
         }
@@ -94,7 +94,7 @@ fn typed() {
             comment: vec![],
             id: Id::new_attr("hello", "tooltip"),
             variables: vec![Variable {
-                id: "userName",
+                id: "userName".to_string(),
                 typ: VarType::Any
             }],
         }

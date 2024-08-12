@@ -2,21 +2,21 @@ use super::*;
 use fluent_syntax::ast;
 use type_in_comment::TypeInComment;
 
-impl<'ast, 'res> Message<'ast, 'res> {
-    pub fn parse(resource: Option<&'res str>, message: &'ast ast::Message<&'ast str>) -> Vec<Self> {
+impl Message {
+    pub fn parse(resource: Option<String>, message: &ast::Message<&str>) -> Vec<Self> {
         let mut found = Vec::new();
         let comment = message
             .comment
             .as_ref()
-            .map(|v| v.content.clone())
+            .map(|v| v.content.iter().map(|s| s.to_string()).collect::<Vec<_>>())
             .unwrap_or_default();
         if let Some(value) = message.value.as_ref() {
             let mut variables = find_variable_references(value);
             let tic = TypeInComment::parse(&comment);
             tic.update_types(&mut variables);
             let id = Id {
-                resource,
-                message: message.id.name,
+                resource: resource.clone(),
+                message: message.id.name.to_owned(),
                 attribute: None,
             };
             found.push(Self {
@@ -28,9 +28,9 @@ impl<'ast, 'res> Message<'ast, 'res> {
         for attribute in find_attributes(&message.attributes) {
             let variables = attribute.variables;
             let id = Id {
-                resource,
-                message: message.id.name,
-                attribute: Some(attribute.id),
+                resource: resource.to_owned(),
+                message: message.id.name.to_owned(),
+                attribute: Some(attribute.id.to_owned()),
             };
             found.push(Self {
                 id,
@@ -42,17 +42,17 @@ impl<'ast, 'res> Message<'ast, 'res> {
     }
 }
 
-impl<'ast> Attribute<'ast> {
-    pub fn parse(attribute: &'ast ast::Attribute<&'ast str>) -> Self {
+impl Attribute {
+    pub fn parse(attribute: &ast::Attribute<&str>) -> Self {
         let variables = find_variable_references(&attribute.value);
         Self {
-            id: attribute.id.name,
+            id: attribute.id.name.to_owned(),
             variables,
         }
     }
 }
 
-pub fn find_variable_references<'ast>(pattern: &ast::Pattern<&'ast str>) -> Vec<Variable<'ast>> {
+pub fn find_variable_references(pattern: &ast::Pattern<&str>) -> Vec<Variable> {
     let mut variables = vec![];
 
     for element in &pattern.elements {
@@ -60,7 +60,7 @@ pub fn find_variable_references<'ast>(pattern: &ast::Pattern<&'ast str>) -> Vec<
             ast::PatternElement::Placeable { expression } => match expression {
                 ast::Expression::Inline(ast::InlineExpression::VariableReference { id }) => {
                     variables.push(Variable {
-                        id: id.name,
+                        id: id.name.to_owned(),
                         typ: VarType::Any,
                     });
                 }
@@ -74,7 +74,10 @@ pub fn find_variable_references<'ast>(pattern: &ast::Pattern<&'ast str>) -> Vec<
                     } else {
                         VarType::Any
                     };
-                    variables.push(Variable { id: id.name, typ });
+                    variables.push(Variable {
+                        id: id.name.to_owned(),
+                        typ,
+                    });
                 }
                 _ => {}
             },
@@ -84,9 +87,7 @@ pub fn find_variable_references<'ast>(pattern: &ast::Pattern<&'ast str>) -> Vec<
     variables
 }
 
-pub fn find_attributes<'ast>(
-    attributes: &'ast [ast::Attribute<&'ast str>],
-) -> Vec<Attribute<'ast>> {
+pub fn find_attributes<'ast>(attributes: &'ast [ast::Attribute<&'ast str>]) -> Vec<Attribute> {
     attributes.iter().map(Attribute::parse).collect()
 }
 

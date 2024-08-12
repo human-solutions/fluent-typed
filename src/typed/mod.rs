@@ -4,64 +4,72 @@ mod parse_ast;
 mod type_in_comment;
 
 pub use ext::BundleMessageExt;
-pub use gen::generate_code;
+pub use gen::{generate_code, generate_for_messages, to_messages};
 
 use crate::ext::StrExt;
 
 #[derive(Debug, PartialEq)]
-pub struct Message<'ast, 'res> {
-    pub id: Id<'res, 'ast>,
-    pub comment: Vec<&'ast str>,
-    pub variables: Vec<Variable<'ast>>,
+pub struct Message {
+    pub id: Id,
+    pub comment: Vec<String>,
+    pub variables: Vec<Variable>,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Id<'res, 'ast> {
-    pub resource: Option<&'res str>,
-    pub message: &'ast str,
-    pub attribute: Option<&'ast str>,
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Id {
+    pub resource: Option<String>,
+    pub message: String,
+    pub attribute: Option<String>,
 }
 
-impl<'res, 'ast> Id<'res, 'ast> {
-    pub fn new_attr(message: &'ast str, attribute: &'ast str) -> Self {
+impl Id {
+    pub fn new_attr(message: &str, attribute: &str) -> Self {
         Self {
             resource: None,
-            message,
-            attribute: Some(attribute),
+            message: message.to_owned(),
+            attribute: Some(attribute.to_owned()),
         }
     }
 
-    pub fn new_msg(message: &'ast str) -> Self {
+    pub fn new_msg(message: &str) -> Self {
         Self {
             resource: None,
-            message,
+            message: message.to_owned(),
             attribute: None,
         }
     }
 
-    pub fn new_resource_msg(resource: &'res str, message: &'ast str) -> Self {
+    pub fn new_resource_msg(resource: &str, message: &str) -> Self {
         Self {
-            resource: Some(resource),
-            message,
+            resource: Some(resource.to_owned()),
+            message: message.to_owned(),
             attribute: None,
         }
     }
     pub fn func_name(&self) -> String {
-        let res = self.resource.map(|r| format!("{r}_")).unwrap_or_default();
-        let atr = self.attribute.map(|a| format!("_{a}")).unwrap_or_default();
+        let res = self
+            .resource
+            .as_ref()
+            .map(|r| format!("{r}_"))
+            .unwrap_or_default();
+        let atr = self
+            .attribute
+            .as_ref()
+            .map(|a| format!("_{a}"))
+            .unwrap_or_default();
         format!("{res}{}{atr}", self.message).rust_id()
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Attribute<'ast> {
-    pub id: &'ast str,
-    pub variables: Vec<Variable<'ast>>,
+pub struct Attribute {
+    pub id: String,
+    pub variables: Vec<Variable>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Variable<'ast> {
-    pub id: &'ast str,
+pub struct Variable {
+    pub id: String,
     pub typ: VarType,
 }
 
