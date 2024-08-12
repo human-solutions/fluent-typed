@@ -66,10 +66,10 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec!["$name (String) - The name.",],
+            comment: vec!["$name (String) - The name.".to_string()],
             id: Id::new_msg("greeting"),
             variables: vec![Variable {
-                id: "name",
+                id: "name".to_string(),
                 typ: VarType::String,
             }],
         }

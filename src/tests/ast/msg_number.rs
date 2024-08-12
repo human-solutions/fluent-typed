@@ -71,10 +71,10 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec!["$duration (Number) - The duration in seconds.",],
+            comment: vec!["$duration (Number) - The duration in seconds.".to_string()],
             id: Id::new_msg("time-elapsed"),
             variables: vec![Variable {
-                id: "duration",
+                id: "duration".to_string(),
                 typ: VarType::Number,
             }],
         }

@@ -77,7 +77,7 @@ fn typed() {
             comment: vec![],
             id: Id::new_attr("hello", "tooltip"),
             variables: vec![Variable {
-                id: "userName",
+                id: "userName".to_string(),
                 typ: VarType::Any
             }],
         }

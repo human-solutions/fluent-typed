@@ -35,8 +35,9 @@ trait AstResourceExt {
 
 impl AstResourceExt for ast::Resource<&str> {
     fn first_message_in_resource<'a>(&'a self, resource: &'a str) -> Message {
+        let resource = Some(resource.to_string());
         match &self.body[0] {
-            ast::Entry::Message(message) => Message::parse(Some(resource), message)
+            ast::Entry::Message(message) => Message::parse(resource, message)
                 .into_iter()
                 .next()
                 .unwrap(),

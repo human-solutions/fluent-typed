@@ -98,7 +98,7 @@ fn typed() {
             comment: vec![],
             id: Id::new_msg("liked-count"),
             variables: vec![Variable {
-                id: "num",
+                id: "num".to_string(),
                 typ: VarType::Number,
             }],
         }

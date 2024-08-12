@@ -1,20 +1,20 @@
 use super::{VarType, Variable};
 
 #[derive(Debug, PartialEq, Default)]
-pub struct TypeInComment<'a> {
-    string: Vec<&'a str>,
-    number: Vec<&'a str>,
+pub struct TypeInComment {
+    string: Vec<String>,
+    number: Vec<String>,
 }
 
-impl<'a> TypeInComment<'a> {
-    pub fn parse(comment: &[&'a str]) -> Self {
+impl TypeInComment {
+    pub fn parse(comment: &[String]) -> Self {
         let mut string = vec![];
         let mut number = vec![];
 
         for line in comment {
             match parse_line(line) {
-                Found::String(s) => string.push(s),
-                Found::Number(n) => number.push(n),
+                Found::String(s) => string.push(s.to_owned()),
+                Found::Number(n) => number.push(n.to_owned()),
                 Found::Nothing => {}
             }
         }
@@ -63,14 +63,14 @@ fn parse_line(line: &str) -> Found {
 
 #[test]
 fn test_number() {
-    let s = "$duration (Number) - The duration in seconds.";
+    let s = "$duration (Number) - The duration in seconds.".to_owned();
 
     let tic = TypeInComment::parse(&[s]);
     assert_eq!(
         tic,
         TypeInComment {
             string: vec![],
-            number: vec!["duration"],
+            number: vec!["duration".to_string()],
         }
     );
 }

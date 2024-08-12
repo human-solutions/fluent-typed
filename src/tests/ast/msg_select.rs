@@ -85,7 +85,7 @@ fn typed() {
             comment: vec![],
             id: Id::new_msg("key"),
             variables: vec![Variable {
-                id: "var",
+                id: "var".to_string(),
                 typ: VarType::Any,
             }],
         }
