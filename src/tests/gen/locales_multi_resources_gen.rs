@@ -1,115 +1,39 @@
-#[allow(unused_imports)]
-use fluent_bundle::{types::FluentNumber, FluentValue};
-use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
-use fluent_syntax::ast::Pattern;
+// This file is generated. Do not edit it manually.
+#![allow(unused_imports)]
+use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
 use std::borrow::Cow;
 
-pub trait TypedMessages {
+use crate::L10nLanguage;
 
-    fn settings_twenty_four_hour(&self) -> Cow<'_, str>;
-
-    fn hello_greeting(&self) -> Cow<'_, str>;
+pub struct L10nResources {
+    pub settings: String,
+    pub hello: String,
+    pub settings: String,
+    pub hello: String,
 }
 
-impl TypedMessages for FluentBundle<FluentResource> {
+impl L10nResources {
+    pub fn to_vec(self) -> Vec<String> {
+        let mut vec = Vec::new();
+        vec.push(self.settings);
+        vec.push(self.hello);
+        vec.push(self.settings);
+        vec.push(self.hello);
+        vec
+    }
+}
+
+pub struct L10n(L10nLanguage);
+
+impl L10n {
+    pub fn load(lang: &str, resources: L10nResources) -> Result<Self, String> {
+        Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
+    }
+
     fn settings_twenty_four_hour(&self) -> Cow<'_, str> {
-        self.msg("twenty-four-hour", None).unwrap()
+        self.0.msg("twenty-four-hour", None).unwrap()
     }
     fn hello_greeting(&self) -> Cow<'_, str> {
-        self.msg("greeting", None).unwrap()
+        self.0.msg("greeting", None).unwrap()
     }
-}
-
-trait BundleExt {
-    fn try_get_pattern(
-        &self,
-        msg_id: &str,
-        attr_id: Option<&str>,
-    ) -> Result<&Pattern<&str>, String>;
-
-    fn format<'a>(
-        &'a self,
-        msg: &str,
-        attr: Option<&str>,
-        pattern: &'a Pattern<&str>,
-        args: Option<&FluentArgs>,
-    ) -> Result<Cow<'a, str>, String>;
-}
-
-impl BundleExt for FluentBundle<FluentResource> {
-    fn try_get_pattern(
-        &self,
-        msg_id: &str,
-        attr_id: Option<&str>,
-    ) -> Result<&Pattern<&str>, String> {
-        let message = self
-            .get_message(msg_id)
-            .ok_or_else(|| format!("Could not find {msg_id}"))?;
-        if let Some(attr_id) = attr_id {
-            message
-                .get_attribute(attr_id)
-                .map(|attr| attr.value())
-                .ok_or_else(|| {
-                    format!("Could not find attribute '{attr_id}' for message '{msg_id}'")
-                })
-        } else {
-            message
-                .value()
-                .ok_or_else(|| format!("Could not find value for '{msg_id}'"))
-        }
-    }
-
-    fn format<'a>(
-        &'a self,
-        msg: &str,
-        attr: Option<&str>,
-        pattern: &'a Pattern<&str>,
-        args: Option<&FluentArgs>,
-    ) -> Result<Cow<'a, str>, String> {
-        let mut errors = vec![];
-        let value = self.format_pattern(pattern, args, &mut errors);
-        if !errors.is_empty() {
-            let attr_str = attr
-                .map(|a| format!("attribute '{a}' in "))
-                .unwrap_or_default();
-            let arg_str = args
-                .map(|a| format!(" with args {}", arg_list(a)))
-                .unwrap_or_default();
-            Err(format!(
-                "Invalid format for {attr_str}message '{msg}'{arg_str}: {errors:?}"
-            ))
-        } else {
-            Ok(value)
-        }
-    }
-}
-
-pub trait BundleMessageExt {
-    fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<Cow<'_, str>, String>;
-
-    fn attr(&self, msg: &str, id: &str, args: Option<FluentArgs>) -> Result<Cow<'_, str>, String>;
-}
-
-impl BundleMessageExt for FluentBundle<FluentResource> {
-    fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<Cow<'_, str>, String> {
-        let pattern = self.try_get_pattern(id, None)?;
-        self.format(id, None, pattern, args.as_ref())
-    }
-
-    fn attr(
-        &self,
-        msg: &str,
-        attr: &str,
-        args: Option<FluentArgs>,
-    ) -> Result<Cow<'_, str>, String> {
-        let pattern = self.try_get_pattern(msg, Some(attr))?;
-        self.format(msg, Some(attr), pattern, args.as_ref())
-    }
-}
-
-fn arg_list(args: &FluentArgs) -> String {
-    args.iter()
-        .map(|(k, v)| format!("{}={:?}", k, v))
-        .collect::<Vec<_>>()
-        .join(", ")
 }

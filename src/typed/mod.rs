@@ -3,8 +3,7 @@ mod type_in_comment;
 
 use std::fmt::Display;
 
-pub use crate::gen::ext::BundleMessageExt;
-pub use crate::gen::{generate_code, generate_for_messages, to_messages};
+pub use crate::gen::to_messages;
 
 use crate::ext::StrExt;
 
