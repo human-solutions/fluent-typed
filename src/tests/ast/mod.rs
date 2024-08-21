@@ -9,7 +9,7 @@ mod msg_with_var;
 mod res_msg_text;
 
 use super::{assert_gen, bundle};
-use crate::Message;
+use crate::build::Message;
 use fluent_syntax::ast;
 
 #[test]

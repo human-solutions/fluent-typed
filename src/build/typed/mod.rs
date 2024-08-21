@@ -3,9 +3,9 @@ mod type_in_comment;
 
 use std::fmt::Display;
 
-pub use crate::gen::to_messages;
+pub use crate::build::gen::to_messages;
 
-use crate::ext::StrExt;
+use crate::build::gen::StrExt;
 
 #[derive(Debug, PartialEq)]
 pub struct Message {

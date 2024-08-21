@@ -1,5 +1,5 @@
-use crate::typed::{Message, VarType, Variable};
-use crate::StrExt;
+use crate::build::gen::StrExt;
+use crate::build::typed::{Message, VarType, Variable};
 
 impl Message {
     pub fn trait_signature(&self) -> String {

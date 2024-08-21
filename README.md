@@ -4,40 +4,48 @@ When using translation keys, there is often no easy way to know if they are bein
 correctly and if they are being used at all. This project generates, using the `fluent` ast,
 the function definitions for the translation keys in a fluent file.
 
-In order to be light-weight and flexible, this simply generates an extension to the [FluentBundle](https://docs.rs/fluent-bundle/latest/fluent_bundle/bundle/struct.FluentBundle.html) with
-a function for each message.
-
-> [!IMPORTANT]
-> Please make sure that you load the same resources into the bundles as the ones
-> used to generate the function definitions.
-
 In order to guarantee the safeness, funtions are only generated for messages that
 are found in all the locales. For those only found for some locales
 or if the signature of the messages are different a warning is printed.
 
+It is up to the user to load the translation resources, which gives him the liberty to
+choose how they are retreived (embedded in the binary, loaded from a file, downloaded etc).
+
+There is no need to handle any fallback language since it is guaranteed that all messages
+are translated into all languages
+
 ## Usage
 
 ```toml
-# fluent-typed is only used in build.rs
-[build-dependencies]
+# in Cargo.toml
+[dependencies]
 fluent-typed = 0.1
 
-# fluent-typed generates code that depends on fluent-bundle and fluent-syntax
-[dependencies]
-fluent-bundle = "0.15"
-fluent-syntax = "0.11"
+[build-dependencies]
+fluent-typed = { version = "0.1", features = ["build"] }
 ```
 
 ```rust
 // in build.rs
 fn main() -> std::process::ExitCode {
-    fluent_typed::build_generate("fluent/file.ftl", "gen")
+    fluent_typed::build_generate("locales", "src/l10n.rs", "    ")
 }
 ```
 
 ```rust
-// in the rust package that uses the translations
-include!("../gen/bundle_ext.rs"));
+// in lib.rs or main.rs
+mod l10n;
+
+
+fn main() {
+    let strs = l10n::L10n::load("en", L10nResource {
+      base: include_str!("locales/en/base.ftl"),
+      settings: include_str!("locales/en/settings.ftl"),
+    });
+
+    // print a translated message
+    println!("{}", l10n::base_hello("world"));
+}
 ```
 
 ## Type deduction

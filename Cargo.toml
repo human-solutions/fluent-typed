@@ -3,6 +3,10 @@ name = "fluent-typed"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["build"]
+build = []
+
 [dependencies]
 fluent-syntax = "0.11"
 fluent-bundle = "0.15"

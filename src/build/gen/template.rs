@@ -1,9 +1,6 @@
 // This file is generated. Do not edit it manually.
-#![allow(unused_imports)]
-use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
+use crate::prelude::*;
 use std::borrow::Cow;
-
-use crate::L10nLanguage;
 
 pub struct L10nResources {
     // <<resource definitions>>

@@ -1,7 +1,7 @@
 use super::bundle;
+use crate::build::typed::*;
 use crate::tests::assert_gen;
 use crate::tests::ast::AstResourceExt;
-use crate::typed::*;
 use fluent_syntax::ast;
 use fluent_syntax::parser;
 
