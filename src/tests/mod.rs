@@ -63,3 +63,11 @@ fn test_locales_multi_resources() {
     let locales = generate_from_locales(&locales, &analyzed).unwrap();
     write_generated("locales_multi_resources", true, &locales).unwrap();
 }
+
+#[test]
+fn test_locales_missing_msg() {
+    let locales = loader::from_locales_folder("src/tests/test_locales_missing_msg").unwrap();
+    let analyzed = validations::analyze(&locales);
+    let locales = generate_from_locales(&locales, &analyzed).unwrap();
+    write_generated("locales_missing_msg", true, &locales).unwrap();
+}

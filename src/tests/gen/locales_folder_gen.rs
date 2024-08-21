@@ -9,19 +9,9 @@ pub trait TypedMessages {
     fn twenty_four_hour(&self) -> Cow<'_, str>;
 
     fn twelve_hour(&self) -> Cow<'_, str>;
-
-    fn twenty_four_hour(&self) -> Cow<'_, str>;
-
-    fn twelve_hour(&self) -> Cow<'_, str>;
 }
 
 impl TypedMessages for FluentBundle<FluentResource> {
-    fn twenty_four_hour(&self) -> Cow<'_, str> {
-        self.msg("twenty-four-hour", None).unwrap()
-    }
-    fn twelve_hour(&self) -> Cow<'_, str> {
-        self.msg("twelve-hour", None).unwrap()
-    }
     fn twenty_four_hour(&self) -> Cow<'_, str> {
         self.msg("twenty-four-hour", None).unwrap()
     }

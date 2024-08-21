@@ -6,67 +6,17 @@ use std::borrow::Cow;
 
 pub trait TypedMessages {
 
-    fn index_no_translation(&self) -> Cow<'_, str>;
+    fn profile_last_name(&self) -> Cow<'_, str>;
 
-    fn index_cookie_policy(&self) -> Cow<'_, str>;
-
-    fn index_tos(&self) -> Cow<'_, str>;
-
-    fn index_privacy(&self) -> Cow<'_, str>;
-
-    fn index_sign_out(&self) -> Cow<'_, str>;
-
-    fn index_welcome(&self) -> Cow<'_, str>;
-
-    fn index_no_translation(&self) -> Cow<'_, str>;
-
-    fn index_cookie_policy(&self) -> Cow<'_, str>;
-
-    fn index_tos(&self) -> Cow<'_, str>;
-
-    fn index_privacy(&self) -> Cow<'_, str>;
-
-    fn index_sign_out(&self) -> Cow<'_, str>;
-
-    fn index_welcome(&self) -> Cow<'_, str>;
+    fn company_company_name(&self) -> Cow<'_, str>;
 }
 
 impl TypedMessages for FluentBundle<FluentResource> {
-    fn index_no_translation(&self) -> Cow<'_, str> {
-        self.msg("no-translation", None).unwrap()
+    fn profile_last_name(&self) -> Cow<'_, str> {
+        self.msg("last-name", None).unwrap()
     }
-    fn index_cookie_policy(&self) -> Cow<'_, str> {
-        self.msg("cookie-policy", None).unwrap()
-    }
-    fn index_tos(&self) -> Cow<'_, str> {
-        self.msg("tos", None).unwrap()
-    }
-    fn index_privacy(&self) -> Cow<'_, str> {
-        self.msg("privacy", None).unwrap()
-    }
-    fn index_sign_out(&self) -> Cow<'_, str> {
-        self.msg("sign-out", None).unwrap()
-    }
-    fn index_welcome(&self) -> Cow<'_, str> {
-        self.msg("welcome", None).unwrap()
-    }
-    fn index_no_translation(&self) -> Cow<'_, str> {
-        self.msg("no-translation", None).unwrap()
-    }
-    fn index_cookie_policy(&self) -> Cow<'_, str> {
-        self.msg("cookie-policy", None).unwrap()
-    }
-    fn index_tos(&self) -> Cow<'_, str> {
-        self.msg("tos", None).unwrap()
-    }
-    fn index_privacy(&self) -> Cow<'_, str> {
-        self.msg("privacy", None).unwrap()
-    }
-    fn index_sign_out(&self) -> Cow<'_, str> {
-        self.msg("sign-out", None).unwrap()
-    }
-    fn index_welcome(&self) -> Cow<'_, str> {
-        self.msg("welcome", None).unwrap()
+    fn company_company_name(&self) -> Cow<'_, str> {
+        self.msg("company-name", None).unwrap()
     }
 }
 
