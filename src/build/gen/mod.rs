@@ -1,10 +1,11 @@
+mod ext;
 mod message;
-#[allow(dead_code, unused_mut)]
+#[allow(dead_code, unused_mut, unused_imports)]
 mod template;
 
+use super::Message;
+pub use ext::StrExt;
 use fluent_syntax::ast::Resource;
-
-use crate::{ext::StrExt, Message};
 
 pub fn to_messages(name: &Option<String>, resource: Resource<&str>) -> Vec<Message> {
     resource
@@ -39,8 +40,14 @@ pub fn generate<'a>(resources: &[&str], messages: impl Iterator<Item = &'a Messa
         .map(|msg| msg.implementations())
         .collect::<Vec<_>>()
         .join("\n");
+
     let base = include_str!("template.rs");
-    base.replace("    // <<message implementations>>", &impls)
+    let base = base
+        .replace("    // <<message implementations>>", &impls)
         .replace("    // <<resource definitions>>", &res_def)
-        .replace("        // <<resource decomposition>>", &res_decomp)
+        .replace("        // <<resource decomposition>>", &res_decomp);
+
+    #[cfg(not(test))]
+    let base = base.replace("use crate::prelude::*;", "use fluent_typed::prelude::*;");
+    base
 }

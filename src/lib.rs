@@ -1,14 +1,14 @@
+#[cfg(feature = "build")]
 mod build;
-mod ext;
-mod gen;
 mod l10n_language;
-#[cfg(test)]
+
+#[cfg(all(test, feature = "build"))]
 mod tests;
-mod typed;
 
-use ext::StrExt;
-use typed::Message;
+#[cfg(feature = "build")]
+pub use build::{build_from_locales_folder, try_build_from_locales_folder};
 
-pub use build::build_from_locales_folder;
-
-pub use l10n_language::L10nLanguage;
+pub mod prelude {
+    pub use crate::l10n_language::L10nLanguage;
+    pub use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
+}

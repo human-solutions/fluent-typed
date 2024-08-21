@@ -1,12 +1,15 @@
+pub mod gen;
 mod loader;
+pub mod typed;
 mod validations;
 
-use crate::{build, gen::generate};
+use crate::build;
+use gen::generate;
 pub use loader::from_locales_folder;
 use std::{collections::HashSet, fs, process::ExitCode};
 pub use validations::{analyze, Analyzed};
 
-use crate::Message;
+pub use typed::Message;
 
 #[derive(Debug)]
 pub struct LangResource {
@@ -20,9 +23,41 @@ pub struct LangBundle {
     pub resources: Vec<LangResource>,
 }
 
-pub fn build_from_locales_folder(locales_folder: &str, rust_code_folder: &str) -> ExitCode {
-    println!("cargo::rerun-if-changed={locales_folder}");
-    match try_build_from_folder(locales_folder, rust_code_folder) {
+/// Generate rust code from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
+///
+/// The generation should be done in a build script:
+///
+/// ```no_run
+/// // in build.rs
+/// fn main() -> std::process::ExitCode {
+///    fluent_typed::build_from_locales_folder("locales", "src/l10n.rs", "    ")
+/// }
+/// ```
+///
+/// This requires the dependencies:
+///
+/// ```toml
+/// # in Cargo.toml
+/// [dependencies]
+/// fluent-typed = 0.1
+///
+/// [build-dependencies]
+/// fluent-typed = { version = "0.1", features = ["build"] }
+/// ```
+/// During the generation, the build script will print warnings for all messages that are
+/// not present in all locales, as well as for messages with different signatures.
+///
+/// It is recommended to generate the rust code to the output_file_path "src/l10n.rs" and include
+/// it in the project, so that you get warnings for unused translation messages.
+///
+/// The last argument is the indentation used in the generated file. It is typically four spaces.
+///
+pub fn build_from_locales_folder(
+    locales: &str,
+    output_file_path: &str,
+    indentation: &'static str,
+) -> ExitCode {
+    match try_build_from_locales_folder(locales, output_file_path, indentation) {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -31,24 +66,20 @@ pub fn build_from_locales_folder(locales_folder: &str, rust_code_folder: &str) -
     }
 }
 
-pub(crate) fn try_build_from_folder(
-    locales_folder: &str,
-    rust_code_folder: &str,
+/// Same as [build_from_locales_folder], but returns result instead of an ExitCode.
+pub fn try_build_from_locales_folder(
+    locales: &str,
+    output_file_path: &str,
+    indentation: &'static str,
 ) -> Result<(), String> {
-    let locales = build::from_locales_folder(locales_folder)
-        .map_err(|e| format!("Could not read locales folder '{locales_folder}': {e:?}"))?;
+    println!("cargo::rerun-if-changed={locales}");
+
+    let locales = build::from_locales_folder(locales)
+        .map_err(|e| format!("Could not read locales folder '{locales}': {e:?}"))?;
 
     let analyzed = build::analyze(&locales);
 
-    let generated = generate_from_locales(&locales, &analyzed)?;
-
-    fs::create_dir_all(rust_code_folder)
-        .map_err(|e| format!("Could not create rust folder '{rust_code_folder}': {e:?}"))?;
-
-    let filename = format!("{}/l10n.rs", rust_code_folder);
-
-    fs::write(filename, generated)
-        .map_err(|e| format!("Could not write rust file '{rust_code_folder}': {e:?}"))?;
+    let generated = generate_from_locales(&locales, &analyzed)?.replace("    ", indentation);
 
     for warn in analyzed.missing_messages {
         println!("cargo::warning={warn}");
@@ -56,6 +87,16 @@ pub(crate) fn try_build_from_folder(
     for warn in analyzed.signature_mismatches {
         println!("cargo::warning={warn}");
     }
+
+    if let Some(current_file) = fs::read_to_string(output_file_path).ok() {
+        if current_file == generated {
+            return Ok(());
+        }
+    }
+
+    fs::write(output_file_path, generated)
+        .map_err(|e| format!("Could not write rust file '{output_file_path}': {e:?}"))?;
+
     Ok(())
 }
 
@@ -71,7 +112,7 @@ pub fn generate_from_locales(
         .filter(|msg| analyzed.common.contains(&msg.id))
         .filter(|msg| added.insert(&msg.id));
 
-    let resources: Vec<&str> = locales
+    let resources: HashSet<&str> = locales
         .iter()
         .map(|loc| {
             loc.resources
@@ -81,5 +122,7 @@ pub fn generate_from_locales(
         })
         .flatten()
         .collect();
+    let mut resources = resources.iter().map(|r| r.as_ref()).collect::<Vec<_>>();
+    resources.sort();
     Ok(generate(&resources, messages))
 }

@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use fluent_syntax::parser;
 
-use crate::typed::to_messages;
+use super::typed::to_messages;
 
 use super::{LangBundle, LangResource};
 
