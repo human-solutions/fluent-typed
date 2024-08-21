@@ -15,32 +15,38 @@ pub struct Analyzed {
 pub fn analyze(langs: &[LangBundle]) -> Analyzed {
     let common_ids = common_message_ids(langs);
     let missing_messages = missing_message_ids(&common_ids, langs);
-    let signature_mismatches = signature_mismatches(&common_ids, langs);
+    let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
+    let common: HashSet<Id> = common_ids.difference(&ids).map(|id| id.clone()).collect();
     Analyzed {
-        common: common_ids,
+        common,
         missing_messages,
         signature_mismatches,
     }
 }
 
-fn signature_mismatches(common_ids: &HashSet<Id>, langs: &[LangBundle]) -> Vec<String> {
-    let mut mismatches = vec![];
+fn signature_mismatches(
+    common_ids: &HashSet<Id>,
+    langs: &[LangBundle],
+) -> (Vec<String>, HashSet<Id>) {
+    let mut messages = vec![];
+    let mut mismatched_ids = HashSet::new();
 
     for id in common_ids {
         let signatures = signatures_for_id(id, langs);
         if signatures.len() > 1 {
+            mismatched_ids.insert(id.clone());
             let sig_vals = signatures
                 .values()
                 .map(|v| format!("[{}]", v.join(", ")))
                 .collect::<Vec<_>>()
                 .join(" != ");
 
-            mismatches.push(format!(
+            messages.push(format!(
                 "Different signatures for message {id} in languages: {sig_vals}",
             ));
         }
     }
-    mismatches
+    (messages, mismatched_ids)
 }
 
 fn signatures_for_id<'a>(id: &Id, langs: &'a [LangBundle]) -> HashMap<&'a [Variable], Vec<String>> {

@@ -6,6 +6,7 @@ mod tests;
 mod typed;
 mod validations;
 
+use std::collections::HashSet;
 use std::fs;
 use std::process::ExitCode;
 use typed::generate_for_messages;
@@ -16,10 +17,13 @@ pub use typed::BundleMessageExt;
 pub use typed::Message;
 use validations::Analyzed;
 
+#[derive(Debug)]
 pub struct LangResource {
     pub name: String,
     pub content: Vec<Message>,
 }
+
+#[derive(Debug)]
 pub struct LangBundle {
     pub language: String,
     pub resources: Vec<LangResource>,
@@ -65,11 +69,13 @@ pub(crate) fn try_build_from_folder(
 }
 
 fn generate_from_locales(locales: &[LangBundle], analyzed: &Analyzed) -> Result<String, String> {
+    let mut added = HashSet::new();
     let messages = locales
         .iter()
         .flat_map(|l| &l.resources)
         .flat_map(|r| &r.content)
-        .filter(|msg| analyzed.common.contains(&msg.id));
+        .filter(|msg| analyzed.common.contains(&msg.id))
+        .filter(|msg| added.insert(&msg.id));
 
     Ok(generate_for_messages(messages))
 }
