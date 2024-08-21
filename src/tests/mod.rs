@@ -2,7 +2,8 @@ mod ast;
 mod complex;
 mod gen;
 
-use crate::{generate_from_locales, loader, typed::generate_code, validations};
+use crate::{build, gen::generate_code};
+
 use fluent_bundle::{FluentBundle, FluentResource};
 use fluent_syntax::parser;
 use std::{fs, path::PathBuf};
@@ -50,24 +51,32 @@ fn write_generated(
 
 #[test]
 fn test_locales_folder() {
-    let locales = loader::from_locales_folder("src/tests/test_locales").unwrap();
-    let analyzed = validations::analyze(&locales);
-    let locales = generate_from_locales(&locales, &analyzed).unwrap();
+    let locales = build::from_locales_folder("src/tests/test_locales").unwrap();
+    let analyzed = build::analyze(&locales);
+    let locales = build::generate_from_locales(&locales, &analyzed).unwrap();
     write_generated("locales_folder", true, &locales).unwrap();
 }
 
 #[test]
 fn test_locales_multi_resources() {
-    let locales = loader::from_locales_folder("src/tests/test_locales_multi_resources").unwrap();
-    let analyzed = validations::analyze(&locales);
-    let locales = generate_from_locales(&locales, &analyzed).unwrap();
+    let locales = build::from_locales_folder("src/tests/test_locales_multi_resources").unwrap();
+    let analyzed = build::analyze(&locales);
+    let locales = build::generate_from_locales(&locales, &analyzed).unwrap();
     write_generated("locales_multi_resources", true, &locales).unwrap();
 }
 
 #[test]
 fn test_locales_missing_msg() {
-    let locales = loader::from_locales_folder("src/tests/test_locales_missing_msg").unwrap();
-    let analyzed = validations::analyze(&locales);
-    let locales = generate_from_locales(&locales, &analyzed).unwrap();
+    let locales = build::from_locales_folder("src/tests/test_locales_missing_msg").unwrap();
+    let analyzed = build::analyze(&locales);
+    let locales = build::generate_from_locales(&locales, &analyzed).unwrap();
     write_generated("locales_missing_msg", true, &locales).unwrap();
 }
+
+// #[test]
+// fn test_locales_ld() {
+//     let locales = build::from_locales_folder("../../../LeaveDates/frontend/app/locales").unwrap();
+//     let analyzed = build::analyze(&locales);
+//     let locales = build::generate_from_locales(&locales, &analyzed).unwrap();
+//     write_generated("ld", true, &locales).unwrap();
+// }

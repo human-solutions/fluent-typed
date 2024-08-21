@@ -6,19 +6,13 @@ use std::borrow::Cow;
 use crate::L10nLanguage;
 
 pub struct L10nResources {
-    pub profile: String,
-    pub company: String,
-    pub profile: String,
-    pub company: String,
+    // <<resource definitions>>
 }
 
 impl L10nResources {
     pub fn to_vec(self) -> Vec<String> {
         let mut vec = Vec::new();
-        vec.push(self.profile);
-        vec.push(self.company);
-        vec.push(self.profile);
-        vec.push(self.company);
+        // <<resource decomposition>>
         vec
     }
 }
@@ -30,10 +24,5 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn profile_last_name(&self) -> Cow<'_, str> {
-        self.0.msg("last-name", None).unwrap()
-    }
-    fn company_company_name(&self) -> Cow<'_, str> {
-        self.0.msg("company-name", None).unwrap()
-    }
+    // <<message implementations>>
 }

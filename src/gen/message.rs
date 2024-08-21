@@ -40,7 +40,7 @@ impl Message {
         if variables.is_empty() {
             format!(
                 r##"{signature} {{
-        self.attr("{msg_id}", "{attr_id}", None).unwrap()
+        self.0.attr("{msg_id}", "{attr_id}", None).unwrap()
     }}"##,
             )
         } else {
@@ -50,7 +50,7 @@ impl Message {
                 r##"{signature} {{
         let mut args = FluentArgs::new();
 {args}
-        self.attr("{msg_id}", "{attr_id}", Some(args)).unwrap()
+        self.0.attr("{msg_id}", "{attr_id}", Some(args)).unwrap()
     }}"##,
             )
         }
@@ -59,7 +59,7 @@ impl Message {
         if variables.is_empty() {
             format!(
                 r##"{signature} {{
-        self.msg("{id}", None).unwrap()
+        self.0.msg("{id}", None).unwrap()
     }}"##,
             )
         } else {
@@ -69,7 +69,7 @@ impl Message {
                 r##"{signature} {{
         let mut args = FluentArgs::new();
 {args}
-        self.msg("{id}", Some(args)).unwrap()
+        self.0.msg("{id}", Some(args)).unwrap()
     }}"##,
             )
         }

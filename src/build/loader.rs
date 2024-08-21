@@ -2,7 +2,9 @@ use std::{fs, path::Path};
 
 use fluent_syntax::parser;
 
-use crate::{typed::to_messages, LangBundle, LangResource};
+use crate::typed::to_messages;
+
+use super::{LangBundle, LangResource};
 
 pub fn from_locales_folder(folder: &str) -> Result<Vec<LangBundle>, String> {
     let locales_dir = fs::read_dir(folder).map_err(|e| e.to_string())?;
