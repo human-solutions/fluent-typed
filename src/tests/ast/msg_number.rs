@@ -71,8 +71,9 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec!["$duration (Number) - The duration in seconds.".to_string()],
+            resource: "test".to_string(),
             id: Id::new_msg("time-elapsed"),
+            comment: vec!["$duration (Number) - The duration in seconds.".to_string()],
             variables: vec![Variable {
                 id: "duration".to_string(),
                 typ: VarType::Number,
@@ -83,5 +84,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), None, true, FTL);
+    assert_gen(module_path!(), "test", true, FTL);
 }

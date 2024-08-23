@@ -23,10 +23,10 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn profile_last_name(&self) -> Cow<'_, str> {
+    fn last_name(&self) -> Cow<'_, str> {
         self.0.msg("last-name", None).unwrap()
     }
-    fn company_company_name(&self) -> Cow<'_, str> {
+    fn company_name(&self) -> Cow<'_, str> {
         self.0.msg("company-name", None).unwrap()
     }
 }

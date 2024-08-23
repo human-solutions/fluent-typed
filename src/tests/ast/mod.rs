@@ -35,7 +35,6 @@ trait AstResourceExt {
 
 impl AstResourceExt for ast::Resource<&str> {
     fn first_message_in_resource<'a>(&'a self, resource: &'a str) -> Message {
-        let resource = Some(resource.to_string());
         match &self.body[0] {
             ast::Entry::Message(message) => Message::parse(resource, message)
                 .into_iter()
@@ -47,7 +46,7 @@ impl AstResourceExt for ast::Resource<&str> {
     fn first_message(&self) -> Message {
         match &self.body[0] {
             ast::Entry::Message(message) => {
-                Message::parse(None, message).into_iter().next().unwrap()
+                Message::parse("test", message).into_iter().next().unwrap()
             }
             _ => panic!("Expected a message."),
         }
@@ -56,7 +55,7 @@ impl AstResourceExt for ast::Resource<&str> {
     fn two_messages(&self) -> [Message; 2] {
         match &self.body[0] {
             ast::Entry::Message(message) => {
-                let msgs = Message::parse(None, message);
+                let msgs = Message::parse("test", message);
                 assert_eq!(msgs.len(), 2);
                 msgs.try_into().unwrap()
             }

@@ -34,7 +34,6 @@ fn try_load_locale(folder: &Path, lang: &str) -> Result<LangBundle, String> {
             paths.push(path);
         }
     }
-    let multiple_resources = paths.len() > 1;
 
     for path in paths {
         let ftl = fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -44,11 +43,7 @@ fn try_load_locale(folder: &Path, lang: &str) -> Result<LangBundle, String> {
                 path.file_name().unwrap().to_str().unwrap()
             )
         })?;
-        let name = if multiple_resources {
-            Some(path.file_stem().unwrap().to_str().unwrap().to_string())
-        } else {
-            None
-        };
+        let name = path.file_stem().unwrap().to_str().unwrap().to_string();
         let content = to_messages(&name, ast);
         let resource = LangResource {
             name: path.file_stem().unwrap().to_str().unwrap().to_string(),

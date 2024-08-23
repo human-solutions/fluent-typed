@@ -3,7 +3,7 @@ use fluent_syntax::ast;
 use type_in_comment::TypeInComment;
 
 impl Message {
-    pub fn parse(resource: Option<String>, message: &ast::Message<&str>) -> Vec<Self> {
+    pub fn parse(resource: &str, message: &ast::Message<&str>) -> Vec<Self> {
         let mut found = Vec::new();
         let comment = message
             .comment
@@ -15,11 +15,11 @@ impl Message {
             let tic = TypeInComment::parse(&comment);
             tic.update_types(&mut variables);
             let id = Id {
-                resource: resource.clone(),
                 message: message.id.name.to_owned(),
                 attribute: None,
             };
             found.push(Self {
+                resource: resource.to_owned(),
                 id,
                 comment,
                 variables,
@@ -28,11 +28,11 @@ impl Message {
         for attribute in find_attributes(&message.attributes) {
             let variables = attribute.variables;
             let id = Id {
-                resource: resource.to_owned(),
                 message: message.id.name.to_owned(),
                 attribute: Some(attribute.id.to_owned()),
             };
             found.push(Self {
+                resource: resource.to_owned(),
                 id,
                 comment: vec![],
                 variables,
