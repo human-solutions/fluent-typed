@@ -21,7 +21,7 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn greeting<F0: AsRef<str>>(&self, name: F0) -> Cow<'_, str> {
+    fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("name", name.as_ref());
         self.0.msg("greeting", Some(args)).unwrap()

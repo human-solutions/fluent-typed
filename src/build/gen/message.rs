@@ -21,8 +21,9 @@ impl Message {
         }
     }
 
-    pub fn implementations(&self) -> String {
-        let signature = self.signature(&self.variables, &self.id.func_name());
+    pub fn implementations(&self, prefix: &str) -> String {
+        let signature =
+            self.signature(&self.variables, &format!("{prefix}{}", self.id.func_name()));
         if let Some(attr) = self.id.attribute.as_ref() {
             self.attr_impl(&self.variables, &self.id.message, attr, &signature)
         } else {

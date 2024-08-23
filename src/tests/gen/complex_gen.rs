@@ -21,7 +21,7 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn key<'a, F0: Into<FluentValue<'a>>>(&self, var: F0) -> Cow<'_, str> {
+    fn msg_key<'a, F0: Into<FluentValue<'a>>>(&self, var: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("var", var);
         self.0.msg("key", Some(args)).unwrap()

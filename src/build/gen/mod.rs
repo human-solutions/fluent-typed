@@ -20,12 +20,16 @@ pub fn to_messages(name: &str, resource: Resource<&str>) -> Vec<Message> {
 }
 
 #[cfg(test)]
-pub fn generate_code(name: &str, resource: Resource<&str>) -> String {
+pub fn generate_code(prefix: &str, name: &str, resource: Resource<&str>) -> String {
     let messages = to_messages(name, resource);
-    generate(&["base"], messages.iter())
+    generate(prefix, &["base"], messages.iter())
 }
 
-pub fn generate<'a>(resources: &[&str], messages: impl Iterator<Item = &'a Message>) -> String {
+pub fn generate<'a>(
+    prefix: &str,
+    resources: &[&str],
+    messages: impl Iterator<Item = &'a Message>,
+) -> String {
     let res_def = resources
         .iter()
         .map(|res| format!("    pub {}: String,", res.rust_id()))
@@ -37,7 +41,7 @@ pub fn generate<'a>(resources: &[&str], messages: impl Iterator<Item = &'a Messa
         .collect::<Vec<_>>()
         .join("\n");
     let impls = messages
-        .map(|msg| msg.implementations())
+        .map(|msg| msg.implementations(prefix))
         .collect::<Vec<_>>()
         .join("\n");
 
