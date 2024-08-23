@@ -30,7 +30,7 @@ pub struct LangBundle {
 /// ```no_run
 /// // in build.rs
 /// fn main() -> std::process::ExitCode {
-///    fluent_typed::build_from_locales_folder("locales", "src/l10n.rs", "    ")
+///    fluent_typed::build_from_locales_folder("locales", "src/l10n.rs", "msg_", "    ")
 /// }
 /// ```
 ///
@@ -50,14 +50,18 @@ pub struct LangBundle {
 /// It is recommended to generate the rust code to the output_file_path "src/l10n.rs" and include
 /// it in the project, so that you get warnings for unused translation messages.
 ///
+/// The prefix is a simple string that will be added to all generated function names. It would
+/// typically be "msg_" or "message_" or "" for no prefix.
+///
 /// The last argument is the indentation used in the generated file. It is typically four spaces.
 ///
 pub fn build_from_locales_folder(
     locales: &str,
     output_file_path: &str,
-    indentation: &'static str,
+    prefix: &str,
+    indentation: &str,
 ) -> ExitCode {
-    match try_build_from_locales_folder(locales, output_file_path, indentation) {
+    match try_build_from_locales_folder(locales, output_file_path, prefix, indentation) {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -70,7 +74,8 @@ pub fn build_from_locales_folder(
 pub fn try_build_from_locales_folder(
     locales: &str,
     output_file_path: &str,
-    indentation: &'static str,
+    prefix: &str,
+    indentation: &str,
 ) -> Result<(), String> {
     println!("cargo::rerun-if-changed={locales}");
 
@@ -79,7 +84,8 @@ pub fn try_build_from_locales_folder(
 
     let analyzed = build::analyze(&locales);
 
-    let generated = generate_from_locales(&locales, &analyzed)?.replace("    ", indentation);
+    let generated =
+        generate_from_locales(prefix, &locales, &analyzed)?.replace("    ", indentation);
 
     for warn in analyzed.missing_messages {
         println!("cargo::warning={warn}");
@@ -101,6 +107,7 @@ pub fn try_build_from_locales_folder(
 }
 
 pub fn generate_from_locales(
+    prefix: &str,
     locales: &[LangBundle],
     analyzed: &Analyzed,
 ) -> Result<String, String> {
@@ -124,5 +131,5 @@ pub fn generate_from_locales(
         .collect();
     let mut resources = resources.iter().map(|r| r.as_ref()).collect::<Vec<_>>();
     resources.sort();
-    Ok(generate(&resources, messages))
+    Ok(generate(prefix, &resources, messages))
 }

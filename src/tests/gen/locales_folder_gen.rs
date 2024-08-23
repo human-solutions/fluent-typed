@@ -21,10 +21,10 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn twenty_four_hour(&self) -> Cow<'_, str> {
+    fn msg_twenty_four_hour(&self) -> Cow<'_, str> {
         self.0.msg("twenty-four-hour", None).unwrap()
     }
-    fn twelve_hour(&self) -> Cow<'_, str> {
+    fn msg_twelve_hour(&self) -> Cow<'_, str> {
         self.0.msg("twelve-hour", None).unwrap()
     }
 }

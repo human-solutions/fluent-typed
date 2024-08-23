@@ -21,7 +21,7 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> Cow<'_, str> {
+    fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("duration", duration.into());
         self.0.msg("time-elapsed", Some(args)).unwrap()
