@@ -23,9 +23,9 @@ fn bundle(ftl: &str) -> FluentBundle<FluentResource> {
 }
 
 #[track_caller]
-fn assert_gen(module: &str, resource_name: Option<&str>, update: bool, ftl: &str) {
+fn assert_gen(module: &str, resource_name: &str, update: bool, ftl: &str) {
     let resource = parser::parse(ftl).expect("Failed to parse an FTL string.");
-    let generated = build::gen::generate_code(&resource_name.map(|s| s.to_owned()), resource);
+    let generated = build::gen::generate_code(resource_name, resource);
 
     if let Some(current) = write_generated(module, update, &generated).unwrap() {
         assert_eq!(current, generated);

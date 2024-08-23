@@ -75,6 +75,7 @@ fn typed() {
         message,
         Message {
             comment: vec![],
+            resource: "test".to_string(),
             id: Id::new_attr("hello", "tooltip"),
             variables: vec![Variable {
                 id: "userName".to_string(),
@@ -86,5 +87,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), None, true, FTL);
+    assert_gen(module_path!(), "test", true, FTL);
 }

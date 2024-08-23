@@ -82,6 +82,7 @@ fn typed() {
     assert_eq!(
         message,
         Message {
+            resource: "test".to_string(),
             comment: vec!["This is a message comment".to_string()],
             id: Id::new_msg("hello"),
             variables: vec![],
@@ -91,6 +92,7 @@ fn typed() {
     assert_eq!(
         attr,
         Message {
+            resource: "test".to_string(),
             comment: vec![],
             id: Id::new_attr("hello", "tooltip"),
             variables: vec![Variable {
@@ -103,5 +105,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), None, true, FTL);
+    assert_gen(module_path!(), "test", true, FTL);
 }

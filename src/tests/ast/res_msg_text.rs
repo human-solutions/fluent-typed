@@ -18,7 +18,8 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            id: Id::new_resource_msg("cookie-disclaimer", "hello-world"),
+            resource: "cookie-disclaimer".to_string(),
+            id: Id::new_msg("hello-world"),
             comment: vec![],
             variables: vec![],
         }
@@ -27,5 +28,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), Some("cookie-disclaimer"), true, FTL);
+    assert_gen(module_path!(), "cookie-disclaimer", true, FTL);
 }

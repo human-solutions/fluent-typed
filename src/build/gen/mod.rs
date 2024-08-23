@@ -7,12 +7,12 @@ use super::Message;
 pub use ext::StrExt;
 use fluent_syntax::ast::Resource;
 
-pub fn to_messages(name: &Option<String>, resource: Resource<&str>) -> Vec<Message> {
+pub fn to_messages(name: &str, resource: Resource<&str>) -> Vec<Message> {
     resource
         .body
         .iter()
         .filter_map(|entry| match entry {
-            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name.clone(), m)),
+            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name, m)),
             _ => None,
         })
         .flatten()
@@ -20,7 +20,7 @@ pub fn to_messages(name: &Option<String>, resource: Resource<&str>) -> Vec<Messa
 }
 
 #[cfg(test)]
-pub fn generate_code(name: &Option<String>, resource: Resource<&str>) -> String {
+pub fn generate_code(name: &str, resource: Resource<&str>) -> String {
     let messages = to_messages(name, resource);
     generate(&["base"], messages.iter())
 }

@@ -21,7 +21,7 @@ impl L10n {
         Ok(Self(L10nLanguage::new(lang, resources.to_vec())?))
     }
 
-    fn cookie_disclaimer_hello_world(&self) -> Cow<'_, str> {
+    fn hello_world(&self) -> Cow<'_, str> {
         self.0.msg("hello-world", None).unwrap()
     }
 }

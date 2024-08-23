@@ -56,6 +56,7 @@ fn typed() {
     assert_eq!(
         message,
         Message {
+            resource: "test".to_string(),
             id: Id::new_msg("hello-world"),
             comment: vec![],
             variables: vec![],
@@ -65,5 +66,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), None, true, FTL);
+    assert_gen(module_path!(), "test", true, FTL);
 }

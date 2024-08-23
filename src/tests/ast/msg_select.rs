@@ -82,8 +82,9 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            comment: vec![],
+            resource: "test".to_string(),
             id: Id::new_msg("key"),
+            comment: vec![],
             variables: vec![Variable {
                 id: "var".to_string(),
                 typ: VarType::Any,
