@@ -2,12 +2,23 @@
 name = "fluent-typed"
 version = "0.1.0"
 edition = "2021"
+description = "Type-safe access to Fluent localization messages"
+keywords = ["fluent", "internationalization", "localization"]
+categories = [
+    "internationalization",
+    "localization",
+    "development-tools::build-utils",
+]
+license-file = "LICENSE"
+repository = "https://github.com/human-solutions/fluent-typed"
 
 [features]
-default = ["build"]
 build = []
 
 [dependencies]
 fluent-syntax = "0.11"
 fluent-bundle = "0.15"
+unic-langid = "0.9"
+
+[dev-dependencies]
 unic-langid = { version = "0.9", features = ["macros"] }
