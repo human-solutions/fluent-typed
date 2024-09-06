@@ -7,16 +7,13 @@ use unic_langid::LanguageIdentifier;
 pub struct L10nLanguage(FluentBundle<FluentResource>);
 
 impl L10nLanguage {
-    pub fn new(lang: &str, resources: Vec<String>) -> Result<Self, String> {
+    pub fn new(lang: &str, ftl: String) -> Result<Self, String> {
         let lang: LanguageIdentifier = lang.parse().map_err(|e| format!("{e:?}"))?;
         let mut bundle = FluentBundle::new(vec![lang]);
-        for resource_string in resources {
-            let resource =
-                FluentResource::try_new(resource_string).map_err(|e| format!("{e:?}"))?;
-            bundle
-                .add_resource(resource)
-                .map_err(|e| format!("{e:?}"))?;
-        }
+        let resource = FluentResource::try_new(ftl).map_err(|e| format!("{e:?}"))?;
+        bundle
+            .add_resource(resource)
+            .map_err(|e| format!("{e:?}"))?;
 
         Ok(Self(bundle))
     }

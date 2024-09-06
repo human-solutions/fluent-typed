@@ -10,6 +10,8 @@ use crate::build::gen::StrExt;
 #[derive(Debug, PartialEq)]
 pub struct Message {
     pub id: Id,
+    /// The name of the resource file.
+    /// This is used for error messages.
     pub resource: String,
     pub comment: Vec<String>,
     pub variables: Vec<Variable>,

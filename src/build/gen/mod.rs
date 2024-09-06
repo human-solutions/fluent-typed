@@ -22,34 +22,17 @@ pub fn to_messages(name: &str, resource: Resource<&str>) -> Vec<Message> {
 #[cfg(test)]
 pub fn generate_code(prefix: &str, name: &str, resource: Resource<&str>) -> String {
     let messages = to_messages(name, resource);
-    generate(prefix, &["base"], messages.iter())
+    generate(prefix, messages.iter())
 }
 
-pub fn generate<'a>(
-    prefix: &str,
-    resources: &[&str],
-    messages: impl Iterator<Item = &'a Message>,
-) -> String {
-    let res_def = resources
-        .iter()
-        .map(|res| format!("    pub {}: String,", res.rust_id()))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let res_decomp = resources
-        .iter()
-        .map(|res| format!("        vec.push(self.{});", res.rust_id()))
-        .collect::<Vec<_>>()
-        .join("\n");
+pub fn generate<'a>(prefix: &str, messages: impl Iterator<Item = &'a Message>) -> String {
     let impls = messages
         .map(|msg| msg.implementations(prefix))
         .collect::<Vec<_>>()
         .join("\n");
 
     let base = include_str!("template.rs");
-    let base = base
-        .replace("    // <<message implementations>>", &impls)
-        .replace("    // <<resource definitions>>", &res_def)
-        .replace("        // <<resource decomposition>>", &res_decomp);
+    let base = base.replace("    // <<message implementations>>", &impls);
 
     #[cfg(not(test))]
     let base = base.replace("use crate::prelude::*;", "use fluent_typed::prelude::*;");

@@ -12,28 +12,27 @@ pub use validations::{analyze, Analyzed};
 pub use typed::Message;
 
 #[derive(Debug)]
-pub struct LangResource {
-    pub name: String,
-    pub content: Vec<Message>,
-}
-
-#[derive(Debug)]
 pub struct LangBundle {
     pub language: String,
-    pub resources: Vec<LangResource>,
+    pub messages: Vec<Message>,
+    pub ftl: String,
 }
 
 pub struct BuildOptions {
     /// The path to the folder containing the locales.
+    ///
     /// Defaults to "locales".
     pub locales_folder: String,
     /// The path to the file where the generated code will be written.
+    ///
     /// Defaults to "src/l10n.rs".
     pub output_file_path: String,
     /// The prefix is a simple string that will be added to all generated function names.
+    ///
     /// Defaults to "msg_".
     pub prefix: String,
     /// The indentation used in the generated file.
+    ///
     /// Defaults to four spaces.
     pub indentation: String,
 }
@@ -150,22 +149,9 @@ pub fn generate_from_locales(
     let mut added = HashSet::new();
     let messages = locales
         .iter()
-        .flat_map(|l| &l.resources)
-        .flat_map(|r| &r.content)
+        .flat_map(|r| &r.messages)
         .filter(|msg| analyzed.common.contains(&msg.id))
         .filter(|msg| added.insert(&msg.id));
 
-    let resources: HashSet<&str> = locales
-        .iter()
-        .map(|loc| {
-            loc.resources
-                .iter()
-                .map(|res| res.name.as_str())
-                .collect::<Vec<_>>()
-        })
-        .flatten()
-        .collect();
-    let mut resources = resources.iter().map(|r| r.as_ref()).collect::<Vec<_>>();
-    resources.sort();
-    Ok(generate(prefix, &resources, messages))
+    Ok(generate(prefix, messages))
 }

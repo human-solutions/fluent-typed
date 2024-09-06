@@ -4,7 +4,7 @@ use fluent_syntax::parser;
 
 use super::typed::to_messages;
 
-use super::{LangBundle, LangResource};
+use super::LangBundle;
 
 pub fn from_locales_folder(folder: &str) -> Result<Vec<LangBundle>, String> {
     let locales_dir = fs::read_dir(folder).map_err(|e| e.to_string())?;
@@ -23,7 +23,8 @@ pub fn from_locales_folder(folder: &str) -> Result<Vec<LangBundle>, String> {
 fn try_load_locale(folder: &Path, lang: &str) -> Result<LangBundle, String> {
     let mut bundle = LangBundle {
         language: lang.to_string(),
-        resources: Vec::new(),
+        messages: Vec::new(),
+        ftl: String::new(),
     };
     let locales = fs::read_dir(folder).map_err(|e| e.to_string())?;
     let mut paths = vec![];
@@ -37,6 +38,7 @@ fn try_load_locale(folder: &Path, lang: &str) -> Result<LangBundle, String> {
 
     for path in paths {
         let ftl = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        bundle.ftl.push_str(&ftl);
         let ast = parser::parse(ftl.as_str()).map_err(|e| {
             format!(
                 "Could not parse ftl file '{}' due to: {e:?}",
@@ -44,12 +46,8 @@ fn try_load_locale(folder: &Path, lang: &str) -> Result<LangBundle, String> {
             )
         })?;
         let name = path.file_stem().unwrap().to_str().unwrap().to_string();
-        let content = to_messages(&name, ast);
-        let resource = LangResource {
-            name: path.file_stem().unwrap().to_str().unwrap().to_string(),
-            content,
-        };
-        bundle.resources.push(resource);
+        let messages = to_messages(&name, ast);
+        bundle.messages.extend(messages);
     }
     Ok(bundle)
 }
