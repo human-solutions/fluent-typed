@@ -18,8 +18,7 @@ build = []
 [dependencies]
 fluent-syntax = "0.11"
 fluent-bundle = "0.15"
-unic-langid = "0.9"
+unic-langid = { version = "0.9", features = ["macros"] }
 
 [dev-dependencies]
-unic-langid = { version = "0.9", features = ["macros"] }
 insta = "1.40"

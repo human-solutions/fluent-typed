@@ -25,7 +25,7 @@ fn bundle(ftl: &str) -> FluentBundle<FluentResource> {
 #[track_caller]
 fn assert_gen(module: &str, resource_name: &str, update: bool, ftl: &str) {
     let resource = parser::parse(ftl).expect("Failed to parse an FTL string.");
-    let generated = build::gen::generate_code("msg_", resource_name, resource);
+    let generated = build::gen::generate_code("msg_", "    ", resource_name, &["en"], resource);
 
     if let Some(current) = write_generated(module, update, &generated).unwrap() {
         assert_eq!(current, generated);
@@ -53,7 +53,7 @@ fn write_generated(
 fn test_locales_folder() {
     let locales = build::from_locales_folder("src/tests/test_locales").unwrap();
     let analyzed = build::analyze(&locales);
-    let locales = build::generate_from_locales("msg_", &locales, &analyzed).unwrap();
+    let locales = build::generate_from_locales("msg_", "    ", &locales, &analyzed).unwrap();
     write_generated("locales_folder", true, &locales).unwrap();
 }
 
@@ -61,7 +61,7 @@ fn test_locales_folder() {
 fn test_locales_multi_resources() {
     let locales = build::from_locales_folder("src/tests/test_locales_multi_resources").unwrap();
     let analyzed = build::analyze(&locales);
-    let locales = build::generate_from_locales("msg_", &locales, &analyzed).unwrap();
+    let locales = build::generate_from_locales("msg_", "    ", &locales, &analyzed).unwrap();
     write_generated("locales_multi_resources", true, &locales).unwrap();
 }
 
@@ -69,7 +69,7 @@ fn test_locales_multi_resources() {
 fn test_locales_missing_msg() {
     let locales = build::from_locales_folder("src/tests/test_locales_missing_msg").unwrap();
     let analyzed = build::analyze(&locales);
-    let locales = build::generate_from_locales("msg_", &locales, &analyzed).unwrap();
+    let locales = build::generate_from_locales("msg_", "    ", &locales, &analyzed).unwrap();
     write_generated("locales_missing_msg", true, &locales).unwrap();
 }
 

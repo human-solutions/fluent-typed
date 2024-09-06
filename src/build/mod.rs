@@ -140,8 +140,9 @@ pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String
             .map_err(|e| format!("Could not write ftl file '{}': {e:?}", lang.language))?;
     }
 
-    let generated = generate_from_locales(&options.prefix, &locales, &analyzed)?
-        .replace("    ", &options.indentation);
+    let generated =
+        generate_from_locales(&options.prefix, &options.indentation, &locales, &analyzed)?
+            .replace("    ", &options.indentation);
 
     for warn in analyzed.missing_messages {
         println!("cargo::warning={warn}");
@@ -165,6 +166,7 @@ pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String
 
 pub fn generate_from_locales(
     prefix: &str,
+    indent: &str,
     locales: &[LangBundle],
     analyzed: &Analyzed,
 ) -> Result<String, String> {
@@ -175,5 +177,10 @@ pub fn generate_from_locales(
         .filter(|msg| analyzed.common.contains(&msg.id))
         .filter(|msg| added.insert(&msg.id));
 
-    Ok(generate(prefix, messages))
+    let mut langs = locales
+        .iter()
+        .map(|r| r.language.as_str())
+        .collect::<Vec<_>>();
+    langs.sort();
+    Ok(generate(prefix, indent, &langs, messages))
 }

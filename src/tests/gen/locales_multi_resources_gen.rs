@@ -1,6 +1,51 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
 use std::borrow::Cow;
+use std::str::FromStr;
+use unic_langid::{langid, LanguageIdentifier};
+
+static DE: LanguageIdentifier = langid!("de");
+static EN_GB: LanguageIdentifier = langid!("en-gb");
+
+pub enum L10Lang {
+    De,
+    EnGb,
+}
+
+impl FromStr for L10Lang {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "de" => Ok(Self::De),
+            "en-gb" => Ok(Self::EnGb),
+            _ => Err(format!("Unknown language: {}", s)),
+        }
+    }
+}
+
+impl L10Lang {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::De => "de",
+            Self::EnGb => "en-gb",
+        }
+    }
+
+    pub fn id(&self) -> &'static LanguageIdentifier {
+        match self {
+            Self::De => &DE,
+            Self::EnGb => &EN_GB,
+        }
+    }
+    pub fn as_arr() -> &'static [Self; 1] {
+        &[
+            // languages as an array
+            Self::De,
+            Self::EnGb,
+        ]
+    }
+}
 
 /// A thin wrapper around the Fluent messages for one language.
 ///
