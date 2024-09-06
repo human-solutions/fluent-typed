@@ -23,6 +23,52 @@ pub struct LangBundle {
     pub resources: Vec<LangResource>,
 }
 
+pub struct BuildOptions {
+    /// The path to the folder containing the locales.
+    /// Defaults to "locales".
+    pub locales_folder: String,
+    /// The path to the file where the generated code will be written.
+    /// Defaults to "src/l10n.rs".
+    pub output_file_path: String,
+    /// The prefix is a simple string that will be added to all generated function names.
+    /// Defaults to "msg_".
+    pub prefix: String,
+    /// The indentation used in the generated file.
+    /// Defaults to four spaces.
+    pub indentation: String,
+}
+
+impl Default for BuildOptions {
+    fn default() -> Self {
+        Self {
+            locales_folder: "locales".to_string(),
+            output_file_path: "src/l10n.rs".to_string(),
+            prefix: "msg_".to_string(),
+            indentation: "    ".to_string(),
+        }
+    }
+}
+
+impl BuildOptions {
+    pub fn with_locales_folder(mut self, locales_folder: &str) -> Self {
+        self.locales_folder = locales_folder.to_string();
+        self
+    }
+    pub fn with_output_file_path(mut self, output_file_path: &str) -> Self {
+        self.output_file_path = output_file_path.to_string();
+        self
+    }
+
+    pub fn with_prefix(mut self, prefix: &str) -> Self {
+        self.prefix = prefix.to_string();
+        self
+    }
+    pub fn with_indentation(mut self, indentation: &str) -> Self {
+        self.indentation = indentation.to_string();
+        self
+    }
+}
+
 /// Generate rust code from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
 ///
 /// The generation should be done in a build script:
@@ -30,7 +76,8 @@ pub struct LangBundle {
 /// ```no_run
 /// // in build.rs
 /// fn main() -> std::process::ExitCode {
-///    fluent_typed::build_from_locales_folder("locales", "src/l10n.rs", "msg_", "    ")
+///    let options = fluent_typed::BuildOptions::default();
+///    fluent_typed::build_from_locales_folder(options)
 /// }
 /// ```
 ///
@@ -50,18 +97,10 @@ pub struct LangBundle {
 /// It is recommended to generate the rust code to the output_file_path "src/l10n.rs" and include
 /// it in the project, so that you get warnings for unused translation messages.
 ///
-/// The prefix is a simple string that will be added to all generated function names. It would
-/// typically be "msg_" or "message_" or "" for no prefix.
+/// See [BuildOptions] for more configuration options.
 ///
-/// The last argument is the indentation used in the generated file. It is typically four spaces.
-///
-pub fn build_from_locales_folder(
-    locales: &str,
-    output_file_path: &str,
-    prefix: &str,
-    indentation: &str,
-) -> ExitCode {
-    match try_build_from_locales_folder(locales, output_file_path, prefix, indentation) {
+pub fn build_from_locales_folder(options: BuildOptions) -> ExitCode {
+    match try_build_from_locales_folder(options) {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -71,12 +110,8 @@ pub fn build_from_locales_folder(
 }
 
 /// Same as [build_from_locales_folder], but returns result instead of an ExitCode.
-pub fn try_build_from_locales_folder(
-    locales: &str,
-    output_file_path: &str,
-    prefix: &str,
-    indentation: &str,
-) -> Result<(), String> {
+pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String> {
+    let locales = &options.locales_folder;
     println!("cargo::rerun-if-changed={locales}");
 
     let locales = build::from_locales_folder(locales)
@@ -84,8 +119,8 @@ pub fn try_build_from_locales_folder(
 
     let analyzed = build::analyze(&locales);
 
-    let generated =
-        generate_from_locales(prefix, &locales, &analyzed)?.replace("    ", indentation);
+    let generated = generate_from_locales(&options.prefix, &locales, &analyzed)?
+        .replace("    ", &options.indentation);
 
     for warn in analyzed.missing_messages {
         println!("cargo::warning={warn}");
@@ -94,6 +129,7 @@ pub fn try_build_from_locales_folder(
         println!("cargo::warning={warn}");
     }
 
+    let output_file_path = &options.output_file_path;
     if let Some(current_file) = fs::read_to_string(output_file_path).ok() {
         if current_file == generated {
             return Ok(());
