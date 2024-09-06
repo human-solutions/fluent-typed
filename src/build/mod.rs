@@ -6,7 +6,7 @@ mod validations;
 use crate::build;
 use gen::generate;
 pub use loader::from_locales_folder;
-use std::{collections::HashSet, fs, process::ExitCode};
+use std::{collections::HashSet, fs, path::PathBuf, process::ExitCode};
 pub use validations::{analyze, Analyzed};
 
 pub use typed::Message;
@@ -23,10 +23,18 @@ pub struct BuildOptions {
     ///
     /// Defaults to "locales".
     pub locales_folder: String,
-    /// The path to the file where the generated code will be written.
+    /// The path to the file where the generated code will be written. It is recommended
+    /// to use a path inside of `src/` and to include the file in the project so that
+    /// you get warnings for unused translation messages.
     ///
     /// Defaults to "src/l10n.rs".
     pub output_file_path: String,
+    /// The path to the where the output ftl files will be written.
+    /// For convenience fluent-typed joins all ftl resources for each language
+    /// into a single file.
+    ///
+    /// Defaults to "gen/" in the root of the package.
+    pub output_ftl_folder: String,
     /// The prefix is a simple string that will be added to all generated function names.
     ///
     /// Defaults to "msg_".
@@ -42,6 +50,7 @@ impl Default for BuildOptions {
         Self {
             locales_folder: "locales".to_string(),
             output_file_path: "src/l10n.rs".to_string(),
+            output_ftl_folder: "gen".to_string(),
             prefix: "msg_".to_string(),
             indentation: "    ".to_string(),
         }
@@ -117,6 +126,19 @@ pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String
         .map_err(|e| format!("Could not read locales folder '{locales}': {e:?}"))?;
 
     let analyzed = build::analyze(&locales);
+
+    let ftl_folder = PathBuf::from(&options.output_ftl_folder);
+    if !ftl_folder.exists() {
+        fs::create_dir(&ftl_folder)
+            .map_err(|e| format!("Could not create ftl folder '{ftl_folder:?}': {e:?}"))?;
+    }
+
+    for lang in &locales {
+        let mut file = ftl_folder.join(&lang.language);
+        file.set_extension("ftl");
+        fs::write(file, lang.ftl.as_bytes())
+            .map_err(|e| format!("Could not write ftl file '{}': {e:?}", lang.language))?;
+    }
 
     let generated = generate_from_locales(&options.prefix, &locales, &analyzed)?
         .replace("    ", &options.indentation);

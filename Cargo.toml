@@ -22,3 +22,4 @@ unic-langid = "0.9"
 
 [dev-dependencies]
 unic-langid = { version = "0.9", features = ["macros"] }
+insta = "1.40"

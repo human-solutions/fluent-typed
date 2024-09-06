@@ -1,0 +1,3 @@
+greeting = {$gender -> 
+    *[any] Welcome!
+}

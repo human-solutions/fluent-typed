@@ -31,7 +31,7 @@ fn main() -> std::process::ExitCode {
     // generate the src/l10n.rs file from the fluent translations found in the locales folder,
     // prefix the generated functions with "msg_" and indent the code with 4 spaces.
     // This function returns an ExitCode.
-    fluent_typed::build_from_locales_folder("locales", "src/l10n.rs", "msg_", "    ")
+    fluent_typed::build_from_locales_folder(fluent_typed::BuildOptions::default())
 
     // Note: there are also fluent_typed::try_build_from_locales_folder which returns a Result
 }

@@ -1,0 +1,12 @@
+[workspace]
+
+[package]
+name = "example1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fluent-typed = { path = "../.." }
+
+[build-dependencies]
+fluent-typed = { path = "../..", features = ["build"] }

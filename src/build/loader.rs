@@ -38,14 +38,19 @@ fn try_load_locale(folder: &Path, lang: &str) -> Result<LangBundle, String> {
 
     for path in paths {
         let ftl = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let name = path.file_stem().unwrap().to_str().unwrap().to_string();
+        bundle.ftl.push_str(&format!(
+            "\n## ########## Resource: {name} ###############\n\n"
+        ));
         bundle.ftl.push_str(&ftl);
+        bundle.ftl.push('\n');
+
         let ast = parser::parse(ftl.as_str()).map_err(|e| {
             format!(
                 "Could not parse ftl file '{}' due to: {e:?}",
                 path.file_name().unwrap().to_str().unwrap()
             )
         })?;
-        let name = path.file_stem().unwrap().to_str().unwrap().to_string();
         let messages = to_messages(&name, ast);
         bundle.messages.extend(messages);
     }
