@@ -32,6 +32,7 @@ impl Display for Id {
 }
 
 impl Id {
+    #[cfg(test)]
     pub fn new_attr(message: &str, attribute: &str) -> Self {
         Self {
             message: message.to_owned(),
@@ -39,6 +40,7 @@ impl Id {
         }
     }
 
+    #[cfg(test)]
     pub fn new_msg(message: &str) -> Self {
         Self {
             message: message.to_owned(),
