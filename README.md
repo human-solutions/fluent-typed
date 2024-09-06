@@ -1,7 +1,7 @@
 # Fluent-Typed
 
 When using translation keys, there is often no easy way to know if they are being used
-correctly and if they are being used at all. This project generatesjkjj, using the `fluent` ast,
+correctly and if they are being used at all. This project generates, using the `fluent` ast,
 the function definitions for the translation keys in a fluent file.
 
 In order to guarantee the safeness, funtions are only generated for messages that
