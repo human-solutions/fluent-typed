@@ -13,12 +13,13 @@ license-file = "LICENSE"
 repository = "https://github.com/human-solutions/fluent-typed"
 
 [features]
-build = []
+build = ["dep:flate2"]
 
 [dependencies]
 fluent-syntax = "0.11"
 fluent-bundle = "0.15"
 unic-langid = { version = "0.9", features = ["macros"] }
+flate2 = { version = "1.0", optional = true }
 
 [dev-dependencies]
 insta = "1.40"

@@ -6,7 +6,9 @@ mod l10n_language;
 mod tests;
 
 #[cfg(feature = "build")]
-pub use build::{build_from_locales_folder, try_build_from_locales_folder, BuildOptions};
+pub use build::{
+    build_from_locales_folder, try_build_from_locales_folder, BuildOptions, FtlOutputOptions,
+};
 
 pub mod prelude {
     pub use crate::l10n_language::L10nLanguage;
