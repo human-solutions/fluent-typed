@@ -1,11 +1,13 @@
 mod ext;
+mod generated_ftl;
 mod message;
 #[allow(dead_code, unused_mut, unused_imports)]
 mod template;
 
-use super::Message;
+use super::{BuildOptions, Message};
 pub use ext::StrExt;
 use fluent_syntax::ast::Resource;
+pub use generated_ftl::GeneratedFtl;
 
 pub fn to_messages(name: &str, resource: Resource<&str>) -> Vec<Message> {
     resource
@@ -19,27 +21,16 @@ pub fn to_messages(name: &str, resource: Resource<&str>) -> Vec<Message> {
         .collect()
 }
 
-#[cfg(test)]
-pub fn generate_code<'a>(
-    prefix: &str,
-    indent: &str,
-    name: &str,
-    langs: &[&str],
-    resource: Resource<&'a str>,
-) -> String {
-    let messages = to_messages(name, resource);
-    generate(prefix, indent, langs, messages.iter())
-}
-
 pub fn generate<'a>(
-    prefix: &str,
-    indent: &str,
+    options: &BuildOptions,
     langs: &[&str],
+    generated_ftl: GeneratedFtl,
     messages: impl Iterator<Item = &'a Message>,
 ) -> String {
+    let indent = &options.indentation;
     let mut replacements: Vec<(&str, String)> = Vec::new();
 
-    let impls = collect(messages, |msg| msg.implementations(prefix));
+    let impls = collect(messages, |msg| msg.implementations(&options.prefix));
     replacements.push(("<<message implementations>>", impls));
 
     let enum_lang_ids = collect(langs.iter(), |lang| {
@@ -89,17 +80,29 @@ pub fn generate<'a>(
     });
     replacements.push(("<<placeholder enum as_arr>>", enum_as_arr));
 
+    replacements.push((
+        "<<placeholder lang_data>>",
+        generated_ftl.include_replacement(),
+    ));
+
+    replacements.push((
+        "<<placeholder load functions>>",
+        generated_ftl.accessor_replacement(),
+    ));
+
     let base = include_str!("template.rs");
 
     let mut base = base
         .lines()
-        .map(|line| {
+        .filter_map(|line| {
             if !line.contains("<<") {
-                return line.to_string();
+                return Some(line.to_string());
             }
             for (placeholder, replacement) in &replacements {
-                if line.contains(placeholder) {
-                    return replacement.to_string();
+                if replacement.is_empty() {
+                    return None;
+                } else if line.contains(placeholder) {
+                    return Some(replacement.to_string());
                 }
             }
             panic!("Unknown placeholder in template: {}", line);

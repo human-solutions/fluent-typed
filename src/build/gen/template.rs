@@ -1,11 +1,13 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::borrow::Cow;
 use std::str::FromStr;
+use std::{borrow::Cow, collections::HashMap};
 use unic_langid::{langid, LanguageIdentifier};
 
+static LANG_DATA: &'static [u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
 static EN: LanguageIdentifier = langid!("en"); // <<placeholder static enum langid>>
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10Lang {
     Placeholder, // <<placeholder enum variant>>
 }
@@ -39,6 +41,7 @@ impl L10Lang {
             Self::Placeholder, // <<placeholder enum as_arr>>
         ]
     }
+    // <<placeholder load functions>>
 }
 
 /// A thin wrapper around the Fluent messages for one language.

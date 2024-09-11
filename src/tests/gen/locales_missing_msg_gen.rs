@@ -1,12 +1,14 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::borrow::Cow;
 use std::str::FromStr;
+use std::{borrow::Cow, collections::HashMap};
 use unic_langid::{langid, LanguageIdentifier};
 
+static LANG_DATA: &'static [u8] = include_bytes!("gen/translations.ftl"); 
 static DE: LanguageIdentifier = langid!("de");
 static EN_GB: LanguageIdentifier = langid!("en-gb");
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10Lang {
     De,
     EnGb,
@@ -45,6 +47,25 @@ impl L10Lang {
             Self::EnGb,
         ]
     }
+    pub fn load(&self) -> Result<L10n, String> {
+        let lang_range = match self {
+            EnGb => 0..238,
+            De => 238..402,
+
+        };
+        let bytes = LANG_DATA[lang_range].to_vec();
+
+        Ok(L10n::load(&String::from_utf8_lossy(&bytes))?)
+    }
+
+    pub fn load_all() -> Result<HashMap<L10Lang, L10n>, String> {
+        let mut map = HashMap::new();
+        for lang in Self::as_arr() {
+            map.insert(lang.clone(), lang.load()?);
+        }
+        Ok(map)
+    }
+    
 }
 
 /// A thin wrapper around the Fluent messages for one language.

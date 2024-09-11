@@ -1,83 +1,22 @@
 pub mod gen;
 mod loader;
+pub mod options;
 mod store;
 pub mod typed;
 mod validations;
 
-use crate::build;
 use gen::generate;
 pub use loader::from_locales_folder;
+pub use options::{BuildOptions, FtlOutputOptions};
 use std::{collections::HashSet, fs, process::ExitCode};
-pub use store::FtlOutputOptions;
-pub use validations::{analyze, Analyzed};
-
 pub use typed::Message;
+pub use validations::{analyze, Analyzed};
 
 #[derive(Debug)]
 pub struct LangBundle {
     pub language: String,
     pub messages: Vec<Message>,
     pub ftl: String,
-}
-
-pub struct BuildOptions {
-    /// The path to the folder containing the locales.
-    ///
-    /// Defaults to "locales".
-    pub locales_folder: String,
-    /// The path to the file where the generated code will be written. It is recommended
-    /// to use a path inside of `src/` and to include the file in the project so that
-    /// you get warnings for unused translation messages.
-    ///
-    /// Defaults to "src/l10n.rs".
-    pub output_file_path: String,
-    /// The the ftl output options, which let you configure how the output ftl
-    /// files are generated and accessed.
-    pub ftl_output: FtlOutputOptions,
-    /// The prefix is a simple string that will be added to all generated function names.
-    ///
-    /// Defaults to "msg_".
-    pub prefix: String,
-    /// The indentation used in the generated file.
-    ///
-    /// Defaults to four spaces.
-    pub indentation: String,
-}
-
-impl Default for BuildOptions {
-    fn default() -> Self {
-        Self {
-            locales_folder: "locales".to_string(),
-            output_file_path: "src/l10n.rs".to_string(),
-            ftl_output: Default::default(),
-            prefix: "msg_".to_string(),
-            indentation: "    ".to_string(),
-        }
-    }
-}
-
-impl BuildOptions {
-    pub fn with_locales_folder(mut self, locales_folder: &str) -> Self {
-        self.locales_folder = locales_folder.to_string();
-        self
-    }
-    pub fn with_output_file_path(mut self, output_file_path: &str) -> Self {
-        self.output_file_path = output_file_path.to_string();
-        self
-    }
-
-    pub fn with_prefix(mut self, prefix: &str) -> Self {
-        self.prefix = prefix.to_string();
-        self
-    }
-    pub fn with_indentation(mut self, indentation: &str) -> Self {
-        self.indentation = indentation.to_string();
-        self
-    }
-    pub fn with_ftl_output(mut self, opts: FtlOutputOptions) -> Self {
-        self.ftl_output = opts;
-        self
-    }
 }
 
 /// Generate rust code from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
@@ -125,16 +64,13 @@ pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String
     let locales = &options.locales_folder;
     println!("cargo::rerun-if-changed={locales}");
 
-    let locales = build::from_locales_folder(locales)
+    let locales = from_locales_folder(locales)
         .map_err(|e| format!("Could not read locales folder '{locales}': {e:?}"))?;
 
-    let analyzed = build::analyze(&locales);
-
-    options.ftl_output.generate(&locales)?;
+    let analyzed = analyze(&locales);
 
     let generated =
-        generate_from_locales(&options.prefix, &options.indentation, &locales, &analyzed)?
-            .replace("    ", &options.indentation);
+        generate_from_locales(&options, &locales, &analyzed)?.replace("    ", &options.indentation);
 
     for warn in analyzed.missing_messages {
         println!("cargo::warning={warn}");
@@ -157,11 +93,12 @@ pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String
 }
 
 pub fn generate_from_locales(
-    prefix: &str,
-    indent: &str,
+    options: &BuildOptions,
     locales: &[LangBundle],
     analyzed: &Analyzed,
 ) -> Result<String, String> {
+    let generated_ftl = options.ftl_output.generate(&locales)?;
+
     let mut added = HashSet::new();
     let messages = locales
         .iter()
@@ -174,5 +111,5 @@ pub fn generate_from_locales(
         .map(|r| r.language.as_str())
         .collect::<Vec<_>>();
     langs.sort();
-    Ok(generate(prefix, indent, &langs, messages))
+    Ok(generate(options, &langs, generated_ftl, messages))
 }

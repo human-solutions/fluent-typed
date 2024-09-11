@@ -1,4 +1,5 @@
 pub trait StrExt {
+    /// Uppercased snake case name.
     fn rust_static_name(&self) -> String;
     fn rust_var_name(&self) -> String;
     fn rust_id(&self) -> String;
