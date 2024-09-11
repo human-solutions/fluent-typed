@@ -1,4 +1,9 @@
-use std::ops::Range;
+use std::{
+    collections::VecDeque,
+    fs, io,
+    ops::Range,
+    path::{Path, PathBuf},
+};
 
 use super::StrExt;
 
@@ -12,18 +17,19 @@ pub enum GeneratedFtl {
 }
 
 impl GeneratedFtl {
-    pub fn include_replacement(&self) -> String {
-        match self {
+    pub fn include_replacement(&self, rs_path: &str) -> Result<String, String> {
+        Ok(match self {
             Self::SingleFile {
                 output_ftl_file, ..
             } => {
-                format!(
-                    "static LANG_DATA: &'static [u8] = include_bytes!(\"{}\"); ",
-                    output_ftl_file
-                )
+                let path = relative_path(rs_path, output_ftl_file).map_err(|e| {
+                    format!("Could not create relative path between ftl and rs: {e}")
+                })?;
+
+                format!("static LANG_DATA: &'static [u8] = include_bytes!(\"{path}\");")
             }
             Self::MultiFile => "".to_string(),
-        }
+        })
     }
 
     pub fn accessor_replacement(&self) -> String {
@@ -44,95 +50,132 @@ impl GeneratedFtl {
     ) -> String {
         let mut out = String::new();
 
-        let signature = if compressed {
-            format!(
-                r#"    pub fn load<D>(&self, decompressor: D) -> Result<L10n, String>
-            where
-                D: Fn(&[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>>,
-            {{
-                "#
-            )
-        } else {
-            format!("    pub fn load(&self) -> Result<L10n, String> {{\n")
-        };
-        out.push_str(&signature);
-        let range_switch = range_switch(positions);
-        out.push_str(&range_switch);
+        out.push_str(&byte_range_fn(positions));
 
-        let bytes = if compressed {
-            "        let bytes = decompressor(LANG_DATA[lang_range])?;\n"
-        } else {
-            "        let bytes = LANG_DATA[lang_range].to_vec();\n"
-        };
-        out.push_str(bytes);
-
-        out.push_str(
+        let load_fn = if compressed {
             r#"
-        Ok(L10n::load(&String::from_utf8_lossy(&bytes))?)
+    pub fn load<D>(&self, decompressor: D) -> Result<L10n, String>
+    where
+        D: Fn(&[u8]) -> Result<Vec<u8>, String>,
+    {
+        let bytes = decompressor(LANG_DATA)?;
+        L10n::new(self.as_str(), &bytes)
     }
+    "#
+        } else {
+            r#"
+    pub fn load(&self) -> Result<L10n, String> {
+        let bytes = LANG_DATA[self.byte_range()].to_vec();
+        L10n::new(self.as_str(), &bytes)
+    }
+    "#
+        };
 
-    pub fn load_all() -> Result<HashMap<L10Lang, L10n>, String> {
-        let mut map = HashMap::new();
-        for lang in Self::as_arr() {
-            map.insert(lang.clone(), lang.load()?);
-        }
-        Ok(map)
+        out.push_str(&load_fn);
+
+        let load_all_fn = if compressed {
+            r#"
+    pub fn load_all<D>(decompressor: D) -> Result<Vec<L10n>, String>
+    where
+        D: Fn(&[u8]) -> Result<Vec<u8>, String>,
+    {
+        let bytes = decompressor(LANG_DATA)?;
+        Self::as_arr()
+            .iter()
+            .map(|lang| L10n::new(lang.as_str(), &bytes[lang.byte_range()]))
+            .collect()
     }
-    "#,
-        );
+    "#
+        } else {
+            r#"
+    pub fn load_all() -> Result<Vec<L10n>, String>
+    {
+        Self::as_arr()
+            .iter()
+            .map(|lang| L10n::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
+            .collect()
+    }
+    "#
+        };
+
+        out.push_str(&load_all_fn);
         out
     }
 }
 
-fn range_switch(positions: &[(String, Range<usize>)]) -> String {
+fn byte_range_fn(positions: &[(String, Range<usize>)]) -> String {
     let range_statements = positions
         .iter()
         .map(|(name, range)| {
             format!(
-                "            {} => {}..{},\n",
+                "            Self::{} => {}..{},",
                 name.rust_var_name(),
                 range.start,
                 range.end
             )
         })
         .collect::<Vec<_>>()
-        .join("");
+        .join("\n");
     format!(
-        r#"        let lang_range = match self {{
+        r#"
+    fn byte_range(&self) -> Range<usize> {{
+        match self {{
 {range_statements}
-        }};
-"#
+        }}
+    }}"#,
     )
 }
 
-// /// Load the l10n resources for the given language. The ftl files
-// /// are embedded in the binary.
-// pub fn load(&self) -> Result<L10n, String> {
-//     todo!("Load the L10n resources for the given language.");
-// }
+fn relative_path(from: &str, to: &str) -> io::Result<String> {
+    let mut from_path = fs::canonicalize(from)?;
+    if from_path.is_file() {
+        from_path.pop();
+    }
+    let to_path = fs::canonicalize(to)?;
 
-// /// Load the l10n resources for the given language. The ftl files
-// /// are embedded in the binary.
-// pub fn load2<Decompr>(&self, _decompressor: Decompr) -> Result<L10n, String>
-// where
-//     Decompr: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error>>,
-// {
-//     let _lang_range = match self {
-//         Self::Placeholder => 0..0,
-//     };
-//     todo!("Load the L10n resources for the given language.");
-// }
-// /// Load the l10n resources for the given language by providing
-// /// the FTL string yourself. This is useful when you need to load
-// /// the resource from a server.
-// pub fn load_with_ftl(&self, _ftl: String) -> Result<L10n, String> {
-//     todo!("Load the L10n resources for the given language.");
-// }
+    relative(&from_path, &to_path)?
+        .to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Could not convert relative path to string",
+            )
+        })
+}
 
-// pub fn load_all() -> Result<HashMap<L10Lang, L10n>, String> {
-//     let mut map = HashMap::new();
-//     for lang in Self::as_arr() {
-//         map.insert(lang.clone(), lang.load()?);
-//     }
-//     Ok(map)
-// }
+fn relative(from_path: &Path, to_path: &Path) -> io::Result<PathBuf> {
+    if from_path.is_relative() || to_path.is_relative() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Both paths must be absolute",
+        ));
+    }
+
+    let mut from = from_path.components().collect::<VecDeque<_>>();
+    let mut to = to_path.components().collect::<VecDeque<_>>();
+
+    // Remove common components
+    while let (Some(fr_comp), Some(to_comp)) = (from.get(0), to.get(0)) {
+        if fr_comp != to_comp {
+            break;
+        }
+        from.pop_front();
+        to.pop_front();
+    }
+
+    let mut relative = PathBuf::new();
+    for _ in 0..(from.len()) {
+        relative.push("..");
+    }
+    while let Some(comp) = to.pop_front() {
+        relative.push(comp);
+    }
+    Ok(relative)
+}
+
+#[test]
+fn test_relative_path() {
+    let rel = relative(Path::new("/a/b/c.rs"), Path::new("/a/d/e.flt")).unwrap();
+    assert_eq!(rel, PathBuf::from("../../d/e.flt"));
+}

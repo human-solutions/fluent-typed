@@ -1,1 +1,1 @@
-// mod l10n;
+mod l10n;

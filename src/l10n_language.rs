@@ -7,7 +7,9 @@ use unic_langid::LanguageIdentifier;
 pub struct L10nLanguage(FluentBundle<FluentResource>);
 
 impl L10nLanguage {
-    pub fn new(lang: &str, ftl: String) -> Result<Self, String> {
+    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+        let ftl = String::from_utf8(bytes.to_vec())
+            .map_err(|e| format!("Could not read ftl string due to: {e}"))?;
         let lang: LanguageIdentifier = lang.parse().map_err(|e| format!("{e:?}"))?;
         let mut bundle = FluentBundle::new(vec![lang]);
         let resource = FluentResource::try_new(ftl).map_err(|e| format!("{e:?}"))?;
@@ -16,6 +18,10 @@ impl L10nLanguage {
             .map_err(|e| format!("{e:?}"))?;
 
         Ok(Self(bundle))
+    }
+
+    pub fn lang(&self) -> &LanguageIdentifier {
+        self.0.locales.get(0).unwrap()
     }
 
     pub fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<Cow<'_, str>, String> {

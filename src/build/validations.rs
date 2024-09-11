@@ -11,16 +11,17 @@ pub struct Analyzed {
     pub missing_messages: Vec<String>,
     pub signature_mismatches: Vec<String>,
 }
-
-pub fn analyze(langs: &[LangBundle]) -> Analyzed {
-    let common_ids = common_message_ids(langs);
-    let missing_messages = missing_message_ids(&common_ids, langs);
-    let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
-    let common: HashSet<Id> = common_ids.difference(&ids).map(|id| id.clone()).collect();
-    Analyzed {
-        common,
-        missing_messages,
-        signature_mismatches,
+impl Analyzed {
+    pub fn from(langs: &[LangBundle]) -> Self {
+        let common_ids = common_message_ids(langs);
+        let missing_messages = missing_message_ids(&common_ids, langs);
+        let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
+        let common: HashSet<Id> = common_ids.difference(&ids).map(|id| id.clone()).collect();
+        Self {
+            common,
+            missing_messages,
+            signature_mismatches,
+        }
     }
 }
 

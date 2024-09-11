@@ -4,33 +4,27 @@ mod message;
 #[allow(dead_code, unused_mut, unused_imports)]
 mod template;
 
-use super::{BuildOptions, Message};
+use super::{BuildOptions, LangBundle, Message};
 pub use ext::StrExt;
-use fluent_syntax::ast::Resource;
 pub use generated_ftl::GeneratedFtl;
-
-pub fn to_messages(name: &str, resource: Resource<&str>) -> Vec<Message> {
-    resource
-        .body
-        .iter()
-        .filter_map(|entry| match entry {
-            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name, m)),
-            _ => None,
-        })
-        .flatten()
-        .collect()
-}
 
 pub fn generate<'a>(
     options: &BuildOptions,
-    langs: &[&str],
-    generated_ftl: GeneratedFtl,
-    messages: impl Iterator<Item = &'a Message>,
-) -> String {
+    locales: &[LangBundle],
+    messages: &[&'a Message],
+) -> Result<String, String> {
+    let generated_ftl = options.ftl_output.generate(&locales)?;
+
+    let mut langs = locales
+        .iter()
+        .map(|r| r.language.as_str())
+        .collect::<Vec<_>>();
+    langs.sort();
+
     let indent = &options.indentation;
     let mut replacements: Vec<(&str, String)> = Vec::new();
 
-    let impls = collect(messages, |msg| msg.implementations(&options.prefix));
+    let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
     replacements.push(("<<message implementations>>", impls));
 
     let enum_lang_ids = collect(langs.iter(), |lang| {
@@ -78,11 +72,21 @@ pub fn generate<'a>(
     let enum_as_arr = collect(langs.iter(), |lang| {
         format!("{}Self::{},", indent.repeat(3), lang.rust_var_name())
     });
-    replacements.push(("<<placeholder enum as_arr>>", enum_as_arr));
+    let as_arr_fn = format!(
+        r#"
+    pub fn as_arr() -> &'static [Self; {}] {{
+        &[
+            // languages as an array
+{enum_as_arr}
+        ]
+    }}"#,
+        langs.iter().count()
+    );
+    replacements.push(("<<placeholder as_arr>>", as_arr_fn));
 
     replacements.push((
         "<<placeholder lang_data>>",
-        generated_ftl.include_replacement(),
+        generated_ftl.include_replacement(&options.output_file_path)?,
     ));
 
     replacements.push((
@@ -113,7 +117,7 @@ pub fn generate<'a>(
 
     #[cfg(not(test))]
     let base = base.replace("use crate::prelude::*;", "use fluent_typed::prelude::*;");
-    base
+    Ok(base)
 }
 
 fn collect<T, F: Fn(T) -> String>(vals: impl Iterator<Item = T>, f: F) -> String {

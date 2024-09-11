@@ -28,5 +28,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), "cookie-disclaimer", true, FTL);
+    assert_gen(module_path!(), "cookie-disclaimer", FTL);
 }

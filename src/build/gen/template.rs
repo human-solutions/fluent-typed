@@ -1,7 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::str::FromStr;
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, ops::Range, str::FromStr};
 use unic_langid::{langid, LanguageIdentifier};
 
 static LANG_DATA: &'static [u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
@@ -24,7 +23,7 @@ impl FromStr for L10Lang {
 }
 
 impl L10Lang {
-    pub fn to_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Placeholder => "placeholder", // <<placeholder enum to_str>>
         }
@@ -35,12 +34,7 @@ impl L10Lang {
             Self::Placeholder => &EN, // <<placeholder enum id>>
         }
     }
-    pub fn as_arr() -> &'static [Self; 1] {
-        &[
-            // languages as an array
-            Self::Placeholder, // <<placeholder enum as_arr>>
-        ]
-    }
+    // <<placeholder as_arr>>
     // <<placeholder load functions>>
 }
 
@@ -54,8 +48,14 @@ impl L10n {
     /// Load the L10n resources for the given language. The language
     /// has to be a valid unic_langid::LanguageIdentifier or otherwise
     /// an error is returned.
-    pub fn load(lang: &str, ftl: String) -> Result<Self, String> {
-        Ok(Self(L10nLanguage::new(lang, ftl)?))
+    ///
+    /// The bytes are expected to be the contents of a .ftl file
+    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+        Ok(Self(L10nLanguage::new(lang, bytes)?))
+    }
+
+    pub fn language_identifier(&self) -> &LanguageIdentifier {
+        self.0.lang()
     }
 
     // <<message implementations>>
