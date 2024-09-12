@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{borrow::Cow, ops::Range, str::FromStr};
 
-static LANG_DATA: &'static [u8] = include_bytes!("../gen/translations.ftl");
+static LANG_DATA: &'static [u8] = include_bytes!("test_locales_multi_resources.ftl");
 static DE: LanguageIdentifier = langid!("de");
 static EN_GB: LanguageIdentifier = langid!("en-gb");
 
@@ -49,8 +49,8 @@ impl L10n {
 
     fn byte_range(&self) -> Range<usize> {
         match self {
-            Self::De => 0..164,
-            Self::EnGb => 164..402,
+            Self::De => 0..148,
+            Self::EnGb => 148..293,
         }
     }
     pub fn load(&self) -> Result<L10nLanguage, String> {
@@ -86,10 +86,10 @@ impl L10nLanguage {
         self.0.lang()
     }
 
-    fn msg_company_name(&self) -> Cow<'_, str> {
-        self.0.msg("company-name", None).unwrap()
+    fn msg_greeting(&self) -> Cow<'_, str> {
+        self.0.msg("greeting", None).unwrap()
     }
-    fn msg_last_name(&self) -> Cow<'_, str> {
-        self.0.msg("last-name", None).unwrap()
+    fn msg_twenty_four_hour(&self) -> Cow<'_, str> {
+        self.0.msg("twenty-four-hour", None).unwrap()
     }
 }

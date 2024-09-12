@@ -50,13 +50,17 @@ fn main() -> std::process::ExitCode {
 ```rust
 // in lib.rs or main.rs
 mod l10n;
-use l10n::L10nLang;
+use l10n::L10n;
 
 
 fn main() {
+    // Load english translations in an L10nLanguage struct.
+    // It provides safe function for accessing all messages.
+    let strs: L10nLanguage = L10n::EnGb.load().unwrap();
 
-    // load english translations.
-    let strs = L10nLang::En.load().unwrap();
+    // In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
+    // used inside of a Signal or other reactive construct, so that all
+    // translations are automatically updated when the struct is changed.
 
     // A message without arguments.
     assert_eq!("Welcome!", strs.msg_greeting());
@@ -79,7 +83,7 @@ project uses the following rules to infer the type of the translation variables:
   - If a [NUMBER](https://projectfluent.org/fluent/guide/functions.html#number-1) function is used, asin `dpi-ratio = Your DPI ratio is { NUMBER($ratio) }`
   - If a [selector](https://projectfluent.org/fluent/guide/selectors.html) only contains numbers
     and CLDR plural catagories: `zero`, `one`, `two`, `few`, `many`, and `other`. Example:
-    ```
+    ```text
     your-rank = { NUMBER($pos, type: "ordinal") ->
        [1] You finished first!
        [one] You finished {$pos}st

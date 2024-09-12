@@ -12,6 +12,9 @@ categories = [
 license-file = "LICENSE"
 repository = "https://github.com/human-solutions/fluent-typed"
 
+[lib]
+doctest = false
+
 [features]
 build = []
 

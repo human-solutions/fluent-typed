@@ -12,7 +12,7 @@ use std::process::ExitCode;
 pub use typed::Message;
 pub use validations::Analyzed;
 
-/// Generate rust code from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
+/// Generate rust code and ftl files from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
 ///
 /// The generation should be done in a build script:
 ///

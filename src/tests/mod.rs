@@ -38,20 +38,40 @@ fn assert_gen(module: &str, resource_name: &str, ftl: &str) {
 
 #[test]
 fn test_locales_folder() {
-    let options = BuildOptions::default().with_locales_folder("src/tests/test_locales");
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: format!("src/tests/gen/test_locales.ftl"),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_locales")
+        .with_ftl_output(ftl_opts)
+        .with_output_file_path("src/tests/gen/test_locales_gen.rs");
     Builder::load(options).unwrap().generate().unwrap();
 }
 
 #[test]
 fn test_locales_multi_resources() {
-    let options =
-        BuildOptions::default().with_locales_folder("src/tests/test_locales_multi_resources");
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: format!("src/tests/gen/test_locales_multi_resources.ftl"),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_locales_multi_resources")
+        .with_ftl_output(ftl_opts)
+        .with_output_file_path("src/tests/gen/test_locales_multi_resources_gen.rs");
     Builder::load(options).unwrap().generate().unwrap();
 }
 
 #[test]
 fn test_locales_missing_msg() {
-    let options = BuildOptions::default().with_locales_folder("src/tests/test_locales_missing_msg");
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: format!("src/tests/gen/test_locales_missing_msg.ftl"),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_locales")
+        .with_ftl_output(ftl_opts)
+        .with_output_file_path("src/tests/gen/test_locales_missing_msg_gen.rs");
     Builder::load(options).unwrap().generate().unwrap();
 }
 
