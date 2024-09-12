@@ -1,7 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
 use std::{borrow::Cow, ops::Range, str::FromStr};
-use unic_langid::{langid, LanguageIdentifier};
 
 static LANG_DATA: &'static [u8] = include_bytes!("msg_with_attrib_gen.ftl");
 static EN: LanguageIdentifier = langid!("en");
@@ -51,15 +50,13 @@ impl L10Lang {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
         L10n::new(self.as_str(), &bytes)
     }
-    
-    pub fn load_all() -> Result<Vec<L10n>, String>
-    {
+
+    pub fn load_all() -> Result<Vec<L10n>, String> {
         Self::as_arr()
             .iter()
             .map(|lang| L10n::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
             .collect()
     }
-    
 }
 
 /// A thin wrapper around the Fluent messages for one language.

@@ -1,10 +1,8 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::str::FromStr;
-use std::{borrow::Cow, collections::HashMap};
-use unic_langid::{langid, LanguageIdentifier};
+use std::{borrow::Cow, ops::Range, str::FromStr};
 
-static LANG_DATA: &'static [u8] = include_bytes!("../gen/translations.ftl"); 
+static LANG_DATA: &'static [u8] = include_bytes!("../gen/translations.ftl");
 static DE: LanguageIdentifier = langid!("de");
 static EN_GB: LanguageIdentifier = langid!("en-gb");
 
@@ -27,7 +25,7 @@ impl FromStr for L10Lang {
 }
 
 impl L10Lang {
-    pub fn to_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::De => "de",
             Self::EnGb => "en-gb",
@@ -40,34 +38,32 @@ impl L10Lang {
             Self::EnGb => &EN_GB,
         }
     }
-    pub fn as_arr() -> &'static [Self; 1] {
+
+    pub fn as_arr() -> &'static [Self; 2] {
         &[
             // languages as an array
             Self::De,
             Self::EnGb,
         ]
     }
-    pub fn load(&self) -> Result<L10n, String> {
-        let lang_range = match self {
-            Self::EnGb => 0..101,
-            Self::De => 101..208,
 
-        };
-        let bytes = LANG_DATA[lang_range].to_vec();
-
-        let ftl = String::from_utf8(bytes)
-            .map_err(|e| format!("Could not read ftl string due to: {e}"))?;
-        Ok(L10n::load(self.to_str(), ftl)?)
-    }
-
-    pub fn load_all() -> Result<HashMap<L10Lang, L10n>, String> {
-        let mut map = HashMap::new();
-        for lang in Self::as_arr() {
-            map.insert(lang.clone(), lang.load()?);
+    fn byte_range(&self) -> Range<usize> {
+        match self {
+            Self::De => 0..148,
+            Self::EnGb => 148..293,
         }
-        Ok(map)
     }
-    
+    pub fn load(&self) -> Result<L10n, String> {
+        let bytes = LANG_DATA[self.byte_range()].to_vec();
+        L10n::new(self.as_str(), &bytes)
+    }
+
+    pub fn load_all() -> Result<Vec<L10n>, String> {
+        Self::as_arr()
+            .iter()
+            .map(|lang| L10n::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
+            .collect()
+    }
 }
 
 /// A thin wrapper around the Fluent messages for one language.
@@ -80,14 +76,20 @@ impl L10n {
     /// Load the L10n resources for the given language. The language
     /// has to be a valid unic_langid::LanguageIdentifier or otherwise
     /// an error is returned.
-    pub fn load(lang: &str, ftl: String) -> Result<Self, String> {
-        Ok(Self(L10nLanguage::new(lang, ftl)?))
+    ///
+    /// The bytes are expected to be the contents of a .ftl file
+    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+        Ok(Self(L10nLanguage::new(lang, bytes)?))
     }
 
+    pub fn language_identifier(&self) -> &LanguageIdentifier {
+        self.0.lang()
+    }
+
+    fn msg_greeting(&self) -> Cow<'_, str> {
+        self.0.msg("greeting", None).unwrap()
+    }
     fn msg_twenty_four_hour(&self) -> Cow<'_, str> {
         self.0.msg("twenty-four-hour", None).unwrap()
-    }
-    fn msg_twelve_hour(&self) -> Cow<'_, str> {
-        self.0.msg("twelve-hour", None).unwrap()
     }
 }

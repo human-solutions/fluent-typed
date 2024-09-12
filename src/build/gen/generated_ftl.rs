@@ -61,14 +61,14 @@ impl GeneratedFtl {
         let bytes = decompressor(LANG_DATA)?;
         L10n::new(self.as_str(), &bytes)
     }
-    "#
+"#
         } else {
             r#"
     pub fn load(&self) -> Result<L10n, String> {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
         L10n::new(self.as_str(), &bytes)
     }
-    "#
+"#
         };
 
         out.push_str(&load_fn);
@@ -84,18 +84,15 @@ impl GeneratedFtl {
             .iter()
             .map(|lang| L10n::new(lang.as_str(), &bytes[lang.byte_range()]))
             .collect()
-    }
-    "#
+    }"#
         } else {
             r#"
-    pub fn load_all() -> Result<Vec<L10n>, String>
-    {
+    pub fn load_all() -> Result<Vec<L10n>, String> {
         Self::as_arr()
             .iter()
             .map(|lang| L10n::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
             .collect()
-    }
-    "#
+    }"#
         };
 
         out.push_str(&load_all_fn);
@@ -126,22 +123,35 @@ fn byte_range_fn(positions: &[(String, Range<usize>)]) -> String {
     )
 }
 
-fn relative_path(from: &str, to: &str) -> io::Result<String> {
-    let mut from_path = fs::canonicalize(from)?;
-    if from_path.is_file() {
-        from_path.pop();
+fn file_to_absolute_dir(file: &str) -> io::Result<PathBuf> {
+    let mut dir = PathBuf::from(file);
+    dir.pop();
+    if !dir.exists() {
+        fs::create_dir_all(&dir)?;
     }
-    let to_path = fs::canonicalize(to)?;
+    fs::canonicalize(dir)
+}
 
-    relative(&from_path, &to_path)?
-        .to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Could not convert relative path to string",
-            )
-        })
+// from = rs, to = ftl
+fn relative_path(from_file: &str, to_file: &str) -> io::Result<String> {
+    let from_dir = file_to_absolute_dir(from_file)?;
+    let to_file_name = Path::new(to_file).file_name().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Could not get file name from path",
+        )
+    })?;
+    let to_dir = file_to_absolute_dir(to_file)?;
+
+    let mut rel_file = relative(&from_dir, &to_dir)?;
+    rel_file.push(to_file_name);
+
+    rel_file.to_str().map(|s| s.to_string()).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Could not convert relative path to string",
+        )
+    })
 }
 
 fn relative(from_path: &Path, to_path: &Path) -> io::Result<PathBuf> {

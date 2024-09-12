@@ -1,7 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
 use std::{borrow::Cow, ops::Range, str::FromStr};
-use unic_langid::{langid, LanguageIdentifier};
 
 static LANG_DATA: &'static [u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
 static EN: LanguageIdentifier = langid!("en"); // <<placeholder static enum langid>>
