@@ -1,20 +1,24 @@
 
-## ########## Resource: hello ###############
+## ########## Resource: company ###############
 
-greeting = hallo
-
-
-## ########## Resource: settings ###############
-
-twenty-four-hour = 24 Stunden
+company-name = Company Name
 
 
-## ########## Resource: hello ###############
+## ########## Resource: profile ###############
 
-greeting = hello
+last-name = Last Name
+name = Name
 
 
-## ########## Resource: settings ###############
+## ########## Resource: company ###############
 
-twenty-four-hour = 24 hour
+company-details = Company details
+company-name = Company Name
+my-companies = My companies
+
+
+## ########## Resource: profile ###############
+
+first-name = First Name
+last-name = Last Name
 

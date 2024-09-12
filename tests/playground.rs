@@ -8,9 +8,17 @@ mod common;
 #[test]
 fn build_example1() {
     let root = PathBuf::from("playground/example1");
-    let l10n = root.join("src/l10n.rs");
-    if l10n.exists() {
-        fs::remove_file(&l10n).unwrap();
+    let single_l10n = root.join("src/single_l10n.rs");
+    if single_l10n.exists() {
+        fs::remove_file(&single_l10n).unwrap();
+    }
+    let single_gzip_l10n = root.join("src/single_gzip_l10n.rs");
+    if single_gzip_l10n.exists() {
+        fs::remove_file(&single_gzip_l10n).unwrap();
+    }
+    let multi_l10n = root.join("src/multi_l10n.rs");
+    if multi_l10n.exists() {
+        fs::remove_file(&multi_l10n).unwrap();
     }
 
     let target = root.join("target");
@@ -24,7 +32,9 @@ fn build_example1() {
     }
     cargo(&root, ["build"]);
 
-    assert!(l10n.exists());
+    assert!(single_l10n.exists());
+    assert!(single_gzip_l10n.exists());
+    assert!(multi_l10n.exists());
 
     let listing = ls_ascii(&gen, 0).unwrap();
     assert_snapshot!(&listing, @r###"

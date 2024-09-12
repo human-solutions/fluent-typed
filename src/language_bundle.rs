@@ -4,9 +4,9 @@ use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
 use fluent_syntax::ast::Pattern;
 use unic_langid::LanguageIdentifier;
 
-pub struct L10nLanguage(FluentBundle<FluentResource>);
+pub struct LanguageBundle(FluentBundle<FluentResource>);
 
-impl L10nLanguage {
+impl LanguageBundle {
     pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
         let ftl = String::from_utf8(bytes.to_vec())
             .map_err(|e| format!("Could not read ftl string due to: {e}"))?;

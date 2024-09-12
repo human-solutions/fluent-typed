@@ -1,6 +1,6 @@
 #[cfg(feature = "build")]
 mod build;
-mod l10n_language;
+mod language_bundle;
 
 #[cfg(all(test, feature = "build"))]
 mod tests;
@@ -11,7 +11,7 @@ pub use build::{
 };
 
 pub mod prelude {
-    pub use crate::l10n_language::L10nLanguage;
+    pub use crate::language_bundle::LanguageBundle;
     pub use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
     pub use unic_langid::{langid, LanguageIdentifier};
 }

@@ -54,19 +54,19 @@ impl GeneratedFtl {
 
         let load_fn = if compressed {
             r#"
-    pub fn load<D>(&self, decompressor: D) -> Result<L10n, String>
+    pub fn load<D>(&self, decompressor: D) -> Result<L10nLanguage, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
-        L10n::new(self.as_str(), &bytes)
+        L10nLanguage::new(self.as_str(), &bytes)
     }
 "#
         } else {
             r#"
-    pub fn load(&self) -> Result<L10n, String> {
+    pub fn load(&self) -> Result<L10nLanguage, String> {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10n::new(self.as_str(), &bytes)
+        L10nLanguage::new(self.as_str(), &bytes)
     }
 "#
         };
@@ -75,22 +75,22 @@ impl GeneratedFtl {
 
         let load_all_fn = if compressed {
             r#"
-    pub fn load_all<D>(decompressor: D) -> Result<Vec<L10n>, String>
+    pub fn load_all<D>(decompressor: D) -> Result<Vec<L10nLanguage>, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
         Self::as_arr()
             .iter()
-            .map(|lang| L10n::new(lang.as_str(), &bytes[lang.byte_range()]))
+            .map(|lang| L10nLanguage::new(lang.as_str(), &bytes[lang.byte_range()]))
             .collect()
     }"#
         } else {
             r#"
-    pub fn load_all() -> Result<Vec<L10n>, String> {
+    pub fn load_all() -> Result<Vec<L10nLanguage>, String> {
         Self::as_arr()
             .iter()
-            .map(|lang| L10n::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
+            .map(|lang| L10nLanguage::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
             .collect()
     }"#
         };

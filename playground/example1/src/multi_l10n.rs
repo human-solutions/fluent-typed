@@ -6,12 +6,12 @@ static EN: LanguageIdentifier = langid!("en");
 static FR: LanguageIdentifier = langid!("fr");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum L10Lang {
+pub enum L10n {
     En,
     Fr,
 }
 
-impl FromStr for L10Lang {
+impl FromStr for L10n {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -23,7 +23,7 @@ impl FromStr for L10Lang {
     }
 }
 
-impl L10Lang {
+impl L10n {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::En => "en",
@@ -51,16 +51,16 @@ impl L10Lang {
 ///
 /// It provides functions for each message that was found in
 /// all the languages at build time.
-pub struct L10n(L10nLanguage);
+pub struct L10nLanguage(LanguageBundle);
 
-impl L10n {
+impl L10nLanguage {
     /// Load the L10n resources for the given language. The language
     /// has to be a valid unic_langid::LanguageIdentifier or otherwise
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
     pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
-        Ok(Self(L10nLanguage::new(lang, bytes)?))
+        Ok(Self(LanguageBundle::new(lang, bytes)?))
     }
 
     pub fn language_identifier(&self) -> &LanguageIdentifier {

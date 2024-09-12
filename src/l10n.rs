@@ -7,12 +7,12 @@ static DE: LanguageIdentifier = langid!("de");
 static EN_GB: LanguageIdentifier = langid!("en-gb");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum L10Lang {
+pub enum L10n {
     De,
     EnGb,
 }
 
-impl FromStr for L10Lang {
+impl FromStr for L10n {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -24,7 +24,7 @@ impl FromStr for L10Lang {
     }
 }
 
-impl L10Lang {
+impl L10n {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::De => "de",
@@ -49,19 +49,19 @@ impl L10Lang {
 
     fn byte_range(&self) -> Range<usize> {
         match self {
-            Self::De => 0..148,
-            Self::EnGb => 148..293,
+            Self::De => 0..164,
+            Self::EnGb => 164..402,
         }
     }
-    pub fn load(&self) -> Result<L10n, String> {
+    pub fn load(&self) -> Result<L10nLanguage, String> {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10n::new(self.as_str(), &bytes)
+        L10nLanguage::new(self.as_str(), &bytes)
     }
 
-    pub fn load_all() -> Result<Vec<L10n>, String> {
+    pub fn load_all() -> Result<Vec<L10nLanguage>, String> {
         Self::as_arr()
             .iter()
-            .map(|lang| L10n::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
+            .map(|lang| L10nLanguage::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
             .collect()
     }
 }
@@ -70,26 +70,26 @@ impl L10Lang {
 ///
 /// It provides functions for each message that was found in
 /// all the languages at build time.
-pub struct L10n(L10nLanguage);
+pub struct L10nLanguage(LanguageBundle);
 
-impl L10n {
+impl L10nLanguage {
     /// Load the L10n resources for the given language. The language
     /// has to be a valid unic_langid::LanguageIdentifier or otherwise
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
     pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
-        Ok(Self(L10nLanguage::new(lang, bytes)?))
+        Ok(Self(LanguageBundle::new(lang, bytes)?))
     }
 
     pub fn language_identifier(&self) -> &LanguageIdentifier {
         self.0.lang()
     }
 
-    fn msg_greeting(&self) -> Cow<'_, str> {
-        self.0.msg("greeting", None).unwrap()
+    fn msg_company_name(&self) -> Cow<'_, str> {
+        self.0.msg("company-name", None).unwrap()
     }
-    fn msg_twenty_four_hour(&self) -> Cow<'_, str> {
-        self.0.msg("twenty-four-hour", None).unwrap()
+    fn msg_last_name(&self) -> Cow<'_, str> {
+        self.0.msg("last-name", None).unwrap()
     }
 }
