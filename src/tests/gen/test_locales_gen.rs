@@ -9,6 +9,8 @@ static ALL_LANGS: [L10n; 2] = [
     L10n::De,
     L10n::EnGb,
 ];
+static DE: LanguageIdentifier = langid!("de");
+static EN_GB: LanguageIdentifier = langid!("en-gb");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
@@ -24,6 +26,15 @@ impl FromStr for L10n {
             "de" => Ok(Self::De),
             "en-gb" => Ok(Self::EnGb),
             _ => Err(format!("Unknown language: {}", s)),
+        }
+    }
+}
+
+impl AsRef<LanguageIdentifier> for L10n {
+    fn as_ref(&self) -> &LanguageIdentifier {
+        match self {
+            Self::De => &DE,
+            Self::EnGb => &EN_GB,
         }
     }
 }

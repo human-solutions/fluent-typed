@@ -29,14 +29,7 @@ pub fn generate<'a>(
         generated_ftl.include_replacement(&options.output_file_path)?,
     ));
 
-    let enum_lang_ids = collect(langs.iter(), |lang| {
-        format!(
-            "static {}: LanguageIdentifier = langid!(\"{lang}\");",
-            lang.rust_static_name()
-        )
-    });
-    replacements.push(("<<placeholder static enum langid>>", enum_lang_ids));
-
+    // ///////////////////////////
     let enum_entries = collect(langs.iter(), |lang| {
         format!("{indent}L10n::{},", lang.rust_var_name())
     });
@@ -50,11 +43,26 @@ static ALL_LANGS: [L10n; {}] = [
     );
     replacements.push(("<<placeholder all_langs>>", all_langs));
 
+    // ///////////////////////////
+    let enum_lang_ids = if cfg!(feature = "langneg") {
+        collect(langs.iter(), |lang| {
+            format!(
+                "static {}: LanguageIdentifier = langid!(\"{lang}\");",
+                lang.rust_static_name()
+            )
+        })
+    } else {
+        "".to_string()
+    };
+    replacements.push(("<<placeholder static enum langid>>", enum_lang_ids));
+
+    // ///////////////////////////
     let enum_variants = collect(langs.iter(), |lang| {
         format!("{indent}{},", lang.rust_var_name())
     });
     replacements.push(("<<placeholder enum variant>>", enum_variants));
 
+    // ///////////////////////////
     let enum_from_str = collect(langs.iter(), |lang| {
         format!(
             "{}\"{lang}\" => Ok(Self::{}),",
@@ -64,6 +72,33 @@ static ALL_LANGS: [L10n; {}] = [
     });
     replacements.push(("<<placeholder enum from_str>>", enum_from_str));
 
+    // ///////////////////////////
+
+    let as_ref_langid = if cfg!(feature = "langneg") {
+        let id_entries = collect(langs.iter(), |lang| {
+            format!(
+                "{}Self::{} => &{},",
+                indent.repeat(3),
+                lang.rust_var_name(),
+                lang.rust_static_name(),
+            )
+        });
+        format!(
+            r#"impl AsRef<LanguageIdentifier> for L10n {{
+    fn as_ref(&self) -> &LanguageIdentifier {{
+        match self {{
+{id_entries}
+        }}
+    }}
+}}
+"#
+        )
+    } else {
+        String::new()
+    };
+    replacements.push(("<<placeholder as_ref_langid>>", as_ref_langid));
+
+    // ///////////////////////////
     let enum_to_str = collect(langs.iter(), |lang| {
         format!(
             "{}Self::{} => \"{}\",",

@@ -4,6 +4,7 @@ use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &'static [u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
 static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
+                                                   // <<placeholder static enum langid>>
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
@@ -21,6 +22,7 @@ impl FromStr for L10n {
     }
 }
 
+// <<placeholder as_ref_langid>>
 impl AsRef<str> for L10n {
     fn as_ref(&self) -> &str {
         match self {
