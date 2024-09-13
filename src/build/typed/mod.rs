@@ -3,13 +3,13 @@ mod type_in_comment;
 
 use std::fmt::Display;
 
-pub use crate::build::gen::to_messages;
-
 use crate::build::gen::StrExt;
 
 #[derive(Debug, PartialEq)]
 pub struct Message {
     pub id: Id,
+    /// The name of the resource file.
+    /// This is used for error messages.
     pub resource: String,
     pub comment: Vec<String>,
     pub variables: Vec<Variable>,
@@ -32,6 +32,7 @@ impl Display for Id {
 }
 
 impl Id {
+    #[cfg(test)]
     pub fn new_attr(message: &str, attribute: &str) -> Self {
         Self {
             message: message.to_owned(),
@@ -39,6 +40,7 @@ impl Id {
         }
     }
 
+    #[cfg(test)]
     pub fn new_msg(message: &str) -> Self {
         Self {
             message: message.to_owned(),

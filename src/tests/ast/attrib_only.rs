@@ -87,5 +87,5 @@ fn typed() {
 
 #[test]
 fn typed_gen() {
-    assert_gen(module_path!(), "test", true, FTL);
+    assert_gen(module_path!(), "test", FTL);
 }

@@ -11,16 +11,17 @@ pub struct Analyzed {
     pub missing_messages: Vec<String>,
     pub signature_mismatches: Vec<String>,
 }
-
-pub fn analyze(langs: &[LangBundle]) -> Analyzed {
-    let common_ids = common_message_ids(langs);
-    let missing_messages = missing_message_ids(&common_ids, langs);
-    let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
-    let common: HashSet<Id> = common_ids.difference(&ids).map(|id| id.clone()).collect();
-    Analyzed {
-        common,
-        missing_messages,
-        signature_mismatches,
+impl Analyzed {
+    pub fn from(langs: &[LangBundle]) -> Self {
+        let common_ids = common_message_ids(langs);
+        let missing_messages = missing_message_ids(&common_ids, langs);
+        let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
+        let common: HashSet<Id> = common_ids.difference(&ids).map(|id| id.clone()).collect();
+        Self {
+            common,
+            missing_messages,
+            signature_mismatches,
+        }
     }
 }
 
@@ -52,14 +53,12 @@ fn signature_mismatches(
 fn signatures_for_id<'a>(id: &Id, langs: &'a [LangBundle]) -> HashMap<&'a [Variable], Vec<String>> {
     let mut signatures: HashMap<&[Variable], Vec<String>> = HashMap::new();
     for lang in langs {
-        for resource in &lang.resources {
-            for msg in &resource.content {
-                if &msg.id == id {
-                    signatures
-                        .entry(&msg.variables)
-                        .or_default()
-                        .push(msg.trait_signature());
-                }
+        for msg in &lang.messages {
+            if &msg.id == id {
+                signatures
+                    .entry(&msg.variables)
+                    .or_default()
+                    .push(msg.trait_signature());
             }
         }
     }
@@ -71,9 +70,8 @@ fn common_message_ids(langs: &[LangBundle]) -> HashSet<Id> {
 
     for lang in langs {
         lang_signatures.push(
-            lang.resources
+            lang.messages
                 .iter()
-                .flat_map(|r| &r.content)
                 .map(|msg| msg.id.clone())
                 .collect::<HashSet<Id>>(),
         );
@@ -91,14 +89,12 @@ fn missing_message_ids(common_ids: &HashSet<Id>, langs: &[LangBundle]) -> Vec<St
     let mut not_present: HashMap<Id, Vec<String>> = HashMap::new();
 
     for lang in langs {
-        for resoure in &lang.resources {
-            for msg in &resoure.content {
-                if !common_ids.contains(&msg.id) {
-                    not_present
-                        .entry(msg.id.clone())
-                        .or_default()
-                        .push(lang.language.clone());
-                }
+        for msg in &lang.messages {
+            if !common_ids.contains(&msg.id) {
+                not_present
+                    .entry(msg.id.clone())
+                    .or_default()
+                    .push(lang.language_id.clone());
             }
         }
     }

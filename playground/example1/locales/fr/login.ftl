@@ -1,0 +1,1 @@
+enter-details = "Veuillez entrer vos détails"
