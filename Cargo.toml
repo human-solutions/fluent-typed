@@ -17,10 +17,12 @@ doctest = false
 
 [features]
 build = []
+langneg = ["dep:fluent-langneg"]
 
 [dependencies]
 fluent-syntax = "0.11"
 fluent-bundle = "0.15"
+fluent-langneg = { version = "0.14.1", optional = true }
 unic-langid = { version = "0.9", features = ["macros"] }
 
 [dev-dependencies]

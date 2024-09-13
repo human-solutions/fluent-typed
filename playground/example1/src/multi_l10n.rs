@@ -1,9 +1,15 @@
 // This file is generated. Do not edit it manually.
 use fluent_typed::prelude::*;
-use std::{borrow::Cow, ops::Range, str::FromStr};
+use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
 static EN: LanguageIdentifier = langid!("en");
 static FR: LanguageIdentifier = langid!("fr");
+
+static ALL_LANGS: [L10n; 2] = [
+    // languages as an array
+    L10n::En,
+    L10n::Fr,
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
@@ -38,12 +44,8 @@ impl L10n {
         }
     }
 
-    pub fn as_arr() -> &'static [Self; 2] {
-        &[
-            // languages as an array
-            Self::En,
-            Self::Fr,
-        ]
+    pub fn iter() -> Iter<'static, L10n> {
+        ALL_LANGS.iter()
     }
 }
 

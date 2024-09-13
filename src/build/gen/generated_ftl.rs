@@ -80,16 +80,14 @@ impl GeneratedFtl {
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
-        Self::as_arr()
-            .iter()
+        Self::iter()
             .map(|lang| L10nLanguage::new(lang.as_str(), &bytes[lang.byte_range()]))
             .collect()
     }"#
         } else {
             r#"
     pub fn load_all() -> Result<Vec<L10nLanguage>, String> {
-        Self::as_arr()
-            .iter()
+        Self::iter()
             .map(|lang| L10nLanguage::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
             .collect()
     }"#

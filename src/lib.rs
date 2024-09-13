@@ -2,6 +2,7 @@
 #[cfg(any(doc, feature = "build"))]
 mod build;
 mod language_bundle;
+mod language_collection;
 
 #[cfg(all(test, feature = "build"))]
 mod tests;
@@ -13,6 +14,7 @@ pub use build::{
 
 pub mod prelude {
     pub use crate::language_bundle::LanguageBundle;
+    pub use crate::language_collection::LanguageCollection;
     pub use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
     pub use unic_langid::{langid, LanguageIdentifier};
 }

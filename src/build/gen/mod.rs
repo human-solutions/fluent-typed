@@ -24,8 +24,10 @@ pub fn generate<'a>(
     let indent = &options.indentation;
     let mut replacements: Vec<(&str, String)> = Vec::new();
 
-    let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
-    replacements.push(("<<message implementations>>", impls));
+    replacements.push((
+        "<<placeholder lang_data>>",
+        generated_ftl.include_replacement(&options.output_file_path)?,
+    ));
 
     let enum_lang_ids = collect(langs.iter(), |lang| {
         format!(
@@ -34,6 +36,19 @@ pub fn generate<'a>(
         )
     });
     replacements.push(("<<placeholder static enum langid>>", enum_lang_ids));
+
+    let enum_entries = collect(langs.iter(), |lang| {
+        format!("{indent}L10n::{},", lang.rust_var_name())
+    });
+    let all_langs = format!(
+        r#"
+static ALL_LANGS: [L10n; {}] = [
+    // languages as an array
+{enum_entries}
+];"#,
+        langs.iter().count()
+    );
+    replacements.push(("<<placeholder all_langs>>", all_langs));
 
     let enum_variants = collect(langs.iter(), |lang| {
         format!("{indent}{},", lang.rust_var_name())
@@ -69,30 +84,13 @@ pub fn generate<'a>(
     });
     replacements.push(("<<placeholder enum id>>", enum_id));
 
-    let enum_as_arr = collect(langs.iter(), |lang| {
-        format!("{}Self::{},", indent.repeat(3), lang.rust_var_name())
-    });
-    let as_arr_fn = format!(
-        r#"
-    pub fn as_arr() -> &'static [Self; {}] {{
-        &[
-            // languages as an array
-{enum_as_arr}
-        ]
-    }}"#,
-        langs.iter().count()
-    );
-    replacements.push(("<<placeholder as_arr>>", as_arr_fn));
-
-    replacements.push((
-        "<<placeholder lang_data>>",
-        generated_ftl.include_replacement(&options.output_file_path)?,
-    ));
-
     replacements.push((
         "<<placeholder load functions>>",
         generated_ftl.accessor_replacement(),
     ));
+
+    let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
+    replacements.push(("<<message implementations>>", impls));
 
     let base = include_str!("template.rs");
 
@@ -103,10 +101,13 @@ pub fn generate<'a>(
                 return Some(line.to_string());
             }
             for (placeholder, replacement) in &replacements {
-                if replacement.is_empty() {
-                    return None;
-                } else if line.contains(placeholder) {
-                    return Some(replacement.to_string());
+                if line.contains(placeholder) {
+                    return if replacement.is_empty() {
+                        eprintln!("Empty replacement for placeholder: {}", placeholder);
+                        None
+                    } else {
+                        Some(replacement.to_string())
+                    };
                 }
             }
             panic!("Unknown placeholder in template: {}", line);

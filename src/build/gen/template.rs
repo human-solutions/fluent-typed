@@ -1,9 +1,10 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{borrow::Cow, ops::Range, str::FromStr};
+use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &'static [u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
 static EN: LanguageIdentifier = langid!("en"); // <<placeholder static enum langid>>
+static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
@@ -33,7 +34,10 @@ impl L10n {
             Self::Placeholder => &EN, // <<placeholder enum id>>
         }
     }
-    // <<placeholder as_arr>>
+
+    pub fn iter() -> Iter<'static, L10n> {
+        ALL_LANGS.iter()
+    }
     // <<placeholder load functions>>
 }
 

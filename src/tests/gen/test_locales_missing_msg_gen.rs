@@ -1,10 +1,16 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{borrow::Cow, ops::Range, str::FromStr};
+use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &'static [u8] = include_bytes!("test_locales_missing_msg.ftl");
 static DE: LanguageIdentifier = langid!("de");
 static EN_GB: LanguageIdentifier = langid!("en-gb");
+
+static ALL_LANGS: [L10n; 2] = [
+    // languages as an array
+    L10n::De,
+    L10n::EnGb,
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
@@ -39,12 +45,8 @@ impl L10n {
         }
     }
 
-    pub fn as_arr() -> &'static [Self; 2] {
-        &[
-            // languages as an array
-            Self::De,
-            Self::EnGb,
-        ]
+    pub fn iter() -> Iter<'static, L10n> {
+        ALL_LANGS.iter()
     }
 
     fn byte_range(&self) -> Range<usize> {
@@ -59,8 +61,7 @@ impl L10n {
     }
 
     pub fn load_all() -> Result<Vec<L10nLanguage>, String> {
-        Self::as_arr()
-            .iter()
+        Self::iter()
             .map(|lang| L10nLanguage::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
             .collect()
     }
