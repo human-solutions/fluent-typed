@@ -53,10 +53,11 @@ impl L10n {
         L10nLanguage::new(self.as_str(), &bytes)
     }
 
-    pub fn load_all() -> Result<Vec<L10nLanguage>, String> {
-        Self::iter()
-            .map(|lang| L10nLanguage::new(lang.as_str(), &LANG_DATA[lang.byte_range()]))
-            .collect()
+    pub fn load_all() -> Result<LanguageCollection, String> {
+        LanguageCollection::load(
+            &LANG_DATA,
+            Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
+        )
     }
 }
 

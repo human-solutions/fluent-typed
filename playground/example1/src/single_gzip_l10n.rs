@@ -63,14 +63,15 @@ impl L10n {
         L10nLanguage::new(self.as_str(), &bytes)
     }
 
-    pub fn load_all<D>(decompressor: D) -> Result<Vec<L10nLanguage>, String>
+    pub fn load_all<D>(decompressor: D) -> Result<LanguageCollection, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
-        Self::iter()
-            .map(|lang| L10nLanguage::new(lang.as_str(), &bytes[lang.byte_range()]))
-            .collect()
+        LanguageCollection::load(
+            &bytes,
+            Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
+        )
     }
 }
 
