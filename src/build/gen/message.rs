@@ -29,6 +29,7 @@ impl Message {
         if func_name == "language_name" {
             out.push_str("    #[allow(unused)]\n");
         }
+        out.push_str(&self.comment_lines());
         let implementation = if let Some(attr) = self.id.attribute.as_ref() {
             self.attr_impl(&self.variables, &self.id.message, attr, &signature)
         } else {

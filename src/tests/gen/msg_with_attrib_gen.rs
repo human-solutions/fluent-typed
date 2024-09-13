@@ -95,6 +95,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
+    /// This is a message comment
     fn msg_hello(&self) -> Cow<'_, str> {
         self.0.msg("hello", None).unwrap()
     }

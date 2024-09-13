@@ -95,6 +95,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
+    /// $duration (Number) - The duration in seconds.
     fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("duration", duration.into());

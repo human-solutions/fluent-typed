@@ -95,6 +95,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
+    /// $name (String) - The name.
     fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("name", name.as_ref());
