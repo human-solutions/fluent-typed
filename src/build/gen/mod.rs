@@ -147,7 +147,7 @@ static ALL_LANGS: [L10n; {}] = [
     }}"#,
             names
                 .iter()
-                .map(|(var, name)| format!(r#"            Self::{var}=> "{name}","#))
+                .map(|(var, name)| format!(r#"            Self::{var} => "{name}","#))
                 .collect::<Vec<_>>()
                 .join("\n")
         )
