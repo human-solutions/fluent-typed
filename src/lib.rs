@@ -16,5 +16,7 @@ pub mod prelude {
     pub use crate::l10n_bundle::L10nBundle;
     pub use crate::l10n_language_vec::L10nLanguageVec;
     pub use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
+    #[cfg(feature = "langneg")]
+    pub use fluent_langneg::{negotiate_languages, parse_accepted_languages};
     pub use unic_langid::{langid, LanguageIdentifier};
 }
