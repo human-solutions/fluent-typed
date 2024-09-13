@@ -9,6 +9,7 @@ static ALL_LANGS: [L10n; 2] = [
     L10n::De,
     L10n::EnGb,
 ];
+
 static DE: LanguageIdentifier = langid!("de");
 static EN_GB: LanguageIdentifier = langid!("en-gb");
 
@@ -62,8 +63,8 @@ impl L10n {
     /// Negotiate the best language to use based on the `Accept-Language` header.
     /// 
     /// Falls back to the default langauge if none of the accepted languages are available.
-    pub fn langneg(accepted_languages: &str) -> L10n {
-        *negotiate_languages(&accepted_languages, &ALL_LANGS, &ALL_LANGS[0])
+    pub fn langneg(accept_language: &str) -> L10n {
+        negotiate_languages(&accept_language, &ALL_LANGS)
     }
 
     fn byte_range(&self) -> Range<usize> {

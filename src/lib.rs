@@ -20,19 +20,18 @@ pub mod prelude {
     pub use icu_locid::{langid, LanguageIdentifier};
 
     #[cfg(feature = "langneg")]
-    pub fn negotiate_languages<'a, A: 'a + AsRef<LanguageIdentifier> + PartialEq>(
-        accept_language: &str,
-        available: &'a [A],
-        default: &'a A,
-    ) -> &'a A {
+    pub fn negotiate_languages<'a, A>(accept_language: &str, available: &'a [A]) -> A
+    where
+        A: 'a + AsRef<LanguageIdentifier> + PartialEq + Default + Copy,
+    {
         use fluent_langneg::{
             negotiate_languages, parse_accepted_languages, NegotiationStrategy::Filtering,
         };
         let requested = parse_accepted_languages(accept_language);
 
-        negotiate_languages(&requested, available, Some(default), Filtering)
+        negotiate_languages(&requested, available, None, Filtering)
             .first()
-            .map(|l| *l)
-            .unwrap_or(default)
+            .map(|l| **l)
+            .unwrap_or_default()
     }
 }
