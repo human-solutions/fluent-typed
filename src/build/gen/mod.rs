@@ -126,6 +126,38 @@ static ALL_LANGS: [L10n; {}] = [
     replacements.push(("<<placeholder enum to_str>>", enum_to_str));
 
     // ///////////////////////////
+
+    let names = locales
+        .iter()
+        .filter_map(|l| {
+            l.language_name
+                .as_ref()
+                .map(|name| (l.language_id.rust_var_name(), name))
+        })
+        .collect::<Vec<_>>();
+
+    let lang_name_fn = if names.len() == locales.len() {
+        format!(
+            r#"
+    pub fn language_name(&self) -> &'static str {{
+        match self {{
+{}
+        }}
+    }}"#,
+            names
+                .iter()
+                .map(|(var, name)| format!(r#"            Self::{var}=> "{name}","#))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    } else {
+        String::new()
+    };
+
+    replacements.push(("<<placeholder lang_name function>>", lang_name_fn));
+
+    // ///////////////////////////
+
     let enum_id = collect(langs.iter(), |lang| {
         format!(
             "{}Self::{} => &{},",
@@ -135,6 +167,8 @@ static ALL_LANGS: [L10n; {}] = [
         )
     });
     replacements.push(("<<placeholder enum id>>", enum_id));
+
+    // ///////////////////////////
 
     let langneg_fn = if cfg!(feature = "langneg") {
         format!(

@@ -59,6 +59,13 @@ impl L10n {
         ALL_LANGS.iter()
     }
 
+    pub fn language_name(&self) -> &'static str {
+        match self {
+            Self::En=> "English",
+            Self::Fr=> "Français",
+        }
+    }
+
     /// Negotiate the best language to use based on the `Accept-Language` header.
     /// 
     /// Falls back to the default langauge if none of the accepted languages are available.
@@ -83,6 +90,10 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
+    #[allow(unused)]
+    fn msg_language_name(&self) -> Cow<'_, str> {
+        self.0.msg("language-name", None).unwrap()
+    }
     fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("gender", gender);

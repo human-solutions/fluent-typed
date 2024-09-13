@@ -39,10 +39,10 @@ fn build_example1() {
     let listing = ls_ascii(&gen, 0).unwrap();
     assert_snapshot!(&listing, @r###"
     gen/
-      translations.ftl (401 bytes)
-      translations.ftl.gzip (184 bytes)
+      translations.ftl (452 bytes)
+      translations.ftl.gzip (209 bytes)
       multi/
-        en.ftl (185 bytes)
-        fr.ftl (216 bytes)
+        en.ftl (209 bytes)
+        fr.ftl (243 bytes)
     "###);
 }

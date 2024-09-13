@@ -18,6 +18,11 @@ You also have the freedom
 to handle the loading of them yourself, which is especially useful if you want to
 download a single language at a time without the need for storing them in the binary.
 
+A little extra feature is that if you name one of the messages as `language-name` and it
+doesn't use any variables plus it's present in all languages, then the generated L10n
+enum will also contain the names of all the languages, which is really useful when you
+want to present the user with a drop-down menu listing all the available languages.
+
 ## Usage
 
 ```toml
@@ -58,6 +63,11 @@ fn main() {
     // It provides safe function for accessing all messages.
     let strs: L10nLanguage = L10n::EnGb.load().unwrap();
 
+    // with the feature "langneg" you can do automatic language negotiation,
+    // which falls back on the default language as configured in the BuildOptions
+    // in the build.rs when generating.
+    let _ = L10n::langneg("en-GB");
+
     // In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
     // used inside of a Signal or other reactive construct, so that all
     // translations are automatically updated when the struct is changed.
@@ -68,6 +78,14 @@ fn main() {
     assert_eq!("Hello world", strs.msg_hello("world"));
     // A message with a number argument (Into<FluentNumber>).
     assert_eq!("You have 2 unread messages", strs.msg_unread_messages(2));
+
+    // the list of the translated, human-readable language names.
+    let language_names: Vec<&'static str> = L10n.iter().map(|lang| lang.language_name()).collect();
+
+    // typically server-side, you'll load all the languages
+    let languages = L10n::load_all();
+
+
 }
 ```
 
