@@ -109,6 +109,7 @@ static ALL_LANGS: [L10n; {}] = [
     });
     replacements.push(("<<placeholder enum to_str>>", enum_to_str));
 
+    // ///////////////////////////
     let enum_id = collect(langs.iter(), |lang| {
         format!(
             "{}Self::{} => &{},",
@@ -119,11 +120,29 @@ static ALL_LANGS: [L10n; {}] = [
     });
     replacements.push(("<<placeholder enum id>>", enum_id));
 
+    let langneg_fn = if cfg!(feature = "langneg") {
+        format!(
+            r#"
+    /// Negotiate the best language to use based on the `Accept-Language` header.
+    /// 
+    /// Falls back to the default langauge if none of the accepted languages are available.
+    pub fn langneg(accepted_languages: &str) -> L10n {{
+        *negotiate_languages(&accepted_languages, &ALL_LANGS, &ALL_LANGS[0])
+    }}"#,
+        )
+    } else {
+        String::new()
+    };
+
+    replacements.push(("<<placeholder langneg function>>", langneg_fn));
+
+    // ///////////////////////////
     replacements.push((
         "<<placeholder load functions>>",
         generated_ftl.accessor_replacement(),
     ));
 
+    // ///////////////////////////
     let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
     replacements.push(("<<message implementations>>", impls));
 

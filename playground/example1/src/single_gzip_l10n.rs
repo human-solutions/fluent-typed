@@ -53,6 +53,13 @@ impl L10n {
         ALL_LANGS.iter()
     }
 
+    /// Negotiate the best language to use based on the `Accept-Language` header.
+    /// 
+    /// Falls back to the default langauge if none of the accepted languages are available.
+    pub fn langneg(accepted_languages: &str) -> L10n {
+        *negotiate_languages(&accepted_languages, &ALL_LANGS, &ALL_LANGS[0])
+    }
+
     fn byte_range(&self) -> Range<usize> {
         match self {
             Self::En => 0..185,

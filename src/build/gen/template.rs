@@ -35,6 +35,7 @@ impl L10n {
     pub fn iter() -> Iter<'static, L10n> {
         ALL_LANGS.iter()
     }
+    // <<placeholder langneg function>>
     // <<placeholder load functions>>
 }
 
