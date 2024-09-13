@@ -69,10 +69,10 @@ impl L10n {
     }
 
     /// Negotiate the best language to use based on the `Accept-Language` header.
-    /// 
+    ///
     /// Falls back to the default language if none of the languages in the header are available.
     pub fn langneg(accept_language: &str) -> L10n {
-        negotiate_languages(&accept_language, &ALL_LANGS)
+        negotiate_languages(accept_language, &ALL_LANGS)
     }
 }
 

@@ -2,7 +2,7 @@
 use fluent_typed::prelude::*;
 use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
-static LANG_DATA: &'static [u8] = include_bytes!("../gen/translations.ftl.gzip");
+static LANG_DATA: &[u8] = include_bytes!("../gen/translations.ftl.gzip");
 
 static ALL_LANGS: [L10n; 2] = [
     // languages as an array
@@ -70,10 +70,10 @@ impl L10n {
     }
 
     /// Negotiate the best language to use based on the `Accept-Language` header.
-    /// 
+    ///
     /// Falls back to the default language if none of the languages in the header are available.
     pub fn langneg(accept_language: &str) -> L10n {
-        negotiate_languages(&accept_language, &ALL_LANGS)
+        negotiate_languages(accept_language, &ALL_LANGS)
     }
 
     fn byte_range(&self) -> Range<usize> {

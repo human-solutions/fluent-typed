@@ -39,16 +39,20 @@ use fluent_typed::{build_from_locales_folder, BuildOptions, FtlOutputOptions};
 
 // in build.rs
 fn main() -> std::process::ExitCode {
-    // Build with the default settings, which means to generate the src/l10n.rs file from
-    // the fluent translations found in the `locales/` folder, prefix the generated functions
-    // with "msg_" and indent the code with 4 spaces.It also generates a single ftl file with
-    // all the languages, which is embedded in the binary. See the BuildOptions and
+    // Build with the default settings, which means to
+    // generate the src/l10n.rs file from the fluent
+    // translations found in the `locales/` folder,
+    // prefix the generated functions with "msg_" and
+    // indent the code with 4 spaces.It also generates a
+    // single ftl file with all the languages, which is
+    // embedded in the binary. See the BuildOptions and
     // FtlOutputOptions for all the configuration options.
     //
     // This function returns an ExitCode.
     build_from_locales_folder(BuildOptions::default())
 
-    // Note: there are also fluent_typed::try_build_from_locales_folder which returns a Result
+    // Note: there are also `try_build_from_locales_folder`
+    // which returns a Result
 }
 ```
 
@@ -57,36 +61,32 @@ fn main() -> std::process::ExitCode {
 mod l10n;
 use l10n::L10n;
 
+// Load english translations in an L10nLanguage struct.
+// It provides safe function for accessing all messages.
+let strs: L10nLanguage = L10n::EnGb.load().unwrap();
 
-fn main() {
-    // Load english translations in an L10nLanguage struct.
-    // It provides safe function for accessing all messages.
-    let strs: L10nLanguage = L10n::EnGb.load().unwrap();
+// with the feature "langneg" you can do automatic language
+// negotiation, which falls back on the default language as
+// configured in the BuildOptions in the build.rs when generating.
+let _ = L10n::langneg("en-GB");
 
-    // with the feature "langneg" you can do automatic language negotiation,
-    // which falls back on the default language as configured in the BuildOptions
-    // in the build.rs when generating.
-    let _ = L10n::langneg("en-GB");
+// In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
+// used inside of a Signal or other reactive construct, so that all
+// translations are automatically updated when the struct is changed.
 
-    // In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
-    // used inside of a Signal or other reactive construct, so that all
-    // translations are automatically updated when the struct is changed.
+// A message without arguments.
+assert_eq!("Welcome!", strs.msg_greeting());
+// A message with a string argument (AsRef<str>).
+assert_eq!("Hello world", strs.msg_hello("world"));
+// A message with a number argument (Into<FluentNumber>).
+assert_eq!("You have 2 unread messages", strs.msg_unread_messages(2));
 
-    // A message without arguments.
-    assert_eq!("Welcome!", strs.msg_greeting());
-    // A message with a string argument (AsRef<str>).
-    assert_eq!("Hello world", strs.msg_hello("world"));
-    // A message with a number argument (Into<FluentNumber>).
-    assert_eq!("You have 2 unread messages", strs.msg_unread_messages(2));
+// the list of the translated, human-readable language names.
+let language_names: Vec<&'static str>
+  = L10n.iter().map(|lang| lang.language_name()).collect();
 
-    // the list of the translated, human-readable language names.
-    let language_names: Vec<&'static str> = L10n.iter().map(|lang| lang.language_name()).collect();
-
-    // typically server-side, you'll load all the languages
-    let languages = L10n::load_all();
-
-
-}
+// typically server-side, you'll load all the languages
+let languages = L10n::load_all();
 ```
 
 ## Type deduction
