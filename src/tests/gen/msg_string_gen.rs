@@ -53,8 +53,8 @@ impl L10n {
         L10nLanguage::new(self.as_str(), &bytes)
     }
 
-    pub fn load_all() -> Result<LanguageCollection, String> {
-        LanguageCollection::load(
+    pub fn load_all() -> Result<L10nLanguageVec, String> {
+        L10nLanguageVec::load(
             &LANG_DATA,
             Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
         )
@@ -65,7 +65,7 @@ impl L10n {
 ///
 /// It provides functions for each message that was found in
 /// all the languages at build time.
-pub struct L10nLanguage(LanguageBundle);
+pub struct L10nLanguage(L10nBundle);
 
 impl L10nLanguage {
     /// Load the L10n resources for the given language. The language
@@ -74,7 +74,7 @@ impl L10nLanguage {
     ///
     /// The bytes are expected to be the contents of a .ftl file
     pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
-        Ok(Self(LanguageBundle::new(lang, bytes)?))
+        Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
     pub fn language_identifier(&self) -> &LanguageIdentifier {

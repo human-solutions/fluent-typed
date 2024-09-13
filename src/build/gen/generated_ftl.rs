@@ -75,20 +75,20 @@ impl GeneratedFtl {
 
         let load_all_fn = if compressed {
             r#"
-    pub fn load_all<D>(decompressor: D) -> Result<LanguageCollection, String>
+    pub fn load_all<D>(decompressor: D) -> Result<L10nLanguageVec, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
-        LanguageCollection::load(
+        L10nLanguageVec::load(
             &bytes,
             Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
         )
     }"#
         } else {
             r#"
-    pub fn load_all() -> Result<LanguageCollection, String> {
-        LanguageCollection::load(
+    pub fn load_all() -> Result<L10nLanguageVec, String> {
+        L10nLanguageVec::load(
             &LANG_DATA,
             Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
         )
