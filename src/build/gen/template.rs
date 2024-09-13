@@ -3,7 +3,6 @@ use crate::prelude::*;
 use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &'static [u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
-static EN: LanguageIdentifier = langid!("en"); // <<placeholder static enum langid>>
 static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,19 +21,15 @@ impl FromStr for L10n {
     }
 }
 
-impl L10n {
-    pub fn as_str(&self) -> &'static str {
+impl AsRef<str> for L10n {
+    fn as_ref(&self) -> &str {
         match self {
             Self::Placeholder => "placeholder", // <<placeholder enum to_str>>
         }
     }
+}
 
-    pub fn id(&self) -> &'static LanguageIdentifier {
-        match self {
-            Self::Placeholder => &EN, // <<placeholder enum id>>
-        }
-    }
-
+impl L10n {
     pub fn iter() -> Iter<'static, L10n> {
         ALL_LANGS.iter()
     }
@@ -53,12 +48,8 @@ impl L10nLanguage {
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
-    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
         Ok(Self(L10nBundle::new(lang, bytes)?))
-    }
-
-    pub fn language_identifier(&self) -> &LanguageIdentifier {
-        self.0.lang()
     }
 
     // <<message implementations>>

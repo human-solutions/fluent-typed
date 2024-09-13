@@ -59,14 +59,14 @@ impl GeneratedFtl {
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
-        L10nLanguage::new(self.as_str(), &bytes)
+        L10nLanguage::new(self, &bytes)
     }
 "#
         } else {
             r#"
     pub fn load(&self) -> Result<L10nLanguage, String> {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10nLanguage::new(self.as_str(), &bytes)
+        L10nLanguage::new(self, &bytes)
     }
 "#
         };
@@ -82,7 +82,7 @@ impl GeneratedFtl {
         let bytes = decompressor(LANG_DATA)?;
         L10nLanguageVec::load(
             &bytes,
-            Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
+            Self::iter().map(|lang| (lang, lang.byte_range())),
         )
     }"#
         } else {
@@ -90,7 +90,7 @@ impl GeneratedFtl {
     pub fn load_all() -> Result<L10nLanguageVec, String> {
         L10nLanguageVec::load(
             &LANG_DATA,
-            Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
+            Self::iter().map(|lang| (lang, lang.byte_range())),
         )
     }"#
         };

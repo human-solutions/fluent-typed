@@ -3,8 +3,6 @@ use crate::prelude::*;
 use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &'static [u8] = include_bytes!("test_locales_missing_msg.ftl");
-static DE: LanguageIdentifier = langid!("de");
-static EN_GB: LanguageIdentifier = langid!("en-gb");
 
 static ALL_LANGS: [L10n; 2] = [
     // languages as an array
@@ -30,21 +28,16 @@ impl FromStr for L10n {
     }
 }
 
-impl L10n {
-    pub fn as_str(&self) -> &'static str {
+impl AsRef<str> for L10n {
+    fn as_ref(&self) -> &str {
         match self {
             Self::De => "de",
             Self::EnGb => "en-gb",
         }
     }
+}
 
-    pub fn id(&self) -> &'static LanguageIdentifier {
-        match self {
-            Self::De => &DE,
-            Self::EnGb => &EN_GB,
-        }
-    }
-
+impl L10n {
     pub fn iter() -> Iter<'static, L10n> {
         ALL_LANGS.iter()
     }
@@ -57,13 +50,13 @@ impl L10n {
     }
     pub fn load(&self) -> Result<L10nLanguage, String> {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10nLanguage::new(self.as_str(), &bytes)
+        L10nLanguage::new(self, &bytes)
     }
 
     pub fn load_all() -> Result<L10nLanguageVec, String> {
         L10nLanguageVec::load(
             &LANG_DATA,
-            Self::iter().map(|lang| (lang.as_str(), lang.byte_range())),
+            Self::iter().map(|lang| (lang, lang.byte_range())),
         )
     }
 }
@@ -80,12 +73,8 @@ impl L10nLanguage {
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
-    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
         Ok(Self(L10nBundle::new(lang, bytes)?))
-    }
-
-    pub fn language_identifier(&self) -> &LanguageIdentifier {
-        self.0.lang()
     }
 
     fn msg_twenty_four_hour(&self) -> Cow<'_, str> {

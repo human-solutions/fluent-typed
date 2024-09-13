@@ -2,8 +2,6 @@
 use fluent_typed::prelude::*;
 use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
-static EN: LanguageIdentifier = langid!("en");
-static FR: LanguageIdentifier = langid!("fr");
 
 static ALL_LANGS: [L10n; 2] = [
     // languages as an array
@@ -29,21 +27,16 @@ impl FromStr for L10n {
     }
 }
 
-impl L10n {
-    pub fn as_str(&self) -> &'static str {
+impl AsRef<str> for L10n {
+    fn as_ref(&self) -> &str {
         match self {
             Self::En => "en",
             Self::Fr => "fr",
         }
     }
+}
 
-    pub fn id(&self) -> &'static LanguageIdentifier {
-        match self {
-            Self::En => &EN,
-            Self::Fr => &FR,
-        }
-    }
-
+impl L10n {
     pub fn iter() -> Iter<'static, L10n> {
         ALL_LANGS.iter()
     }
@@ -61,12 +54,8 @@ impl L10nLanguage {
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
-    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
         Ok(Self(L10nBundle::new(lang, bytes)?))
-    }
-
-    pub fn language_identifier(&self) -> &LanguageIdentifier {
-        self.0.lang()
     }
 
     fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> Cow<'_, str> {

@@ -17,13 +17,15 @@ doctest = false
 
 [features]
 build = []
-langneg = ["dep:fluent-langneg"]
+langneg = ["dep:fluent-langneg", "dep:icu_locid"]
 
 [dependencies]
 fluent-syntax = "0.11"
 fluent-bundle = "0.15"
 fluent-langneg = { version = "0.14.1", optional = true }
-unic-langid = { version = "0.9", features = ["macros"] }
+unic-langid = "0.9"
+icu_locid = { version = "1.5", optional = true }
 
 [dev-dependencies]
 insta = "1.40"
+unic-langid = { version = "0.9", features = ["macros"] }

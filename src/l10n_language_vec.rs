@@ -1,7 +1,5 @@
 use std::ops::Range;
 
-use unic_langid::LanguageIdentifier;
-
 use crate::prelude::L10nBundle;
 
 pub struct L10nLanguageVec {
@@ -9,9 +7,10 @@ pub struct L10nLanguageVec {
 }
 
 impl L10nLanguageVec {
-    pub fn load<'a, I>(bytes: &[u8], iter: I) -> Result<Self, String>
+    pub fn load<'a, S, I>(bytes: &[u8], iter: I) -> Result<Self, String>
     where
-        I: Iterator<Item = (&'a str, Range<usize>)>,
+        S: AsRef<str>,
+        I: Iterator<Item = (S, Range<usize>)>,
     {
         Ok(Self {
             langs: iter
@@ -20,7 +19,11 @@ impl L10nLanguageVec {
         })
     }
 
-    pub fn get(&self, lang: &LanguageIdentifier) -> &L10nBundle {
-        self.langs.iter().find(|b| b.lang() == lang).unwrap()
+    /// IMPORTANT, the lang argument should be a L10n enum variant
+    pub fn get(&self, lang: impl AsRef<str>) -> &L10nBundle {
+        self.langs
+            .iter()
+            .find(|b| b.lang() == lang.as_ref())
+            .unwrap()
     }
 }

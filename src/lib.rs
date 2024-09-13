@@ -18,5 +18,4 @@ pub mod prelude {
     pub use fluent_bundle::{types::FluentNumber, FluentArgs, FluentValue};
     #[cfg(feature = "langneg")]
     pub use fluent_langneg::{negotiate_languages, parse_accepted_languages};
-    pub use unic_langid::{langid, LanguageIdentifier};
 }

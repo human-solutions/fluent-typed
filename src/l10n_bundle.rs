@@ -4,24 +4,30 @@ use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
 use fluent_syntax::ast::Pattern;
 use unic_langid::LanguageIdentifier;
 
-pub struct L10nBundle(FluentBundle<FluentResource>);
+pub struct L10nBundle {
+    lang: String,
+    bundle: FluentBundle<FluentResource>,
+}
 
 impl L10nBundle {
-    pub fn new(lang: &str, bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
         let ftl = String::from_utf8(bytes.to_vec())
             .map_err(|e| format!("Could not read ftl string due to: {e}"))?;
-        let lang: LanguageIdentifier = lang.parse().map_err(|e| format!("{e:?}"))?;
-        let mut bundle = FluentBundle::new(vec![lang]);
+        let lang_id: LanguageIdentifier = lang.as_ref().parse().map_err(|e| format!("{e:?}"))?;
+        let mut bundle = FluentBundle::new(vec![lang_id]);
         let resource = FluentResource::try_new(ftl).map_err(|e| format!("{e:?}"))?;
         bundle
             .add_resource(resource)
             .map_err(|e| format!("{e:?}"))?;
 
-        Ok(Self(bundle))
+        Ok(Self {
+            bundle,
+            lang: lang.as_ref().to_string(),
+        })
     }
 
-    pub fn lang(&self) -> &LanguageIdentifier {
-        self.0.locales.get(0).unwrap()
+    pub fn lang(&self) -> &str {
+        &self.lang
     }
 
     pub fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<Cow<'_, str>, String> {
@@ -45,7 +51,7 @@ impl L10nBundle {
         attr_id: Option<&str>,
     ) -> Result<&Pattern<&str>, String> {
         let message = self
-            .0
+            .bundle
             .get_message(msg_id)
             .ok_or_else(|| format!("Could not find {msg_id}"))?;
         if let Some(attr_id) = attr_id {
@@ -70,7 +76,7 @@ impl L10nBundle {
         args: Option<&FluentArgs>,
     ) -> Result<Cow<'a, str>, String> {
         let mut errors = vec![];
-        let value = self.0.format_pattern(pattern, args, &mut errors);
+        let value = self.bundle.format_pattern(pattern, args, &mut errors);
         if !errors.is_empty() {
             let attr_str = attr
                 .map(|a| format!("attribute '{a}' in "))
