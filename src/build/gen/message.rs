@@ -22,13 +22,21 @@ impl Message {
     }
 
     pub fn implementations(&self, prefix: &str) -> String {
-        let signature =
-            self.signature(&self.variables, &format!("{prefix}{}", self.id.func_name()));
-        if let Some(attr) = self.id.attribute.as_ref() {
+        let func_name = self.id.func_name();
+        let signature = self.signature(&self.variables, &format!("{prefix}{func_name}"));
+
+        let mut out = String::new();
+        if func_name == "language_name" {
+            out.push_str("    #[allow(unused)]\n");
+        }
+        out.push_str(&self.comment_lines());
+        let implementation = if let Some(attr) = self.id.attribute.as_ref() {
             self.attr_impl(&self.variables, &self.id.message, attr, &signature)
         } else {
             self.func_impl(&self.variables, &self.id.message, &signature)
-        }
+        };
+        out.push_str(&implementation);
+        out
     }
 
     fn attr_impl(

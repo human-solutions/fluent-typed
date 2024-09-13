@@ -1,36 +1,26 @@
+mod builder;
 pub mod gen;
-mod loader;
+mod lang_bundle;
+pub mod options;
 pub mod typed;
 mod validations;
 
-use crate::build;
-use gen::generate;
-pub use loader::from_locales_folder;
-use std::{collections::HashSet, fs, process::ExitCode};
-pub use validations::{analyze, Analyzed};
-
+pub use builder::Builder;
+pub use lang_bundle::LangBundle;
+pub use options::{BuildOptions, FtlOutputOptions};
+use std::process::ExitCode;
 pub use typed::Message;
+pub use validations::Analyzed;
 
-#[derive(Debug)]
-pub struct LangResource {
-    pub name: String,
-    pub content: Vec<Message>,
-}
-
-#[derive(Debug)]
-pub struct LangBundle {
-    pub language: String,
-    pub resources: Vec<LangResource>,
-}
-
-/// Generate rust code from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
+/// Generate rust code and ftl files from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
 ///
 /// The generation should be done in a build script:
 ///
 /// ```no_run
 /// // in build.rs
 /// fn main() -> std::process::ExitCode {
-///    fluent_typed::build_from_locales_folder("locales", "src/l10n.rs", "msg_", "    ")
+///    let options = fluent_typed::BuildOptions::default();
+///    fluent_typed::build_from_locales_folder(options)
 /// }
 /// ```
 ///
@@ -50,18 +40,10 @@ pub struct LangBundle {
 /// It is recommended to generate the rust code to the output_file_path "src/l10n.rs" and include
 /// it in the project, so that you get warnings for unused translation messages.
 ///
-/// The prefix is a simple string that will be added to all generated function names. It would
-/// typically be "msg_" or "message_" or "" for no prefix.
+/// See [BuildOptions] for more configuration options.
 ///
-/// The last argument is the indentation used in the generated file. It is typically four spaces.
-///
-pub fn build_from_locales_folder(
-    locales: &str,
-    output_file_path: &str,
-    prefix: &str,
-    indentation: &str,
-) -> ExitCode {
-    match try_build_from_locales_folder(locales, output_file_path, prefix, indentation) {
+pub fn build_from_locales_folder(options: BuildOptions) -> ExitCode {
+    match try_build_from_locales_folder(options) {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -71,65 +53,9 @@ pub fn build_from_locales_folder(
 }
 
 /// Same as [build_from_locales_folder], but returns result instead of an ExitCode.
-pub fn try_build_from_locales_folder(
-    locales: &str,
-    output_file_path: &str,
-    prefix: &str,
-    indentation: &str,
-) -> Result<(), String> {
+pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String> {
+    let locales = &options.locales_folder;
     println!("cargo::rerun-if-changed={locales}");
 
-    let locales = build::from_locales_folder(locales)
-        .map_err(|e| format!("Could not read locales folder '{locales}': {e:?}"))?;
-
-    let analyzed = build::analyze(&locales);
-
-    let generated =
-        generate_from_locales(prefix, &locales, &analyzed)?.replace("    ", indentation);
-
-    for warn in analyzed.missing_messages {
-        println!("cargo::warning={warn}");
-    }
-    for warn in analyzed.signature_mismatches {
-        println!("cargo::warning={warn}");
-    }
-
-    if let Some(current_file) = fs::read_to_string(output_file_path).ok() {
-        if current_file == generated {
-            return Ok(());
-        }
-    }
-
-    fs::write(output_file_path, generated)
-        .map_err(|e| format!("Could not write rust file '{output_file_path}': {e:?}"))?;
-
-    Ok(())
-}
-
-pub fn generate_from_locales(
-    prefix: &str,
-    locales: &[LangBundle],
-    analyzed: &Analyzed,
-) -> Result<String, String> {
-    let mut added = HashSet::new();
-    let messages = locales
-        .iter()
-        .flat_map(|l| &l.resources)
-        .flat_map(|r| &r.content)
-        .filter(|msg| analyzed.common.contains(&msg.id))
-        .filter(|msg| added.insert(&msg.id));
-
-    let resources: HashSet<&str> = locales
-        .iter()
-        .map(|loc| {
-            loc.resources
-                .iter()
-                .map(|res| res.name.as_str())
-                .collect::<Vec<_>>()
-        })
-        .flatten()
-        .collect();
-    let mut resources = resources.iter().map(|r| r.as_ref()).collect::<Vec<_>>();
-    resources.sort();
-    Ok(generate(prefix, &resources, messages))
+    Builder::load(options)?.generate()
 }
