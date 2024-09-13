@@ -63,6 +63,22 @@ static ALL_LANGS: [L10n; {}] = [
     replacements.push(("<<placeholder enum variant>>", enum_variants));
 
     // ///////////////////////////
+
+    if !langs.contains(&options.default_language.as_str()) {
+        return Err(format!(
+            "Default language '{}' not found in locales",
+            options.default_language
+        ));
+    }
+
+    let default_lang = format!(
+        "        Self::{}",
+        &options.default_language.rust_var_name()
+    );
+
+    replacements.push(("<<placeholder default lang>>", default_lang));
+
+    // ///////////////////////////
     let enum_from_str = collect(langs.iter(), |lang| {
         format!(
             "{}\"{lang}\" => Ok(Self::{}),",

@@ -45,7 +45,8 @@ fn test_locales_folder() {
     let options = BuildOptions::default()
         .with_locales_folder("src/tests/test_locales")
         .with_ftl_output(ftl_opts)
-        .with_output_file_path("src/tests/gen/test_locales_gen.rs");
+        .with_output_file_path("src/tests/gen/test_locales_gen.rs")
+        .with_default_language("en-gb");
     Builder::load(options).unwrap().generate().unwrap();
 }
 
@@ -58,7 +59,9 @@ fn test_locales_multi_resources() {
     let options = BuildOptions::default()
         .with_locales_folder("src/tests/test_locales_multi_resources")
         .with_ftl_output(ftl_opts)
-        .with_output_file_path("src/tests/gen/test_locales_multi_resources_gen.rs");
+        .with_output_file_path("src/tests/gen/test_locales_multi_resources_gen.rs")
+        .with_default_language("en-gb");
+
     Builder::load(options).unwrap().generate().unwrap();
 }
 
@@ -71,7 +74,8 @@ fn test_locales_missing_msg() {
     let options = BuildOptions::default()
         .with_locales_folder("src/tests/test_locales")
         .with_ftl_output(ftl_opts)
-        .with_output_file_path("src/tests/gen/test_locales_missing_msg_gen.rs");
+        .with_output_file_path("src/tests/gen/test_locales_missing_msg_gen.rs")
+        .with_default_language("en-gb");
     Builder::load(options).unwrap().generate().unwrap();
 }
 

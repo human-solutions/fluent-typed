@@ -18,6 +18,12 @@ pub enum L10n {
     EnGb,
 }
 
+impl Default for L10n {
+    fn default() -> Self {
+        Self::EnGb
+    }
+}
+
 impl FromStr for L10n {
     type Err = String;
 

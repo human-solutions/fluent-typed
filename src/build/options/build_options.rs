@@ -27,11 +27,11 @@ pub struct BuildOptions {
     /// Defaults to four spaces.
     pub indentation: String,
 
-    #[cfg(feature = "langneg")]
-    /// Activates the language negotiation feature and sets the default language.
+    /// The default language to use for the L10n enum. An error is thrown
+    /// during build if the default language is not found in the locales.
     ///
-    /// It defaults to "en".
-    pub language_negotiation_default_language: String,
+    /// It defaults to "en"
+    pub default_language: String,
 }
 
 impl Default for BuildOptions {
@@ -42,8 +42,7 @@ impl Default for BuildOptions {
             ftl_output: Default::default(),
             prefix: "msg_".to_string(),
             indentation: "    ".to_string(),
-            #[cfg(feature = "langneg")]
-            language_negotiation_default_language: "en".to_string(),
+            default_language: "en".to_string(),
         }
     }
 }
@@ -53,7 +52,7 @@ impl BuildOptions {
         self.locales_folder = locales_folder.to_string();
         self
     }
-    
+
     pub fn with_output_file_path(mut self, output_file_path: &str) -> Self {
         self.output_file_path = output_file_path.to_string();
         self
@@ -74,9 +73,8 @@ impl BuildOptions {
         self
     }
 
-    #[cfg(feature = "langneg")]
-    pub fn with_language_negotiation_default_language(mut self, lang: &str) -> Self {
-        self.language_negotiation_default_language = lang.to_string();
+    pub fn with_default_language(mut self, lang: &str) -> Self {
+        self.default_language = lang.to_string();
         self
     }
 }

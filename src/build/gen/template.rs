@@ -11,6 +11,12 @@ pub enum L10n {
     Placeholder, // <<placeholder enum variant>>
 }
 
+impl Default for L10n {
+    fn default() -> Self {
+        Self::Placeholder // <<placeholder default lang>>
+    }
+}
+
 impl FromStr for L10n {
     type Err = String;
 
