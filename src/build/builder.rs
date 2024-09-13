@@ -14,7 +14,7 @@ impl Builder {
         let mut langbundles = from_locales_folder(folder)
             .map_err(|e| format!("Could not read locales folder '{folder}': {e:?}"))?;
 
-        langbundles.sort_by_cached_key(|lb| lb.language.clone());
+        langbundles.sort_by_cached_key(|lb| lb.language_id.clone());
 
         Ok(Self {
             langbundles,

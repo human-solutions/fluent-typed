@@ -94,7 +94,7 @@ fn missing_message_ids(common_ids: &HashSet<Id>, langs: &[LangBundle]) -> Vec<St
                 not_present
                     .entry(msg.id.clone())
                     .or_default()
-                    .push(lang.language.clone());
+                    .push(lang.language_id.clone());
             }
         }
     }

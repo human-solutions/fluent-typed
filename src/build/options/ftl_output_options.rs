@@ -93,7 +93,7 @@ impl FtlOutputOptions {
                 let dir = PathBuf::from(output_ftl_folder);
                 create_dir(&dir)?;
                 for lang in locales {
-                    let mut file = dir.join(&lang.language);
+                    let mut file = dir.join(&lang.language_id);
                     file.set_extension("ftl");
                     write(lang.ftl.as_bytes(), &file)?;
                 }
@@ -114,7 +114,7 @@ impl FtlOutputOptions {
                 for locale in locales {
                     let bytes = locale.ftl.bytes();
                     content.extend(bytes);
-                    let lang = locale.language.clone();
+                    let lang = locale.language_id.clone();
                     positions.push((lang, pos..content.len()));
                     pos = content.len();
                 }

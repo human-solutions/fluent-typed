@@ -17,7 +17,7 @@ pub fn generate<'a>(
 
     let mut langs = locales
         .iter()
-        .map(|r| r.language.as_str())
+        .map(|r| r.language_id.as_str())
         .collect::<Vec<_>>();
     langs.sort();
 
@@ -162,10 +162,20 @@ static ALL_LANGS: [L10n; {}] = [
     let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
     replacements.push(("<<message implementations>>", impls));
 
-    let base = include_str!("template.rs");
+    let mut base = do_replace(include_str!("template.rs"), replacements);
+    base.push('\n');
 
-    let mut base = base
-        .lines()
+    #[cfg(not(test))]
+    let base = base.replace("use crate::prelude::*;", "use fluent_typed::prelude::*;");
+    Ok(base)
+}
+
+fn collect<T, F: Fn(T) -> String>(vals: impl Iterator<Item = T>, f: F) -> String {
+    vals.map(f).collect::<Vec<_>>().join("\n")
+}
+
+fn do_replace(base: &str, replacements: Vec<(&str, String)>) -> String {
+    base.lines()
         .filter_map(|line| {
             if !line.contains("<<") {
                 return Some(line.to_string());
@@ -183,14 +193,5 @@ static ALL_LANGS: [L10n; {}] = [
             panic!("Unknown placeholder in template: {}", line);
         })
         .collect::<Vec<_>>()
-        .join("\n");
-    base.push('\n');
-
-    #[cfg(not(test))]
-    let base = base.replace("use crate::prelude::*;", "use fluent_typed::prelude::*;");
-    Ok(base)
-}
-
-fn collect<T, F: Fn(T) -> String>(vals: impl Iterator<Item = T>, f: F) -> String {
-    vals.map(f).collect::<Vec<_>>().join("\n")
+        .join("\n")
 }

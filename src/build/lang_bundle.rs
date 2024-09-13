@@ -5,7 +5,7 @@ use std::path::Path;
 
 #[derive(Debug)]
 pub struct LangBundle {
-    pub language: String,
+    pub language_id: String,
     pub messages: Vec<Message>,
     pub ftl: String,
 }
@@ -14,14 +14,14 @@ impl LangBundle {
     #[cfg(test)]
     pub fn from_ftl(ftl: &str, name: &str, lang: &str) -> Result<Self, String> {
         Ok(LangBundle {
-            language: lang.to_string(),
+            language_id: lang.to_string(),
             messages: to_messages(name, ftl)?,
             ftl: ftl.to_string(),
         })
     }
     pub fn from_folder(folder: &Path, lang: &str) -> Result<Self, String> {
         let mut bundle = LangBundle {
-            language: lang.to_string(),
+            language_id: lang.to_string(),
             messages: Vec::new(),
             ftl: String::new(),
         };

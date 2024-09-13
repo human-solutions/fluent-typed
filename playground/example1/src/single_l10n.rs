@@ -73,16 +73,16 @@ impl L10n {
             Self::Fr => 185..401,
         }
     }
-    pub fn load(&self) -> Result<L10nLanguage, String> {
+    pub fn load(&self) -> L10nLanguage {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10nLanguage::new(self, &bytes)
+        L10nLanguage::new(self, &bytes).unwrap()
     }
 
-    pub fn load_all() -> Result<L10nLanguageVec, String> {
+    pub fn load_all() -> L10nLanguageVec {
         L10nLanguageVec::load(
             &LANG_DATA,
             Self::iter().map(|lang| (lang, lang.byte_range())),
-        )
+        ).unwrap()
     }
 }
 
