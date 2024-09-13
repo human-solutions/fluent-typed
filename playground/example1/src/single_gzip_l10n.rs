@@ -13,6 +13,7 @@ static ALL_LANGS: [L10n; 2] = [
 static EN: LanguageIdentifier = langid!("en");
 static FR: LanguageIdentifier = langid!("fr");
 
+/// The languages that have translations available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
     En,
@@ -60,6 +61,7 @@ impl L10n {
         ALL_LANGS.iter()
     }
 
+    /// The language name as defined in the ftl message "language-name".
     pub fn language_name(&self) -> &'static str {
         match self {
             Self::En=> "English",
@@ -69,7 +71,7 @@ impl L10n {
 
     /// Negotiate the best language to use based on the `Accept-Language` header.
     /// 
-    /// Falls back to the default langauge if none of the accepted languages are available.
+    /// Falls back to the default language if none of the languages in the header are available.
     pub fn langneg(accept_language: &str) -> L10n {
         negotiate_languages(&accept_language, &ALL_LANGS)
     }
@@ -80,6 +82,10 @@ impl L10n {
             Self::Fr => 209..452,
         }
     }
+    /// Load a L10nLanguage from the embedded data.
+    /// 
+    /// The provided decompressor function is used to decompress the data
+    /// and has to be the same as when the data was generated in the build.rs script.
     pub fn load<D>(&self, decompressor: D) -> Result<L10nLanguage, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
@@ -88,6 +94,10 @@ impl L10n {
         L10nLanguage::new(self, &bytes)
     }
 
+    /// Load all languages (L10nLanguage) from the embedded data.
+    /// 
+    /// The provided decompressor function is used to decompress the data
+    /// and has to be the same as when the data was generated in the build.rs script.
     pub fn load_all<D>(decompressor: D) -> Result<L10nLanguageVec, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,

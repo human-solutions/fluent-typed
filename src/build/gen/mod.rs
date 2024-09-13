@@ -139,6 +139,7 @@ static ALL_LANGS: [L10n; {}] = [
     let lang_name_fn = if names.len() == locales.len() {
         format!(
             r#"
+    /// The language name as defined in the ftl message "language-name".
     pub fn language_name(&self) -> &'static str {{
         match self {{
 {}
@@ -175,7 +176,7 @@ static ALL_LANGS: [L10n; {}] = [
             r#"
     /// Negotiate the best language to use based on the `Accept-Language` header.
     /// 
-    /// Falls back to the default langauge if none of the accepted languages are available.
+    /// Falls back to the default language if none of the languages in the header are available.
     pub fn langneg(accept_language: &str) -> L10n {{
         negotiate_languages(&accept_language, &ALL_LANGS)
     }}"#,

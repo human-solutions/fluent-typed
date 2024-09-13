@@ -7,6 +7,7 @@ static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
 
 // <<placeholder static enum langid>>
 
+/// The languages that have translations available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
     Placeholder, // <<placeholder enum variant>>

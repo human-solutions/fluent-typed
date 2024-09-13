@@ -54,6 +54,10 @@ impl GeneratedFtl {
 
         let load_fn = if compressed {
             r#"
+    /// Load a L10nLanguage from the embedded data.
+    /// 
+    /// The provided decompressor function is used to decompress the data
+    /// and has to be the same as when the data was generated in the build.rs script.
     pub fn load<D>(&self, decompressor: D) -> Result<L10nLanguage, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
@@ -64,6 +68,7 @@ impl GeneratedFtl {
 "#
         } else {
             r#"
+    /// Load a L10nLanguage from the embedded data.
     pub fn load(&self) -> L10nLanguage {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
         L10nLanguage::new(self, &bytes).unwrap()
@@ -75,6 +80,10 @@ impl GeneratedFtl {
 
         let load_all_fn = if compressed {
             r#"
+    /// Load all languages (L10nLanguage) from the embedded data.
+    /// 
+    /// The provided decompressor function is used to decompress the data
+    /// and has to be the same as when the data was generated in the build.rs script.
     pub fn load_all<D>(decompressor: D) -> Result<L10nLanguageVec, String>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
@@ -87,6 +96,7 @@ impl GeneratedFtl {
     }"#
         } else {
             r#"
+    /// Load all languages (L10nLanguage) from the embedded data.
     pub fn load_all() -> L10nLanguageVec {
         L10nLanguageVec::load(
             &LANG_DATA,
