@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
 
-static LANG_DATA: &'static [u8] = include_bytes!("test_locales_multi_resources.ftl");
+static LANG_DATA: &[u8] = include_bytes!("test_locales_multi_resources.ftl");
 
 static ALL_LANGS: [L10n; 2] = [
     // languages as an array
@@ -62,10 +62,10 @@ impl L10n {
     }
 
     /// Negotiate the best language to use based on the `Accept-Language` header.
-    /// 
+    ///
     /// Falls back to the default language if none of the languages in the header are available.
     pub fn langneg(accept_language: &str) -> L10n {
-        negotiate_languages(&accept_language, &ALL_LANGS)
+        negotiate_languages(accept_language, &ALL_LANGS)
     }
 
     fn byte_range(&self) -> Range<usize> {
@@ -83,9 +83,10 @@ impl L10n {
     /// Load all languages (L10nLanguage) from the embedded data.
     pub fn load_all() -> L10nLanguageVec {
         L10nLanguageVec::load(
-            &LANG_DATA,
+            LANG_DATA,
             Self::iter().map(|lang| (lang, lang.byte_range())),
-        ).unwrap()
+        )
+        .unwrap()
     }
 }
 

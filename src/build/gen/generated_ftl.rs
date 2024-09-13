@@ -26,7 +26,7 @@ impl GeneratedFtl {
                     format!("Could not create relative path between ftl and rs: {e}")
                 })?;
 
-                format!("static LANG_DATA: &'static [u8] = include_bytes!(\"{path}\");")
+                format!("static LANG_DATA: &[u8] = include_bytes!(\"{path}\");")
             }
             Self::MultiFile => "".to_string(),
         })
@@ -99,9 +99,10 @@ impl GeneratedFtl {
     /// Load all languages (L10nLanguage) from the embedded data.
     pub fn load_all() -> L10nLanguageVec {
         L10nLanguageVec::load(
-            &LANG_DATA,
+            LANG_DATA,
             Self::iter().map(|lang| (lang, lang.byte_range())),
-        ).unwrap()
+        )
+        .unwrap()
     }"#
         };
 

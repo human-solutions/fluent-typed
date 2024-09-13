@@ -7,7 +7,7 @@ pub struct L10nLanguageVec {
 }
 
 impl L10nLanguageVec {
-    pub fn load<'a, S, I>(bytes: &[u8], iter: I) -> Result<Self, String>
+    pub fn load<S, I>(bytes: &[u8], iter: I) -> Result<Self, String>
     where
         S: AsRef<str>,
         I: Iterator<Item = (S, Range<usize>)>,
