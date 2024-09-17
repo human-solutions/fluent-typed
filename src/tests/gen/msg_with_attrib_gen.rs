@@ -100,10 +100,10 @@ impl L10nLanguage {
     }
 
     /// This is a message comment
-    fn msg_hello(&self) -> Cow<'_, str> {
+    pub fn msg_hello(&self) -> Cow<'_, str> {
         self.0.msg("hello", None).unwrap()
     }
-    fn msg_hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> Cow<'_, str> {
+    pub fn msg_hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("userName", user_name);
         self.0.attr("hello", "tooltip", Some(args)).unwrap()

@@ -99,7 +99,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
-    fn msg_key<'a, F0: Into<FluentValue<'a>>>(&self, var: F0) -> Cow<'_, str> {
+    pub fn msg_key<'a, F0: Into<FluentValue<'a>>>(&self, var: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("var", var);
         self.0.msg("key", Some(args)).unwrap()

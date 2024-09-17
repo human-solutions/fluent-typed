@@ -100,7 +100,7 @@ impl L10nLanguage {
     }
 
     /// $name (String) - The name.
-    fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> Cow<'_, str> {
+    pub fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("name", name.as_ref());
         self.0.msg("greeting", Some(args)).unwrap()

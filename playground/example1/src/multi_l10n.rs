@@ -63,8 +63,8 @@ impl L10n {
     /// The language name as defined in the ftl message "language-name".
     pub fn language_name(&self) -> &'static str {
         match self {
-            Self::En=> "English",
-            Self::Fr=> "Français",
+            Self::En => "English",
+            Self::Fr => "Français",
         }
     }
 
@@ -93,15 +93,15 @@ impl L10nLanguage {
     }
 
     #[allow(unused)]
-    fn msg_language_name(&self) -> Cow<'_, str> {
+    pub fn msg_language_name(&self) -> Cow<'_, str> {
         self.0.msg("language-name", None).unwrap()
     }
-    fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> Cow<'_, str> {
+    pub fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("gender", gender);
         self.0.msg("greeting", Some(args)).unwrap()
     }
-    fn msg_enter_details(&self) -> Cow<'_, str> {
+    pub fn msg_enter_details(&self) -> Cow<'_, str> {
         self.0.msg("enter-details", None).unwrap()
     }
 }

@@ -13,11 +13,11 @@ impl Message {
 
     fn signature(&self, variables: &[Variable], func_name: &str) -> String {
         if variables.is_empty() {
-            format!(r"    fn {func_name}(&self) -> Cow<'_, str>")
+            format!(r"    pub fn {func_name}(&self) -> Cow<'_, str>")
         } else {
             let ArgInfo { generic, arg } = args_declaration(variables);
             let lt = lifetime(variables);
-            format!(r"    fn {func_name}<{lt}{generic}>(&self, {arg}) -> Cow<'_, str>")
+            format!(r"    pub fn {func_name}<{lt}{generic}>(&self, {arg}) -> Cow<'_, str>")
         }
     }
 
