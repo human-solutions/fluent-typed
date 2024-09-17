@@ -23,6 +23,10 @@ doesn't use any variables plus it's present in all languages, then the generated
 enum will also contain the names of all the languages, which is really useful when you
 want to present the user with a drop-down menu listing all the available languages.
 
+Note that in order to get the warnings for unused message functions, you have to generate
+the file in the same crate as where you use them, and you cannot make L10nLanguage file
+part of the crate's public interface.
+
 ## Usage
 
 ```toml
@@ -35,7 +39,7 @@ fluent-typed = { version = "0.1", features = ["build"] }
 ```
 
 ```rust
-use fluent_typed::{build_from_locales_folder, BuildOptions, FtlOutputOptions};
+use fluent_typed::{build_from_locales_folder, BuildOptions};
 
 // in build.rs
 fn main() -> std::process::ExitCode {
@@ -63,12 +67,12 @@ use l10n::L10n;
 
 // Load english translations in an L10nLanguage struct.
 // It provides safe function for accessing all messages.
-let strs: L10nLanguage = L10n::EnGb.load().unwrap();
+let strs: L10nLanguage = L10n::EnGb.load();
 
-// with the feature "langneg" you can do automatic language
+// With the feature "langneg" enabled you can do automatic language
 // negotiation, which falls back on the default language as
 // configured in the BuildOptions in the build.rs when generating.
-let _ = L10n::langneg("en-GB");
+let found_lang: L10nLanguage = L10n::langneg("en");
 
 // In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
 // used inside of a Signal or other reactive construct, so that all
@@ -82,11 +86,13 @@ assert_eq!("Hello world", strs.msg_hello("world"));
 assert_eq!("You have 2 unread messages", strs.msg_unread_messages(2));
 
 // the list of the translated, human-readable language names.
-let language_names: Vec<&'static str>
+let language_names: Vec<&str>
   = L10n.iter().map(|lang| lang.language_name()).collect();
 
 // typically server-side, you'll load all the languages
 let languages = L10n::load_all();
+// then you can use it like
+assert_eq!("Welcome!", languages.get(L10n::en).msg_greeting());
 ```
 
 ## Type deduction
@@ -101,12 +107,13 @@ project uses the following rules to infer the type of the translation variables:
   - If a [NUMBER](https://projectfluent.org/fluent/guide/functions.html#number-1) function is used, asin `dpi-ratio = Your DPI ratio is { NUMBER($ratio) }`
   - If a [selector](https://projectfluent.org/fluent/guide/selectors.html) only contains numbers
     and CLDR plural catagories: `zero`, `one`, `two`, `few`, `many`, and `other`. Example:
-    ```text
-    your-rank = { NUMBER($pos, type: "ordinal") ->
-       [1] You finished first!
-       [one] You finished {$pos}st
-       [two] You finished {$pos}nd
-       [few] You finished {$pos}rd
-      *[other] You finished {$pos}th
-    }
-    ```
+    `text
+your-rank = { NUMBER($pos, type: "ordinal") ->
+   [1] You finished first!
+   [one] You finished {$pos}st
+   [two] You finished {$pos}nd
+   [few] You finished {$pos}rd
+  *[other] You finished {$pos}th
+}
+`
+    gg
