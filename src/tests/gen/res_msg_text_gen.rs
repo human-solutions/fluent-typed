@@ -99,7 +99,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
-    fn msg_hello_world(&self) -> Cow<'_, str> {
+    pub fn msg_hello_world(&self) -> Cow<'_, str> {
         self.0.msg("hello-world", None).unwrap()
     }
 }

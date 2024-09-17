@@ -99,7 +99,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
-    fn msg_hello<'a, F0: Into<FluentValue<'a>>>(&self, first_name: F0) -> Cow<'_, str> {
+    pub fn msg_hello<'a, F0: Into<FluentValue<'a>>>(&self, first_name: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("first-name", first_name);
         self.0.msg("hello", Some(args)).unwrap()

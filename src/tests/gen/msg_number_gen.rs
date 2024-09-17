@@ -100,7 +100,7 @@ impl L10nLanguage {
     }
 
     /// $duration (Number) - The duration in seconds.
-    fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> Cow<'_, str> {
+    pub fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> Cow<'_, str> {
         let mut args = FluentArgs::new();
         args.set("duration", duration.into());
         self.0.msg("time-elapsed", Some(args)).unwrap()

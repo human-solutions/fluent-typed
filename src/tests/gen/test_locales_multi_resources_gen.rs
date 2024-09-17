@@ -106,10 +106,10 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
-    fn msg_greeting(&self) -> Cow<'_, str> {
+    pub fn msg_greeting(&self) -> Cow<'_, str> {
         self.0.msg("greeting", None).unwrap()
     }
-    fn msg_twenty_four_hour(&self) -> Cow<'_, str> {
+    pub fn msg_twenty_four_hour(&self) -> Cow<'_, str> {
         self.0.msg("twenty-four-hour", None).unwrap()
     }
 }
