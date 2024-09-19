@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
 use fluent_syntax::ast::Pattern;
 use unic_langid::LanguageIdentifier;
@@ -30,17 +28,12 @@ impl L10nBundle {
         &self.lang
     }
 
-    pub fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<Cow<'_, str>, String> {
+    pub fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<String, String> {
         let pattern = self.try_get_pattern(id, None)?;
         self.format(id, None, pattern, args.as_ref())
     }
 
-    pub fn attr(
-        &self,
-        msg: &str,
-        attr: &str,
-        args: Option<FluentArgs>,
-    ) -> Result<Cow<'_, str>, String> {
+    pub fn attr(&self, msg: &str, attr: &str, args: Option<FluentArgs>) -> Result<String, String> {
         let pattern = self.try_get_pattern(msg, Some(attr))?;
         self.format(msg, Some(attr), pattern, args.as_ref())
     }
@@ -74,7 +67,7 @@ impl L10nBundle {
         attr: Option<&str>,
         pattern: &'a Pattern<&str>,
         args: Option<&FluentArgs>,
-    ) -> Result<Cow<'a, str>, String> {
+    ) -> Result<String, String> {
         let mut errors = vec![];
         let value = self.bundle.format_pattern(pattern, args, &mut errors);
         if !errors.is_empty() {
@@ -88,7 +81,7 @@ impl L10nBundle {
                 "Invalid format for {attr_str}message '{msg}'{arg_str}: {errors:?}"
             ))
         } else {
-            Ok(value)
+            Ok(value.to_string())
         }
     }
 }

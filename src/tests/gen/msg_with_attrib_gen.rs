@@ -1,6 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
+use std::{ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &[u8] = include_bytes!("msg_with_attrib_gen.ftl");
 
@@ -100,10 +100,10 @@ impl L10nLanguage {
     }
 
     /// This is a message comment
-    pub fn msg_hello(&self) -> Cow<'_, str> {
+    pub fn msg_hello(&self) -> String {
         self.0.msg("hello", None).unwrap()
     }
-    pub fn msg_hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> Cow<'_, str> {
+    pub fn msg_hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> String {
         let mut args = FluentArgs::new();
         args.set("userName", user_name);
         self.0.attr("hello", "tooltip", Some(args)).unwrap()
