@@ -1,6 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
+use std::{ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &[u8] = include_bytes!("msg_string_gen.ftl");
 
@@ -100,7 +100,7 @@ impl L10nLanguage {
     }
 
     /// $name (String) - The name.
-    pub fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> Cow<'_, str> {
+    pub fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> String {
         let mut args = FluentArgs::new();
         args.set("name", name.as_ref());
         self.0.msg("greeting", Some(args)).unwrap()

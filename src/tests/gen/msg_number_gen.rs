@@ -1,6 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
+use std::{ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &[u8] = include_bytes!("msg_number_gen.ftl");
 
@@ -100,7 +100,7 @@ impl L10nLanguage {
     }
 
     /// $duration (Number) - The duration in seconds.
-    pub fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> Cow<'_, str> {
+    pub fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> String {
         let mut args = FluentArgs::new();
         args.set("duration", duration.into());
         self.0.msg("time-elapsed", Some(args)).unwrap()

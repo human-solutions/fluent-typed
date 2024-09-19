@@ -1,6 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
+use std::{ops::Range, slice::Iter, str::FromStr};
 
 static LANG_DATA: &[u8] = include_bytes!("msg_text_gen.ftl");
 
@@ -99,7 +99,7 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
-    pub fn msg_hello_world(&self) -> Cow<'_, str> {
+    pub fn msg_hello_world(&self) -> String {
         self.0.msg("hello-world", None).unwrap()
     }
 }

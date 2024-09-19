@@ -1,6 +1,6 @@
 // This file is generated. Do not edit it manually.
 use fluent_typed::prelude::*;
-use std::{borrow::Cow, ops::Range, slice::Iter, str::FromStr};
+use std::{ops::Range, slice::Iter, str::FromStr};
 
 
 static ALL_LANGS: [L10n; 2] = [
@@ -93,15 +93,15 @@ impl L10nLanguage {
     }
 
     #[allow(unused)]
-    pub fn msg_language_name(&self) -> Cow<'_, str> {
+    pub fn msg_language_name(&self) -> String {
         self.0.msg("language-name", None).unwrap()
     }
-    pub fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> Cow<'_, str> {
+    pub fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> String {
         let mut args = FluentArgs::new();
         args.set("gender", gender);
         self.0.msg("greeting", Some(args)).unwrap()
     }
-    pub fn msg_enter_details(&self) -> Cow<'_, str> {
+    pub fn msg_enter_details(&self) -> String {
         self.0.msg("enter-details", None).unwrap()
     }
 }
