@@ -1,6 +1,11 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{ops::Range, slice::Iter, str::FromStr};
+use std::{
+    fmt::Display,
+    ops::{Deref, Range},
+    slice::Iter,
+    str::FromStr,
+};
 
 static LANG_DATA: &[u8] = include_bytes!("res_msg_text_gen.ftl");
 
@@ -34,6 +39,15 @@ impl FromStr for L10n {
     }
 }
 
+impl Deref for L10n {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::En => "en",
+        }
+    }
+}
+
 impl AsRef<LanguageIdentifier> for L10n {
     fn as_ref(&self) -> &LanguageIdentifier {
         match self {
@@ -44,9 +58,13 @@ impl AsRef<LanguageIdentifier> for L10n {
 
 impl AsRef<str> for L10n {
     fn as_ref(&self) -> &str {
-        match self {
-            Self::En => "en",
-        }
+        self
+    }
+}
+
+impl Display for L10n {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
     }
 }
 

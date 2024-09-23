@@ -1,6 +1,11 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{ops::Range, slice::Iter, str::FromStr};
+use std::{
+    fmt::Display,
+    ops::{Deref, Range},
+    slice::Iter,
+    str::FromStr,
+};
 
 static LANG_DATA: &[u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
 static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
@@ -30,12 +35,25 @@ impl FromStr for L10n {
     }
 }
 
-// <<placeholder as_ref_langid>>
-impl AsRef<str> for L10n {
-    fn as_ref(&self) -> &str {
+impl Deref for L10n {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
         match self {
             Self::Placeholder => "placeholder", // <<placeholder enum to_str>>
         }
+    }
+}
+
+// <<placeholder as_ref_langid>>
+impl AsRef<str> for L10n {
+    fn as_ref(&self) -> &str {
+        self
+    }
+}
+
+impl Display for L10n {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
     }
 }
 
