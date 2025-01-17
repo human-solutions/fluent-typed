@@ -32,6 +32,11 @@ pub struct BuildOptions {
     ///
     /// It defaults to "en"
     pub default_language: String,
+
+    /// Whether to format the generated file or not (uses rustfmt).
+    ///
+    /// Defaults to true.
+    pub format: bool,
 }
 
 impl Default for BuildOptions {
@@ -43,6 +48,7 @@ impl Default for BuildOptions {
             prefix: "msg_".to_string(),
             indentation: "    ".to_string(),
             default_language: "en".to_string(),
+            format: true,
         }
     }
 }
@@ -75,6 +81,11 @@ impl BuildOptions {
 
     pub fn with_default_language(mut self, lang: &str) -> Self {
         self.default_language = lang.to_string();
+        self
+    }
+
+    pub fn without_format(mut self) -> Self {
+        self.format = false;
         self
     }
 }

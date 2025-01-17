@@ -1,6 +1,6 @@
 [package]
 name = "fluent-typed"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 description = "Type-safe access to Fluent localization messages"
 keywords = ["fluent", "internationalization", "localization"]

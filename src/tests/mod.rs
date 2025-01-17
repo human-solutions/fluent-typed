@@ -2,6 +2,8 @@ mod ast;
 mod complex;
 mod gen;
 
+use std::fs;
+
 use crate::{build::Builder, BuildOptions, FtlOutputOptions};
 
 use fluent_bundle::{FluentBundle, FluentResource};
@@ -77,6 +79,48 @@ fn test_locales_missing_msg() {
         .with_output_file_path("src/tests/gen/test_locales_missing_msg_gen.rs")
         .with_default_language("en-gb");
     Builder::load(options).unwrap().generate().unwrap();
+}
+
+#[test]
+fn test_format_generated_rust_file() {
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_unformated_generated_rust_file.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_format_rust_file")
+        .with_ftl_output(ftl_opts)
+        .with_output_file_path("src/tests/gen/test_unformated_generated_rust_file_gen.rs")
+        .with_default_language("en-gb")
+        .without_format()
+        .with_prefix("");
+
+    Builder::load(options).unwrap().generate().unwrap();
+
+    let unformated_rust_file =
+        fs::read_to_string("src/tests/gen/test_unformated_generated_rust_file_gen.rs").unwrap();
+
+    insta::assert_snapshot!(unformated_rust_file);
+
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_format_generated_rust_file.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_format_rust_file")
+        .with_ftl_output(ftl_opts)
+        .with_output_file_path("src/tests/gen/test_format_generated_rust_file_gen.rs")
+        .with_default_language("en-gb")
+        .with_prefix("");
+
+    Builder::load(options).unwrap().generate().unwrap();
+
+    let formated_rust_file =
+        fs::read_to_string("src/tests/gen/test_format_generated_rust_file_gen.rs").unwrap();
+
+    assert_ne!(unformated_rust_file, formated_rust_file);
+
+    insta::assert_snapshot!(formated_rust_file);
 }
 
 // #[test]

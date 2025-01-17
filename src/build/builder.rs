@@ -59,6 +59,16 @@ impl Builder {
         fs::write(output_file_path, generated)
             .map_err(|e| format!("Could not write rust file '{output_file_path}': {e:?}"))?;
 
+        if self.options.format {
+            let status = std::process::Command::new("rustfmt")
+                .arg(output_file_path)
+                .status()
+                .map_err(|e| format!("Could not run rustfmt: {e:?}"))?;
+            if !status.success() {
+                return Err("rustfmt failed".to_string());
+            }
+        }
+
         Ok(())
     }
 
