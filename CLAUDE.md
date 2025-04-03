@@ -18,10 +18,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Generation tests: Test code generation from FTL files
 - **Integration Tests**: Located in `tests/` directory
   - Playground tests: Test the complete build process with example projects
-- **Test Frameworks**:
-  - Standard Rust testing with `#[test]` attribute
-  - Snapshot tests with `insta` crate
-  - Helper functions in `tests/common.rs`
 
 ## Code Style Guidelines
 - Use 4 spaces for indentation
