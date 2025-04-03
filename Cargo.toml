@@ -27,5 +27,5 @@ unic-langid = "0.9"
 icu_locid = { version = "1.5", optional = true }
 
 [dev-dependencies]
-insta = "1.40"
+insta = "1.42"
 unic-langid = { version = "0.9", features = ["macros"] }
