@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-
 static ALL_LANGS: [L10n; 2] = [
     // languages as an array
     L10n::En,

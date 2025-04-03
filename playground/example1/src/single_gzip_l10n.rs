@@ -101,7 +101,7 @@ impl L10n {
         }
     }
     /// Load a L10nLanguage from the embedded data.
-    /// 
+    ///
     /// The provided decompressor function is used to decompress the data
     /// and has to be the same as when the data was generated in the build.rs script.
     pub fn load<D>(&self, decompressor: D) -> Result<L10nLanguage, String>
@@ -113,7 +113,7 @@ impl L10n {
     }
 
     /// Load all languages (L10nLanguage) from the embedded data.
-    /// 
+    ///
     /// The provided decompressor function is used to decompress the data
     /// and has to be the same as when the data was generated in the build.rs script.
     pub fn load_all<D>(decompressor: D) -> Result<L10nLanguageVec, String>
@@ -121,10 +121,7 @@ impl L10n {
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA)?;
-        L10nLanguageVec::load(
-            &bytes,
-            Self::iter().map(|lang| (lang, lang.byte_range())),
-        )
+        L10nLanguageVec::load(&bytes, Self::iter().map(|lang| (lang, lang.byte_range())))
     }
 }
 
