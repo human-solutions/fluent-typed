@@ -16,6 +16,8 @@ repository = "https://github.com/human-solutions/fluent-typed"
 doctest = false
 
 [features]
+# When developing, make sure that the default is un-commented.
+# default = ["build", "langneg"]
 build = []
 langneg = ["dep:fluent-langneg", "dep:icu_locid"]
 
