@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 fluent-typed = { path = "../..", features = ["langneg"] }
-flate2 = { version = "1.0" }
+flate2 = { version = "1.1" }
 
 [build-dependencies]
 fluent-typed = { path = "../..", features = ["build", "langneg"] }
-flate2 = { version = "1.0" }
+flate2 = { version = "1.1" }

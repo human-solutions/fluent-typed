@@ -1,6 +1,6 @@
 [package]
 name = "fluent-typed"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2021"
 description = "Type-safe access to Fluent localization messages"
 keywords = ["fluent", "internationalization", "localization"]
@@ -16,6 +16,8 @@ repository = "https://github.com/human-solutions/fluent-typed"
 doctest = false
 
 [features]
+# When developing, make sure that the default is un-commented.
+# default = ["build", "langneg"]
 build = []
 langneg = ["dep:fluent-langneg", "dep:icu_locid"]
 
@@ -27,5 +29,5 @@ unic-langid = "0.9"
 icu_locid = { version = "1.5", optional = true }
 
 [dev-dependencies]
-insta = "1.40"
+insta = "1.42"
 unic-langid = { version = "0.9", features = ["macros"] }
