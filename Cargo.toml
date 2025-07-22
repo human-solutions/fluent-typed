@@ -1,6 +1,6 @@
 [package]
 name = "fluent-typed"
-version = "0.2.8"
+version = "0.2.9"
 edition = "2021"
 description = "Type-safe access to Fluent localization messages"
 keywords = ["fluent", "internationalization", "localization"]
@@ -22,8 +22,8 @@ build = []
 langneg = ["dep:fluent-langneg", "dep:icu_locid"]
 
 [dependencies]
-fluent-syntax = "0.11"
-fluent-bundle = "0.15"
+fluent-syntax = "0.12"
+fluent-bundle = "0.16"
 fluent-langneg = { version = "0.14.1", optional = true }
 unic-langid = "0.9"
 icu_locid = { version = "1.5", optional = true }
