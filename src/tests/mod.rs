@@ -123,6 +123,35 @@ fn test_format_generated_rust_file() {
     insta::assert_snapshot!(formated_rust_file);
 }
 
+#[test]
+fn test_locales_deep_folders() {
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_locales_deep_folders.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_locales_deep_folders")
+        .with_ftl_output(ftl_opts)
+        .with_output_file_path("src/tests/gen/test_locales_deep_folders_gen.rs")
+        .with_default_language("en");
+
+    // This should successfully load all FTL files from deep folder structure
+    Builder::load(options).unwrap().generate().unwrap();
+
+    // Verify the generated file contains messages from all depths
+    let generated = fs::read_to_string("src/tests/gen/test_locales_deep_folders_gen.rs").unwrap();
+
+    // Check that all expected message functions were generated
+    assert!(generated.contains("fn msg_root_message("));
+    assert!(generated.contains("fn msg_level1_hello("));
+    assert!(generated.contains("fn msg_level2_greeting("));
+    assert!(generated.contains("fn msg_deep_message("));
+
+    // Verify both languages are included
+    assert!(generated.contains("L10n::De"));
+    assert!(generated.contains("L10n::En"));
+}
+
 // #[test]
 // fn test_locales_ld() {
 //     let locales = build::from_locales_folder("../../../LeaveDates/frontend/app/locales").unwrap();

@@ -1,3 +1,5 @@
+use crate::build::utils::Traversable;
+
 use super::Message;
 use fluent_syntax::ast::Resource;
 use fluent_syntax::parser;
@@ -30,15 +32,10 @@ impl LangBundle {
             messages: Vec::new(),
             ftl: String::new(),
         };
-        let locales = fs::read_dir(folder).map_err(|e| e.to_string())?;
-        let mut paths = vec![];
-        for entry in locales {
-            let entry = entry.map_err(|e| e.to_string())?;
-            let path = entry.path();
-            if path.is_file() && path.extension().map(|s| s == "ftl") == Some(true) {
-                paths.push(path);
-            }
-        }
+
+        let mut paths = folder
+            .gather_all_files(|file| file.extension().map(|s| s == "ftl") == Some(true))
+            .map_err(|e| e.to_string())?;
 
         paths.sort();
 
