@@ -1,4 +1,4 @@
-use crate::build::gen::StrExt;
+use crate::build::r#gen::StrExt;
 use crate::build::typed::{Message, VarType, Variable};
 
 impl Message {

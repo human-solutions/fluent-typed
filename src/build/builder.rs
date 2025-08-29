@@ -1,4 +1,4 @@
-use super::{gen::generate, typed::Id, Analyzed, BuildOptions, LangBundle, Message};
+use super::{r#gen::generate, typed::Id, Analyzed, BuildOptions, LangBundle, Message};
 use std::{collections::HashSet, fs};
 
 pub struct Builder {

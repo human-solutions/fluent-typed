@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::build::{gen::GeneratedFtl, LangBundle};
+use crate::build::{r#gen::GeneratedFtl, LangBundle};
 
 type CompressorFn = dyn Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>>;
 

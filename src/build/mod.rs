@@ -1,5 +1,5 @@
 mod builder;
-pub mod gen;
+pub mod r#gen;
 mod lang_bundle;
 pub mod options;
 pub mod typed;

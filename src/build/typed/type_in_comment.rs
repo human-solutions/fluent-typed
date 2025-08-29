@@ -39,7 +39,7 @@ enum Found<'a> {
     Nothing,
 }
 
-fn parse_line(line: &str) -> Found {
+fn parse_line(line: &str) -> Found<'_> {
     let Some((id, rest)) = line.trim().split_once(' ') else {
         return Found::Nothing;
     };

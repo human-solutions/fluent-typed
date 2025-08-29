@@ -1,7 +1,7 @@
 [package]
 name = "fluent-typed"
 version = "0.2.9"
-edition = "2021"
+edition = "2024"
 description = "Type-safe access to Fluent localization messages"
 keywords = ["fluent", "internationalization", "localization"]
 categories = [
@@ -17,7 +17,7 @@ doctest = false
 
 [features]
 # When developing, make sure that the default is un-commented.
-# default = ["build", "langneg"]
+default = ["build", "langneg"]
 build = []
 langneg = ["dep:fluent-langneg", "dep:icu_locid"]
 
