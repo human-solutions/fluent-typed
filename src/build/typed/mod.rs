@@ -3,7 +3,7 @@ mod type_in_comment;
 
 use std::fmt::Display;
 
-use crate::build::gen::StrExt;
+use crate::build::r#gen::StrExt;
 
 #[derive(Debug, PartialEq)]
 pub struct Message {

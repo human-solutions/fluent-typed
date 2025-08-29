@@ -26,9 +26,9 @@ fn build_example1() {
         fs::remove_dir_all(&target).unwrap();
     }
 
-    let gen = root.join("gen");
-    if gen.exists() {
-        fs::remove_dir_all(&gen).unwrap();
+    let r#gen = root.join("gen");
+    if r#gen.exists() {
+        fs::remove_dir_all(&r#gen).unwrap();
     }
     cargo(&root, ["build"]);
 
@@ -36,7 +36,7 @@ fn build_example1() {
     assert!(single_gzip_l10n.exists());
     assert!(multi_l10n.exists());
 
-    let listing = ls_ascii(&gen, 0).unwrap();
+    let listing = ls_ascii(&r#gen, 0).unwrap();
     assert_snapshot!(&listing, @r###"
     gen/
       translations.ftl (452 bytes)
