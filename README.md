@@ -95,6 +95,32 @@ let languages = L10n::load_all();
 assert_eq!("Welcome!", languages.get(L10n::en).msg_greeting());
 ```
 
+## Output modes
+
+By default, generated functions return a resolved `String`. You can configure `OutputMode` to
+return the fluent AST `Pattern<String>` instead, which preserves the message structure (selectors,
+variable references, etc). Use `OutputMode::default_both()` to generate both.
+
+```rust
+// in build.rs
+let options = BuildOptions::default()
+    .with_output_mode(OutputMode::default_pattern());
+```
+
+The generated functions will then return `Pattern<String>` instead of `String`:
+
+```rust
+// default (String mode) generates:
+pub fn msg_hello_world(&self) -> String { .. }
+
+// Pattern mode generates:
+pub fn ptn_hello_world(&self) -> Pattern<String> { .. }
+
+// Both mode generates both:
+pub fn msg_hello_world(&self) -> String { .. }
+pub fn ptn_hello_world(&self) -> Pattern<String> { .. }
+```
+
 ## Type deduction
 
 Since the fluent syntax doesn't explicitly specify the type of the translation variables, this
