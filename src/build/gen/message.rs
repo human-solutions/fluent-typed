@@ -22,16 +22,11 @@ impl Message {
         }
     }
 
-    pub fn implementations(
-        &self,
-        prefix: &str,
-        output_mode: OutputMode,
-        pattern_prefix: &str,
-    ) -> String {
+    pub fn implementations(&self, output_mode: &OutputMode) -> String {
         let func_name = self.id.func_name();
         let mut out = String::new();
 
-        if output_mode != OutputMode::Pattern {
+        if let Some(prefix) = output_mode.string_prefix() {
             let signature = self.signature(&self.variables, &format!("{prefix}{func_name}"));
             if func_name == "language_name" {
                 out.push_str("    #[allow(unused)]\n");
@@ -45,13 +40,12 @@ impl Message {
             out.push_str(&implementation);
         }
 
-        if output_mode != OutputMode::String {
+        if let Some(prefix) = output_mode.pattern_prefix() {
             if !out.is_empty() {
                 out.push('\n');
             }
             out.push_str(&self.comment_lines());
-            let ptn_signature =
-                format!("    pub fn {pattern_prefix}{func_name}(&self) -> Pattern<String>");
+            let ptn_signature = format!("    pub fn {prefix}{func_name}(&self) -> Pattern<String>");
             let ptn_impl = if let Some(attr) = self.id.attribute.as_ref() {
                 format!(
                     r##"{ptn_signature} {{

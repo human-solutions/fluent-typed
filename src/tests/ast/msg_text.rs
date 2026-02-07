@@ -72,10 +72,22 @@ fn typed_gen() {
 
 #[test]
 fn typed_gen_pattern() {
-    assert_gen_with_output_mode(module_path!(), "pattern", "test", FTL, OutputMode::Pattern);
+    assert_gen_with_output_mode(
+        module_path!(),
+        "pattern",
+        "test",
+        FTL,
+        OutputMode::default_pattern(),
+    );
 }
 
 #[test]
 fn typed_gen_both() {
-    assert_gen_with_output_mode(module_path!(), "both", "test", FTL, OutputMode::Both);
+    assert_gen_with_output_mode(
+        module_path!(),
+        "both",
+        "test",
+        FTL,
+        OutputMode::default_both(),
+    );
 }

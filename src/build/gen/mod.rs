@@ -195,11 +195,7 @@ static ALL_LANGS: [L10n; {}] = [
 
     // ///////////////////////////
     let impls = collect(messages.iter(), |msg| {
-        msg.implementations(
-            &options.prefix,
-            options.output_mode,
-            &options.pattern_prefix,
-        )
+        msg.implementations(&options.output_mode)
     });
     replacements.push(("<<message implementations>>", impls));
 
