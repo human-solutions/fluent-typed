@@ -1,6 +1,6 @@
 use crate::build::typed::*;
-use crate::tests::ast::assert_gen;
 use crate::tests::ast::AstResourceExt;
+use crate::tests::ast::assert_gen;
 use fluent_syntax::ast;
 use fluent_syntax::parser;
 

@@ -194,7 +194,13 @@ static ALL_LANGS: [L10n; {}] = [
     ));
 
     // ///////////////////////////
-    let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
+    let impls = collect(messages.iter(), |msg| {
+        msg.implementations(
+            &options.prefix,
+            options.output_mode,
+            &options.pattern_prefix,
+        )
+    });
     replacements.push(("<<message implementations>>", impls));
 
     let mut base = do_replace(include_str!("template.rs"), replacements);

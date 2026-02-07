@@ -1,6 +1,7 @@
+use crate::OutputMode;
 use crate::build::typed::*;
-use crate::tests::ast::assert_gen;
 use crate::tests::ast::AstResourceExt;
+use crate::tests::ast::{assert_gen, assert_gen_with_output_mode};
 use fluent_syntax::ast;
 use fluent_syntax::parser;
 
@@ -67,4 +68,14 @@ fn typed() {
 #[test]
 fn typed_gen() {
     assert_gen(module_path!(), "test", FTL);
+}
+
+#[test]
+fn typed_gen_pattern() {
+    assert_gen_with_output_mode(module_path!(), "pattern", "test", FTL, OutputMode::Pattern);
+}
+
+#[test]
+fn typed_gen_both() {
+    assert_gen_with_output_mode(module_path!(), "both", "test", FTL, OutputMode::Both);
 }

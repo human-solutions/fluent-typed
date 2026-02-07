@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    build::typed::{Id, Variable},
     build::LangBundle,
+    build::typed::{Id, Variable},
 };
 
 #[derive(Debug)]

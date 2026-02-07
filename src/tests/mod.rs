@@ -4,7 +4,7 @@ mod r#gen;
 
 use std::fs;
 
-use crate::{build::Builder, BuildOptions, FtlOutputOptions};
+use crate::{BuildOptions, FtlOutputOptions, OutputMode, build::Builder};
 
 use fluent_bundle::{FluentBundle, FluentResource};
 use unic_langid::langid;
@@ -33,6 +33,29 @@ fn assert_gen(module: &str, resource_name: &str, ftl: &str) {
     let options = BuildOptions::default()
         .with_output_file_path(&file)
         .with_ftl_output(ftl_opts);
+
+    let builder = Builder::load_one(options, resource_name, "en", ftl).unwrap();
+    builder.generate().unwrap();
+}
+
+#[track_caller]
+fn assert_gen_with_output_mode(
+    module: &str,
+    suffix: &str,
+    resource_name: &str,
+    ftl: &str,
+    output_mode: OutputMode,
+) {
+    let mod_name = module.split("::").last().unwrap();
+    let file = format!("src/tests/gen/{mod_name}_{suffix}_gen.rs");
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: format!("src/tests/gen/{mod_name}_{suffix}_gen.ftl"),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_output_file_path(&file)
+        .with_ftl_output(ftl_opts)
+        .with_output_mode(output_mode);
 
     let builder = Builder::load_one(options, resource_name, "en", ftl).unwrap();
     builder.generate().unwrap();

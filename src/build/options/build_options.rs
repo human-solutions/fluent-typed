@@ -1,4 +1,5 @@
 use super::ftl_output_options::FtlOutputOptions;
+use super::output_mode::OutputMode;
 
 pub struct BuildOptions {
     /// The path to the folder containing the locales.
@@ -37,6 +38,16 @@ pub struct BuildOptions {
     ///
     /// Defaults to true.
     pub format: bool,
+
+    /// Controls whether generated functions return String, Pattern, or both.
+    ///
+    /// Defaults to OutputMode::String.
+    pub output_mode: OutputMode,
+
+    /// The prefix for pattern-returning functions.
+    ///
+    /// Defaults to "ptn_".
+    pub pattern_prefix: String,
 }
 
 impl Default for BuildOptions {
@@ -49,6 +60,8 @@ impl Default for BuildOptions {
             indentation: "    ".to_string(),
             default_language: "en".to_string(),
             format: true,
+            output_mode: OutputMode::default(),
+            pattern_prefix: "ptn_".to_string(),
         }
     }
 }
@@ -86,6 +99,16 @@ impl BuildOptions {
 
     pub fn without_format(mut self) -> Self {
         self.format = false;
+        self
+    }
+
+    pub fn with_output_mode(mut self, mode: OutputMode) -> Self {
+        self.output_mode = mode;
+        self
+    }
+
+    pub fn with_pattern_prefix(mut self, prefix: &str) -> Self {
+        self.pattern_prefix = prefix.to_string();
         self
     }
 }

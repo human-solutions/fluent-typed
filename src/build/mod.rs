@@ -8,7 +8,7 @@ mod validations;
 
 pub use builder::Builder;
 pub use lang_bundle::LangBundle;
-pub use options::{BuildOptions, FtlOutputOptions};
+pub use options::{BuildOptions, FtlOutputOptions, OutputMode};
 use std::process::ExitCode;
 pub use typed::Message;
 pub use validations::Analyzed;
