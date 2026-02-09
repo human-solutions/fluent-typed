@@ -28,5 +28,5 @@ unic-langid = "0.9"
 icu_locale_core = { version = "2.1", optional = true, features = ["alloc"] }
 
 [dev-dependencies]
-insta = "1.42"
+insta = "1.46"
 unic-langid = { version = "0.9", features = ["macros"] }
