@@ -1,6 +1,6 @@
 [package]
 name = "fluent-typed"
-version = "0.2.9"
+version = "0.3.0"
 edition = "2024"
 description = "Type-safe access to Fluent localization messages"
 keywords = ["fluent", "internationalization", "localization"]
@@ -19,15 +19,14 @@ doctest = false
 # When developing, make sure that the default is un-commented.
 default = ["build", "langneg"]
 build = []
-langneg = ["dep:fluent-langneg", "dep:icu_locid"]
+langneg = ["dep:icu_locale_core"]
 
 [dependencies]
 fluent-syntax = "0.12"
 fluent-bundle = "0.16"
-fluent-langneg = { version = "0.14.1", optional = true }
 unic-langid = "0.9"
-icu_locid = { version = "1.5", optional = true }
+icu_locale_core = { version = "2.1", optional = true, features = ["alloc"] }
 
 [dev-dependencies]
-insta = "1.42"
+insta = "1.46"
 unic-langid = { version = "0.9", features = ["macros"] }
