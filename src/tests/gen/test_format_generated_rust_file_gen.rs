@@ -116,7 +116,7 @@ pub struct L10nLanguage(L10nBundle);
 
 impl L10nLanguage {
     /// Load the L10n resources for the given language. The language
-    /// has to be a valid unic_langid::LanguageIdentifier or otherwise
+    /// has to be a valid LanguageIdentifier or otherwise
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
