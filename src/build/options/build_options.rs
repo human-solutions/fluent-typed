@@ -90,4 +90,11 @@ impl BuildOptions {
         self.output_mode = mode;
         self
     }
+
+    #[deprecated(note = "Use with_output_mode(OutputMode::String { prefix }) instead")]
+    pub fn with_prefix(self, prefix: &str) -> Self {
+        self.with_output_mode(OutputMode::String {
+            prefix: prefix.to_string(),
+        })
+    }
 }
