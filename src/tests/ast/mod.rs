@@ -8,7 +8,7 @@ mod msg_with_attrib;
 mod msg_with_var;
 mod res_msg_text;
 
-use super::{assert_gen, bundle};
+use super::{assert_gen, assert_gen_with_output_mode, bundle};
 use crate::build::Message;
 use fluent_syntax::ast;
 

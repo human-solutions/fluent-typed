@@ -1,4 +1,5 @@
 use super::ftl_output_options::FtlOutputOptions;
+use super::output_mode::OutputMode;
 
 pub struct BuildOptions {
     /// The path to the folder containing the locales.
@@ -17,11 +18,6 @@ pub struct BuildOptions {
     /// files are generated and accessed.
     pub ftl_output: FtlOutputOptions,
 
-    /// The prefix is a simple string that will be added to all generated function names.
-    ///
-    /// Defaults to "msg_".
-    pub prefix: String,
-
     /// The indentation used in the generated file.
     ///
     /// Defaults to four spaces.
@@ -37,6 +33,12 @@ pub struct BuildOptions {
     ///
     /// Defaults to true.
     pub format: bool,
+
+    /// Controls whether generated functions return String, Pattern, or both.
+    /// Each variant carries its own prefix for the generated function names.
+    ///
+    /// Defaults to OutputMode::String with prefix "msg_".
+    pub output_mode: OutputMode,
 }
 
 impl Default for BuildOptions {
@@ -45,10 +47,10 @@ impl Default for BuildOptions {
             locales_folder: "locales".to_string(),
             output_file_path: "src/l10n.rs".to_string(),
             ftl_output: Default::default(),
-            prefix: "msg_".to_string(),
             indentation: "    ".to_string(),
             default_language: "en".to_string(),
             format: true,
+            output_mode: OutputMode::default(),
         }
     }
 }
@@ -61,11 +63,6 @@ impl BuildOptions {
 
     pub fn with_output_file_path(mut self, output_file_path: &str) -> Self {
         self.output_file_path = output_file_path.to_string();
-        self
-    }
-
-    pub fn with_prefix(mut self, prefix: &str) -> Self {
-        self.prefix = prefix.to_string();
         self
     }
 
@@ -87,5 +84,17 @@ impl BuildOptions {
     pub fn without_format(mut self) -> Self {
         self.format = false;
         self
+    }
+
+    pub fn with_output_mode(mut self, mode: OutputMode) -> Self {
+        self.output_mode = mode;
+        self
+    }
+
+    #[deprecated(note = "Use with_output_mode(OutputMode::String { prefix }) instead")]
+    pub fn with_prefix(self, prefix: &str) -> Self {
+        self.with_output_mode(OutputMode::String {
+            prefix: prefix.to_string(),
+        })
     }
 }

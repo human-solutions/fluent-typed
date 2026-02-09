@@ -1,4 +1,5 @@
 use crate::build::r#gen::StrExt;
+use crate::build::options::OutputMode;
 use crate::build::typed::{Message, VarType, Variable};
 
 impl Message {
@@ -21,21 +22,48 @@ impl Message {
         }
     }
 
-    pub fn implementations(&self, prefix: &str) -> String {
+    pub fn implementations(&self, output_mode: &OutputMode) -> String {
         let func_name = self.id.func_name();
-        let signature = self.signature(&self.variables, &format!("{prefix}{func_name}"));
-
         let mut out = String::new();
-        if func_name == "language_name" {
-            out.push_str("    #[allow(unused)]\n");
+
+        if let Some(prefix) = output_mode.string_prefix() {
+            let signature = self.signature(&self.variables, &format!("{prefix}{func_name}"));
+            if func_name == "language_name" {
+                out.push_str("    #[allow(unused)]\n");
+            }
+            out.push_str(&self.comment_lines());
+            let implementation = if let Some(attr) = self.id.attribute.as_ref() {
+                self.attr_impl(&self.variables, &self.id.message, attr, &signature)
+            } else {
+                self.func_impl(&self.variables, &self.id.message, &signature)
+            };
+            out.push_str(&implementation);
         }
-        out.push_str(&self.comment_lines());
-        let implementation = if let Some(attr) = self.id.attribute.as_ref() {
-            self.attr_impl(&self.variables, &self.id.message, attr, &signature)
-        } else {
-            self.func_impl(&self.variables, &self.id.message, &signature)
-        };
-        out.push_str(&implementation);
+
+        if let Some(prefix) = output_mode.pattern_prefix() {
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            out.push_str(&self.comment_lines());
+            let ptn_signature = format!("    pub fn {prefix}{func_name}(&self) -> Pattern<String>");
+            let ptn_impl = if let Some(attr) = self.id.attribute.as_ref() {
+                format!(
+                    r##"{ptn_signature} {{
+        self.0.attr_pattern("{msg_id}", "{attr}")
+    }}"##,
+                    msg_id = self.id.message,
+                )
+            } else {
+                format!(
+                    r##"{ptn_signature} {{
+        self.0.msg_pattern("{msg_id}")
+    }}"##,
+                    msg_id = self.id.message,
+                )
+            };
+            out.push_str(&ptn_impl);
+        }
+
         out
     }
 
