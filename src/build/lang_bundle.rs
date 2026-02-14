@@ -3,6 +3,7 @@ use crate::build::utils::Traversable;
 use super::Message;
 use fluent_syntax::ast::Resource;
 use fluent_syntax::parser;
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -16,16 +17,25 @@ pub struct LangBundle {
 
 impl LangBundle {
     #[cfg(test)]
-    pub fn from_ftl(ftl: &str, name: &str, lang: &str) -> Result<Self, String> {
+    pub fn from_ftl(
+        ftl: &str,
+        name: &str,
+        lang: &str,
+        deny_duplicate_keys: bool,
+    ) -> Result<Self, String> {
         let ast = parser::parse(ftl).map_err(|e| format!("Could not parse ftl due to: {e:?}"))?;
         Ok(LangBundle {
             language_name: lang_name(&ast),
             language_id: lang.to_string(),
-            messages: to_messages(name, &ast)?,
+            messages: to_messages(name, &ast, deny_duplicate_keys)?,
             ftl: ftl.to_string(),
         })
     }
-    pub fn from_folder(folder: &Path, lang: &str) -> Result<Self, String> {
+    pub fn from_folder(
+        folder: &Path,
+        lang: &str,
+        deny_duplicate_keys: bool,
+    ) -> Result<Self, String> {
         let mut bundle = LangBundle {
             language_name: None,
             language_id: lang.to_string(),
@@ -57,23 +67,34 @@ impl LangBundle {
             bundle.ftl.push_str(&ftl);
             bundle.ftl.push('\n');
 
-            let messages = to_messages(&name, &ast)?;
+            let messages = to_messages(&name, &ast, deny_duplicate_keys)?;
             bundle.messages.extend(messages);
         }
         Ok(bundle)
     }
 }
 
-fn to_messages(name: &str, ast: &Resource<&str>) -> Result<Vec<Message>, String> {
-    Ok(ast
-        .body
+fn to_messages(
+    name: &str,
+    ast: &Resource<&str>,
+    deny_duplicate_keys: bool,
+) -> Result<Vec<Message>, String> {
+    let mut seen = HashSet::new();
+    ast.body
         .iter()
         .filter_map(|entry| match entry {
             fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name, m)),
             _ => None,
         })
         .flatten()
-        .collect())
+        .map(|msg| {
+            if deny_duplicate_keys && !seen.insert(msg.id.clone()) {
+                Err(format!("Duplicate message key '{}'", msg.id))
+            } else {
+                Ok(msg)
+            }
+        })
+        .collect()
 }
 
 fn lang_name(ast: &Resource<&str>) -> Option<String> {

@@ -192,7 +192,8 @@ hello-world = Goodbye World!
     };
     let options = BuildOptions::default()
         .with_output_file_path("src/tests/gen/test_duplicate_key_gen.rs")
-        .with_ftl_output(ftl_opts);
+        .with_ftl_output(ftl_opts)
+        .with_deny_duplicate_keys();
 
     let result = Builder::load_one(options, "test", "en", ftl);
     assert!(result.is_err(), "Expected an error for duplicate keys");

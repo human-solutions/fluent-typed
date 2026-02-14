@@ -19,7 +19,7 @@ pub mod prelude {
     pub use fluent_bundle::{FluentArgs, FluentValue, types::FluentNumber};
     pub use fluent_syntax::ast::{Pattern, PatternElement};
     #[cfg(feature = "langneg")]
-    pub use icu_locale_core::{langid, LanguageIdentifier};
+    pub use icu_locale_core::{LanguageIdentifier, langid};
 
     #[cfg(feature = "langneg")]
     pub fn negotiate_languages<'a, A>(accept_language: &str, available: &'a [A]) -> A
@@ -44,7 +44,9 @@ pub mod prelude {
                 } else {
                     (entry, 1000)
                 };
-                tag.parse::<LanguageIdentifier>().ok().map(|lid| (lid, quality))
+                tag.parse::<LanguageIdentifier>()
+                    .ok()
+                    .map(|lid| (lid, quality))
             })
             .collect();
         requested.sort_by(|a, b| b.1.cmp(&a.1));
