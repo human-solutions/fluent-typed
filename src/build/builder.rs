@@ -1,4 +1,4 @@
-use super::{Analyzed, BuildOptions, LangBundle, Message, r#gen::generate, typed::Id};
+use super::{Analyzed, BuildError, BuildOptions, LangBundle, Message, r#gen::generate, typed::Id};
 use std::{collections::HashSet, fs};
 
 pub struct Builder {
@@ -7,12 +7,17 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn load(options: BuildOptions) -> Result<Self, String> {
+    pub fn load(options: BuildOptions) -> Result<Self, BuildError> {
         let folder = &options.locales_folder;
         println!("cargo::rerun-if-changed={folder}");
 
-        let mut langbundles = from_locales_folder(folder, options.deny_duplicate_keys)
-            .map_err(|e| format!("Could not read locales folder '{folder}': {e:?}"))?;
+        let mut langbundles =
+            from_locales_folder(folder, options.deny_duplicate_keys).map_err(|e| {
+                BuildError::LocalesFolder {
+                    folder: folder.to_string(),
+                    source: Box::new(e),
+                }
+            })?;
 
         langbundles.sort_by_cached_key(|lb| lb.language_id.clone());
 
@@ -28,7 +33,7 @@ impl Builder {
         resource_name: &str,
         lang: &str,
         ftl: &str,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, BuildError> {
         let deny_duplicate_keys = options.deny_duplicate_keys;
         Ok(Self {
             options,
@@ -41,7 +46,7 @@ impl Builder {
         })
     }
 
-    pub fn generate(&self) -> Result<(), String> {
+    pub fn generate(&self) -> Result<(), BuildError> {
         let analyzed = Analyzed::from(&self.langbundles);
 
         for warn in analyzed.missing_messages {
@@ -52,7 +57,8 @@ impl Builder {
         }
 
         let messages = &self.messages(&analyzed.common);
-        let generated = generate(&self.options, &self.langbundles, messages)?
+        let generated = generate(&self.options, &self.langbundles, messages)
+            .map_err(BuildError::Generation)?
             .replace("    ", &self.options.indentation);
 
         let output_file_path = &self.options.output_file_path;
@@ -62,16 +68,18 @@ impl Builder {
             }
         }
 
-        fs::write(output_file_path, generated)
-            .map_err(|e| format!("Could not write rust file '{output_file_path}': {e:?}"))?;
+        fs::write(output_file_path, &generated).map_err(|e| BuildError::WriteOutput {
+            path: output_file_path.clone(),
+            source: e,
+        })?;
 
         if self.options.format {
             let status = std::process::Command::new("rustfmt")
                 .arg(output_file_path)
                 .status()
-                .map_err(|e| format!("Could not run rustfmt: {e:?}"))?;
+                .map_err(|e| BuildError::Rustfmt(e.to_string()))?;
             if !status.success() {
-                return Err("rustfmt failed".to_string());
+                return Err(BuildError::Rustfmt("rustfmt failed".to_string()));
             }
         }
 
@@ -89,11 +97,14 @@ impl Builder {
     }
 }
 
-fn from_locales_folder(folder: &str, deny_duplicate_keys: bool) -> Result<Vec<LangBundle>, String> {
-    let locales_dir = fs::read_dir(folder).map_err(|e| e.to_string())?;
+fn from_locales_folder(
+    folder: &str,
+    deny_duplicate_keys: bool,
+) -> Result<Vec<LangBundle>, BuildError> {
+    let locales_dir = fs::read_dir(folder)?;
     let mut locales = Vec::new();
     for entry in locales_dir {
-        let entry = entry.map_err(|e| e.to_string())?;
+        let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
             let lang = path.file_name().unwrap().to_str().unwrap();

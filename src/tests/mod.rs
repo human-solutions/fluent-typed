@@ -4,7 +4,7 @@ mod r#gen;
 
 use std::fs;
 
-use crate::{BuildOptions, FtlOutputOptions, OutputMode, build::Builder};
+use crate::{BuildError, BuildOptions, FtlOutputOptions, OutputMode, build::Builder};
 
 use fluent_bundle::{FluentBundle, FluentResource};
 use unic_langid::langid;
@@ -196,7 +196,10 @@ hello-world = Goodbye World!
         .with_deny_duplicate_keys();
 
     let result = Builder::load_one(options, "test", "en", ftl);
-    assert!(result.is_err(), "Expected an error for duplicate keys");
+    assert!(
+        matches!(result, Err(BuildError::DuplicateKey(_))),
+        "Expected a DuplicateKey error"
+    );
 }
 
 // #[test]

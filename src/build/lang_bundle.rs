@@ -1,6 +1,6 @@
 use crate::build::utils::Traversable;
 
-use super::Message;
+use super::{BuildError, Message};
 use fluent_syntax::ast::Resource;
 use fluent_syntax::parser;
 use std::collections::HashSet;
@@ -22,8 +22,8 @@ impl LangBundle {
         name: &str,
         lang: &str,
         deny_duplicate_keys: bool,
-    ) -> Result<Self, String> {
-        let ast = parser::parse(ftl).map_err(|e| format!("Could not parse ftl due to: {e:?}"))?;
+    ) -> Result<Self, BuildError> {
+        let ast = parser::parse(ftl).map_err(|e| BuildError::FtlParse(format!("{e:?}")))?;
         Ok(LangBundle {
             language_name: lang_name(&ast),
             language_id: lang.to_string(),
@@ -35,7 +35,7 @@ impl LangBundle {
         folder: &Path,
         lang: &str,
         deny_duplicate_keys: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, BuildError> {
         let mut bundle = LangBundle {
             language_name: None,
             language_id: lang.to_string(),
@@ -45,14 +45,14 @@ impl LangBundle {
 
         let mut paths = folder
             .gather_all_files(|file| file.extension().map(|s| s == "ftl") == Some(true))
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         paths.sort();
 
         for path in paths {
-            let ftl = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            let ast = parser::parse(ftl.as_str())
-                .map_err(|e| format!("Could not parse ftl due to: {e:?}"))?;
+            let ftl = fs::read_to_string(&path)?;
+            let ast =
+                parser::parse(ftl.as_str()).map_err(|e| BuildError::FtlParse(format!("{e:?}")))?;
 
             if let Some(lang_name) = lang_name(&ast) {
                 if bundle.language_name.is_none() {
@@ -78,7 +78,7 @@ fn to_messages(
     name: &str,
     ast: &Resource<&str>,
     deny_duplicate_keys: bool,
-) -> Result<Vec<Message>, String> {
+) -> Result<Vec<Message>, BuildError> {
     let mut seen = HashSet::new();
     ast.body
         .iter()
@@ -89,7 +89,7 @@ fn to_messages(
         .flatten()
         .map(|msg| {
             if deny_duplicate_keys && !seen.insert(msg.id.clone()) {
-                Err(format!("Duplicate message key '{}'", msg.id))
+                Err(BuildError::DuplicateKey(msg.id.to_string()))
             } else {
                 Ok(msg)
             }

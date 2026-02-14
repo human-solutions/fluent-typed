@@ -9,7 +9,7 @@ mod tests;
 
 #[cfg(any(doc, feature = "build"))]
 pub use build::{
-    BuildOptions, FtlOutputOptions, OutputMode, build_from_locales_folder,
+    BuildError, BuildOptions, FtlOutputOptions, OutputMode, build_from_locales_folder,
     try_build_from_locales_folder,
 };
 
