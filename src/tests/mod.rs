@@ -179,6 +179,25 @@ fn test_locales_deep_folders() {
     assert!(generated.contains("L10n::En"));
 }
 
+#[test]
+fn test_duplicate_key_fails() {
+    let ftl = r#"
+hello-world = Hello World!
+hello-world = Goodbye World!
+"#;
+
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_duplicate_key.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_output_file_path("src/tests/gen/test_duplicate_key_gen.rs")
+        .with_ftl_output(ftl_opts);
+
+    let result = Builder::load_one(options, "test", "en", ftl);
+    assert!(result.is_err(), "Expected an error for duplicate keys");
+}
+
 // #[test]
 // fn test_locales_ld() {
 //     let locales = build::from_locales_folder("../../../LeaveDates/frontend/app/locales").unwrap();
