@@ -213,6 +213,31 @@ fn test_duplicate_key_fails() {
     }
 }
 
+#[test]
+fn test_duplicate_key_single_file_fails() {
+    let ftl = "hello-world = Hello\nhello-world = World\n";
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_duplicate_key_single.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_output_file_path("src/tests/gen/test_duplicate_key_single_gen.rs")
+        .with_ftl_output(ftl_opts)
+        .with_deny_duplicate_keys();
+
+    if let Err(BuildError::DuplicateKey {
+        key,
+        original,
+        duplicate,
+    }) = &Builder::load_one(options, "test", "en", ftl)
+    {
+        assert_eq!(key, "message 'hello-world'");
+        assert_eq!(original, duplicate);
+    } else {
+        panic!("Expected a DuplicateKey error");
+    }
+}
+
 // #[test]
 // fn test_locales_ld() {
 //     let locales = build::from_locales_folder("../../../LeaveDates/frontend/app/locales").unwrap();
