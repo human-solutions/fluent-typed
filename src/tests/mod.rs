@@ -181,25 +181,36 @@ fn test_locales_deep_folders() {
 
 #[test]
 fn test_duplicate_key_fails() {
-    let ftl = r#"
-hello-world = Hello World!
-hello-world = Goodbye World!
-"#;
-
     let ftl_opts = FtlOutputOptions::SingleFile {
         output_ftl_file: "src/tests/gen/test_duplicate_key.ftl".to_string(),
         compressor: None,
     };
     let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_duplicate_key")
         .with_output_file_path("src/tests/gen/test_duplicate_key_gen.rs")
         .with_ftl_output(ftl_opts)
+        .with_default_language("en")
         .with_deny_duplicate_keys();
 
-    let result = Builder::load_one(options, "test", "en", ftl);
-    assert!(
-        matches!(result, Err(BuildError::DuplicateKey { .. })),
-        "Expected a DuplicateKey error"
-    );
+    if let Err(BuildError::LocalesFolder { source, .. }) = &Builder::load(options)
+        && let BuildError::DuplicateKey {
+            key,
+            original,
+            duplicate,
+        } = source.as_ref()
+    {
+        assert_eq!(key, "message 'hello-world'");
+        assert!(
+            original.ends_with("a.ftl"),
+            "expected a.ftl, got {original:?}"
+        );
+        assert!(
+            duplicate.ends_with("b.ftl"),
+            "expected b.ftl, got {duplicate:?}"
+        );
+    } else {
+        panic!("Expected a DuplicateKey error");
+    }
 }
 
 // #[test]
