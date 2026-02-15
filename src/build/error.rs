@@ -1,10 +1,14 @@
-use std::{error::Error, fmt, io};
+use std::{error::Error, fmt, io, path::PathBuf};
 
 #[derive(Debug)]
 pub enum BuildError {
     FtlParse(String),
     Io(io::Error),
-    DuplicateKey(String),
+    DuplicateKey {
+        key: String,
+        original: PathBuf,
+        duplicate: PathBuf,
+    },
     LocalesFolder {
         folder: String,
         source: Box<BuildError>,
@@ -22,7 +26,16 @@ impl fmt::Display for BuildError {
         match self {
             Self::FtlParse(msg) => write!(f, "Could not parse ftl: {msg}"),
             Self::Io(err) => write!(f, "{err}"),
-            Self::DuplicateKey(key) => write!(f, "Duplicate message key '{key}'"),
+            Self::DuplicateKey {
+                key,
+                original,
+                duplicate,
+            } => write!(
+                f,
+                "Duplicate message key '{key}' in '{}', first defined in '{}'",
+                duplicate.display(),
+                original.display()
+            ),
             Self::LocalesFolder { folder, source } => {
                 write!(f, "Could not read locales folder '{folder}': {source}")
             }

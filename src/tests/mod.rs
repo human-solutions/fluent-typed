@@ -197,7 +197,7 @@ hello-world = Goodbye World!
 
     let result = Builder::load_one(options, "test", "en", ftl);
     assert!(
-        matches!(result, Err(BuildError::DuplicateKey(_))),
+        matches!(result, Err(BuildError::DuplicateKey { .. })),
         "Expected a DuplicateKey error"
     );
 }
