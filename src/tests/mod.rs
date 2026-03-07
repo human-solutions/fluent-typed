@@ -199,7 +199,7 @@ fn test_duplicate_key_fails() {
             duplicate,
         } = source.as_ref()
     {
-        assert_eq!(key, "message 'hello-world'");
+        assert_eq!(key, "hello-world");
         assert!(
             original.ends_with("a.ftl"),
             "expected a.ftl, got {original:?}"
@@ -231,7 +231,7 @@ fn test_duplicate_key_single_file_fails() {
         duplicate,
     }) = &Builder::load_one(options, "test", "en", ftl)
     {
-        assert_eq!(key, "message 'hello-world'");
+        assert_eq!(key, "hello-world");
         assert_eq!(original, duplicate);
     } else {
         panic!("Expected a DuplicateKey error");

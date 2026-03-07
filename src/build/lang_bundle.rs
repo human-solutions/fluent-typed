@@ -94,7 +94,7 @@ fn to_messages(
         .flatten()
         .map(|msg| {
             if deny_duplicate_keys {
-                let key = msg.id.to_string();
+                let key = msg.id.message.clone();
                 if let Some(original) = seen.get(&key) {
                     return Err(BuildError::DuplicateKey {
                         key,
