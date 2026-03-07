@@ -43,7 +43,7 @@ pub struct BuildOptions {
     /// Whether to return an error if duplicate message keys are found
     /// within the same language.
     ///
-    /// Defaults to false.
+    /// Defaults to true.
     pub deny_duplicate_keys: bool,
 }
 
@@ -57,7 +57,7 @@ impl Default for BuildOptions {
             default_language: "en".to_string(),
             format: true,
             output_mode: OutputMode::default(),
-            deny_duplicate_keys: false,
+            deny_duplicate_keys: true,
         }
     }
 }
@@ -98,8 +98,8 @@ impl BuildOptions {
         self
     }
 
-    pub fn with_deny_duplicate_keys(mut self) -> Self {
-        self.deny_duplicate_keys = true;
+    pub fn with_allow_duplicate_keys(mut self) -> Self {
+        self.deny_duplicate_keys = false;
         self
     }
 

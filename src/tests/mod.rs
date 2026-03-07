@@ -189,8 +189,7 @@ fn test_duplicate_key_fails() {
         .with_locales_folder("src/tests/test_duplicate_key")
         .with_output_file_path("src/tests/gen/test_duplicate_key_gen.rs")
         .with_ftl_output(ftl_opts)
-        .with_default_language("en")
-        .with_deny_duplicate_keys();
+        .with_default_language("en");
 
     if let Err(BuildError::LocalesFolder { source, .. }) = &Builder::load(options)
         && let BuildError::DuplicateKey {
@@ -222,8 +221,7 @@ fn test_duplicate_key_single_file_fails() {
     };
     let options = BuildOptions::default()
         .with_output_file_path("src/tests/gen/test_duplicate_key_single_gen.rs")
-        .with_ftl_output(ftl_opts)
-        .with_deny_duplicate_keys();
+        .with_ftl_output(ftl_opts);
 
     if let Err(BuildError::DuplicateKey {
         key,
