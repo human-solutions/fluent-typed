@@ -94,15 +94,15 @@ fn to_messages(
         .flatten()
         .map(|msg| {
             if deny_duplicate_keys {
-                let key = msg.id.message.clone();
-                if let Some(original) = seen.get(&key) {
+                let seen_key = msg.id.to_string();
+                if let Some(original) = seen.get(&seen_key) {
                     return Err(BuildError::DuplicateKey {
-                        key,
+                        key: msg.id.message.clone(),
                         original: original.clone(),
                         duplicate: path.to_path_buf(),
                     });
                 }
-                seen.insert(key, path.to_path_buf());
+                seen.insert(seen_key, path.to_path_buf());
             }
             Ok(msg)
         })
