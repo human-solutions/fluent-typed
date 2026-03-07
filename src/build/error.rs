@@ -36,11 +36,11 @@ impl fmt::Display for BuildError {
                 duplicate.display(),
                 original.display()
             ),
-            Self::LocalesFolder { folder, source } => {
-                write!(f, "Could not read locales folder '{folder}': {source}")
+            Self::LocalesFolder { folder, .. } => {
+                write!(f, "Could not read locales folder '{folder}'")
             }
-            Self::WriteOutput { path, source } => {
-                write!(f, "Could not write file '{path}': {source}")
+            Self::WriteOutput { path, .. } => {
+                write!(f, "Could not write file '{path}'")
             }
             Self::Rustfmt(msg) => write!(f, "Rustfmt error: {msg}"),
             Self::Generation(msg) => write!(f, "{msg}"),
