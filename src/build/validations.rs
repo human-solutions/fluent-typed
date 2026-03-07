@@ -16,7 +16,7 @@ impl Analyzed {
         let common_ids = common_message_ids(langs);
         let missing_messages = missing_message_ids(&common_ids, langs);
         let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
-        let common: HashSet<Id> = common_ids.difference(&ids).map(|id| id.clone()).collect();
+        let common: HashSet<Id> = common_ids.difference(&ids).cloned().collect();
         Self {
             common,
             missing_messages,
