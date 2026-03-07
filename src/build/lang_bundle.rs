@@ -58,10 +58,10 @@ impl LangBundle {
             let ast =
                 parser::parse(ftl.as_str()).map_err(|e| BuildError::FtlParse(format!("{e:?}")))?;
 
-            if let Some(lang_name) = lang_name(&ast) {
-                if bundle.language_name.is_none() {
-                    bundle.language_name = Some(lang_name);
-                }
+            if let Some(lang_name) = lang_name(&ast)
+                && bundle.language_name.is_none()
+            {
+                bundle.language_name = Some(lang_name);
             }
             let name = path.file_stem().unwrap().to_str().unwrap().to_string();
 
@@ -120,8 +120,8 @@ fn lang_name(ast: &Resource<&str>) -> Option<String> {
                 }
                 let Some(value) = &m.value else { return None };
 
-                if let Some(TextElement { value }) = value.elements.iter().next() {
-                    return Some(value.to_string());
+                if let Some(TextElement { value }) = value.elements.first() {
+                    Some(value.to_string())
                 } else {
                     None
                 }
