@@ -76,7 +76,7 @@ impl GeneratedFtl {
 "#
         };
 
-        out.push_str(&load_fn);
+        out.push_str(load_fn);
 
         let load_all_fn = if compressed {
             r#"
@@ -106,7 +106,7 @@ impl GeneratedFtl {
     }"#
         };
 
-        out.push_str(&load_all_fn);
+        out.push_str(load_all_fn);
         out
     }
 }
@@ -177,7 +177,7 @@ fn relative(from_path: &Path, to_path: &Path) -> io::Result<PathBuf> {
     let mut to = to_path.components().collect::<VecDeque<_>>();
 
     // Remove common components
-    while let (Some(fr_comp), Some(to_comp)) = (from.get(0), to.get(0)) {
+    while let (Some(fr_comp), Some(to_comp)) = (from.front(), to.front()) {
         if fr_comp != to_comp {
             break;
         }

@@ -122,10 +122,11 @@ impl Message {
 }
 
 fn lifetime(vars: &[Variable]) -> &'static str {
-    vars.iter()
-        .any(|v| v.typ == VarType::Any)
-        .then_some("'a, ")
-        .unwrap_or_default()
+    if vars.iter().any(|v| v.typ == VarType::Any) {
+        "'a, "
+    } else {
+        ""
+    }
 }
 
 fn args_declaration(vars: &[Variable]) -> ArgInfo {
