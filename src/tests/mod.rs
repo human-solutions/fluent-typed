@@ -191,12 +191,11 @@ fn test_duplicate_key_fails() {
         .with_ftl_output(ftl_opts)
         .with_default_language("en");
 
-    if let Err(BuildError::LocalesFolder { source, .. }) = &Builder::load(options)
-        && let BuildError::DuplicateKey {
-            key,
-            original,
-            duplicate,
-        } = source.as_ref()
+    if let Err(BuildError::DuplicateKey {
+        key,
+        original,
+        duplicate,
+    }) = &Builder::load(options)
     {
         assert_eq!(key, "hello-world");
         assert!(

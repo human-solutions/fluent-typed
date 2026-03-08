@@ -47,14 +47,20 @@ impl LangBundle {
 
         let mut paths = folder
             .gather_all_files(|file| file.extension().map(|s| s == "ftl") == Some(true))
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+            .map_err(|e| BuildError::FtlRead {
+                path: folder.to_path_buf(),
+                source: std::io::Error::other(e.to_string()),
+            })?;
 
         paths.sort();
 
         let mut seen: HashMap<String, PathBuf> = HashMap::new();
 
         for path in paths {
-            let ftl = fs::read_to_string(&path)?;
+            let ftl = fs::read_to_string(&path).map_err(|e| BuildError::FtlRead {
+                path: path.clone(),
+                source: e,
+            })?;
             let ast =
                 parser::parse(ftl.as_str()).map_err(|e| BuildError::FtlParse(format!("{e:?}")))?;
 

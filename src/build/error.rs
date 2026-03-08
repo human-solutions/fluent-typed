@@ -3,7 +3,10 @@ use std::{error::Error, fmt, io, path::PathBuf};
 #[derive(Debug)]
 pub enum BuildError {
     FtlParse(String),
-    Io(io::Error),
+    FtlRead {
+        path: PathBuf,
+        source: io::Error,
+    },
     DuplicateKey {
         key: String,
         original: PathBuf,
@@ -11,7 +14,7 @@ pub enum BuildError {
     },
     LocalesFolder {
         folder: String,
-        source: Box<BuildError>,
+        source: io::Error,
     },
     WriteOutput {
         path: String,
@@ -25,17 +28,29 @@ impl fmt::Display for BuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::FtlParse(msg) => write!(f, "Could not parse ftl: {msg}"),
-            Self::Io(err) => write!(f, "{err}"),
+            Self::FtlRead { path, .. } => {
+                write!(f, "Could not read '{}'", path.display())
+            }
             Self::DuplicateKey {
                 key,
                 original,
                 duplicate,
-            } => write!(
-                f,
-                "Duplicate message key '{key}' in '{}', first defined in '{}'",
-                duplicate.display(),
-                original.display()
-            ),
+            } => {
+                if original == duplicate {
+                    write!(
+                        f,
+                        "Duplicate message key '{key}' in '{}'",
+                        duplicate.display()
+                    )
+                } else {
+                    write!(
+                        f,
+                        "Duplicate message key '{key}' in '{}', first defined in '{}'",
+                        duplicate.display(),
+                        original.display()
+                    )
+                }
+            }
             Self::LocalesFolder { folder, .. } => {
                 write!(f, "Could not read locales folder '{folder}'")
             }
@@ -51,16 +66,10 @@ impl fmt::Display for BuildError {
 impl Error for BuildError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::Io(err) => Some(err),
-            Self::LocalesFolder { source, .. } => Some(source.as_ref()),
+            Self::FtlRead { source, .. } => Some(source),
+            Self::LocalesFolder { source, .. } => Some(source),
             Self::WriteOutput { source, .. } => Some(source),
             _ => None,
         }
-    }
-}
-
-impl From<io::Error> for BuildError {
-    fn from(err: io::Error) -> Self {
-        Self::Io(err)
     }
 }
