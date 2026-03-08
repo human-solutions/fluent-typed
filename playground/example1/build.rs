@@ -1,5 +1,5 @@
 use flate2::{write::GzEncoder, Compression};
-use fluent_typed::{try_build_from_locales_folder, BuildOptions, FtlOutputOptions};
+use fluent_typed::{BuildError, try_build_from_locales_folder, BuildOptions, FtlOutputOptions};
 use std::io::Write;
 use std::process::ExitCode;
 
@@ -13,7 +13,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn try_main() -> Result<(), String> {
+fn try_main() -> Result<(), BuildError> {
     let multi_opts = BuildOptions::default()
         .with_ftl_output(FtlOutputOptions::MultiFile {
             output_ftl_folder: "gen/multi/".to_string(),

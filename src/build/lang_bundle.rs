@@ -1,10 +1,11 @@
 use crate::build::utils::Traversable;
 
-use super::Message;
+use super::{BuildError, Message};
 use fluent_syntax::ast::Resource;
 use fluent_syntax::parser;
+use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct LangBundle {
@@ -16,16 +17,27 @@ pub struct LangBundle {
 
 impl LangBundle {
     #[cfg(test)]
-    pub fn from_ftl(ftl: &str, name: &str, lang: &str) -> Result<Self, String> {
-        let ast = parser::parse(ftl).map_err(|e| format!("Could not parse ftl due to: {e:?}"))?;
+    pub fn from_ftl(
+        ftl: &str,
+        name: &str,
+        lang: &str,
+        deny_duplicate_keys: bool,
+    ) -> Result<Self, BuildError> {
+        let ast = parser::parse(ftl).map_err(|e| BuildError::FtlParse(format!("{e:?}")))?;
+        let path = PathBuf::from(name);
+        let mut seen = HashMap::new();
         Ok(LangBundle {
             language_name: lang_name(&ast),
             language_id: lang.to_string(),
-            messages: to_messages(name, &ast)?,
+            messages: to_messages(name, &ast, deny_duplicate_keys, &mut seen, &path)?,
             ftl: ftl.to_string(),
         })
     }
-    pub fn from_folder(folder: &Path, lang: &str) -> Result<Self, String> {
+    pub fn from_folder(
+        folder: &Path,
+        lang: &str,
+        deny_duplicate_keys: bool,
+    ) -> Result<Self, BuildError> {
         let mut bundle = LangBundle {
             language_name: None,
             language_id: lang.to_string(),
@@ -35,19 +47,27 @@ impl LangBundle {
 
         let mut paths = folder
             .gather_all_files(|file| file.extension().map(|s| s == "ftl") == Some(true))
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| BuildError::FtlRead {
+                path: folder.to_path_buf(),
+                source: std::io::Error::other(e.to_string()),
+            })?;
 
         paths.sort();
 
-        for path in paths {
-            let ftl = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            let ast = parser::parse(ftl.as_str())
-                .map_err(|e| format!("Could not parse ftl due to: {e:?}"))?;
+        let mut seen: HashMap<String, PathBuf> = HashMap::new();
 
-            if let Some(lang_name) = lang_name(&ast) {
-                if bundle.language_name.is_none() {
-                    bundle.language_name = Some(lang_name);
-                }
+        for path in paths {
+            let ftl = fs::read_to_string(&path).map_err(|e| BuildError::FtlRead {
+                path: path.clone(),
+                source: e,
+            })?;
+            let ast =
+                parser::parse(ftl.as_str()).map_err(|e| BuildError::FtlParse(format!("{e:?}")))?;
+
+            if let Some(lang_name) = lang_name(&ast)
+                && bundle.language_name.is_none()
+            {
+                bundle.language_name = Some(lang_name);
             }
             let name = path.file_stem().unwrap().to_str().unwrap().to_string();
 
@@ -57,23 +77,42 @@ impl LangBundle {
             bundle.ftl.push_str(&ftl);
             bundle.ftl.push('\n');
 
-            let messages = to_messages(&name, &ast)?;
+            let messages = to_messages(&name, &ast, deny_duplicate_keys, &mut seen, &path)?;
             bundle.messages.extend(messages);
         }
         Ok(bundle)
     }
 }
 
-fn to_messages(name: &str, ast: &Resource<&str>) -> Result<Vec<Message>, String> {
-    Ok(ast
-        .body
+fn to_messages(
+    name: &str,
+    ast: &Resource<&str>,
+    deny_duplicate_keys: bool,
+    seen: &mut HashMap<String, PathBuf>,
+    path: &Path,
+) -> Result<Vec<Message>, BuildError> {
+    ast.body
         .iter()
         .filter_map(|entry| match entry {
             fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name, m)),
             _ => None,
         })
         .flatten()
-        .collect())
+        .map(|msg| {
+            if deny_duplicate_keys {
+                let seen_key = msg.id.to_string();
+                if let Some(original) = seen.get(&seen_key) {
+                    return Err(BuildError::DuplicateKey {
+                        key: msg.id.message.clone(),
+                        original: original.clone(),
+                        duplicate: path.to_path_buf(),
+                    });
+                }
+                seen.insert(seen_key, path.to_path_buf());
+            }
+            Ok(msg)
+        })
+        .collect()
 }
 
 fn lang_name(ast: &Resource<&str>) -> Option<String> {
@@ -87,8 +126,8 @@ fn lang_name(ast: &Resource<&str>) -> Option<String> {
                 }
                 let Some(value) = &m.value else { return None };
 
-                if let Some(TextElement { value }) = value.elements.iter().next() {
-                    return Some(value.to_string());
+                if let Some(TextElement { value }) = value.elements.first() {
+                    Some(value.to_string())
                 } else {
                     None
                 }

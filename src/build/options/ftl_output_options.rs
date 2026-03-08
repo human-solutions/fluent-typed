@@ -141,7 +141,7 @@ fn write(content: &[u8], file: &Path) -> Result<(), String> {
 
 fn create_dir(folder: &Path) -> Result<(), String> {
     if !folder.exists() {
-        fs::create_dir_all(&folder)
+        fs::create_dir_all(folder)
             .map_err(|e| format!("Could not create ftl folder '{folder:?}': {e:?}"))?;
     }
     Ok(())
