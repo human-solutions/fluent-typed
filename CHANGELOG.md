@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0
+
+### Added
+- `BuildError` enum for structured, inspectable build errors with proper
+  `Display` and `Error` trait implementations.
+- Duplicate message key detection across FTL files within the same language,
+  enabled by default. Disable with `BuildOptions::with_allow_duplicate_keys()`.
+
+### Changed
+- **Breaking:** All public build functions now return `Result<_, BuildError>`
+  instead of `Result<_, String>`. Callers using `map_err` or matching on
+  `String` errors must update to use `BuildError`.
+- **Breaking:** `BuildOptions` has a new `deny_duplicate_keys` field
+  (default `true`). Direct struct construction must include this field;
+  `BuildOptions::default()` users are unaffected.
+
 ## 0.4.0
 
 ### Added

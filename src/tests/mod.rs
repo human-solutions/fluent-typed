@@ -4,7 +4,7 @@ mod r#gen;
 
 use std::fs;
 
-use crate::{BuildOptions, FtlOutputOptions, OutputMode, build::Builder};
+use crate::{BuildError, BuildOptions, FtlOutputOptions, OutputMode, build::Builder};
 
 use fluent_bundle::{FluentBundle, FluentResource};
 use unic_langid::langid;
@@ -177,6 +177,62 @@ fn test_locales_deep_folders() {
     // Verify both languages are included
     assert!(generated.contains("L10n::De"));
     assert!(generated.contains("L10n::En"));
+}
+
+#[test]
+fn test_duplicate_key_fails() {
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_duplicate_key.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_locales_folder("src/tests/test_duplicate_key")
+        .with_output_file_path("src/tests/gen/test_duplicate_key_gen.rs")
+        .with_ftl_output(ftl_opts)
+        .with_default_language("en");
+
+    if let Err(BuildError::DuplicateKey {
+        key,
+        original,
+        duplicate,
+    }) = &Builder::load(options)
+    {
+        assert_eq!(key, "hello-world");
+        assert!(
+            original.ends_with("a.ftl"),
+            "expected a.ftl, got {original:?}"
+        );
+        assert!(
+            duplicate.ends_with("b.ftl"),
+            "expected b.ftl, got {duplicate:?}"
+        );
+    } else {
+        panic!("Expected a DuplicateKey error");
+    }
+}
+
+#[test]
+fn test_duplicate_key_single_file_fails() {
+    let ftl = "hello-world = Hello\nhello-world = World\n";
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_duplicate_key_single.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_output_file_path("src/tests/gen/test_duplicate_key_single_gen.rs")
+        .with_ftl_output(ftl_opts);
+
+    if let Err(BuildError::DuplicateKey {
+        key,
+        original,
+        duplicate,
+    }) = &Builder::load_one(options, "test", "en", ftl)
+    {
+        assert_eq!(key, "hello-world");
+        assert_eq!(original, duplicate);
+    } else {
+        panic!("Expected a DuplicateKey error");
+    }
 }
 
 // #[test]

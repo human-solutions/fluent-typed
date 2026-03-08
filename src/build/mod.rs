@@ -1,4 +1,5 @@
 mod builder;
+mod error;
 pub mod r#gen;
 mod lang_bundle;
 pub mod options;
@@ -7,6 +8,7 @@ mod utils;
 mod validations;
 
 pub use builder::Builder;
+pub use error::BuildError;
 pub use lang_bundle::LangBundle;
 pub use options::{BuildOptions, FtlOutputOptions, OutputMode};
 use std::process::ExitCode;
@@ -54,7 +56,7 @@ pub fn build_from_locales_folder(options: BuildOptions) -> ExitCode {
 }
 
 /// Same as [build_from_locales_folder], but returns result instead of an ExitCode.
-pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), String> {
+pub fn try_build_from_locales_folder(options: BuildOptions) -> Result<(), BuildError> {
     let locales = &options.locales_folder;
     println!("cargo::rerun-if-changed={locales}");
 

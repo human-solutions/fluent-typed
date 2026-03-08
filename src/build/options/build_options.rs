@@ -39,6 +39,12 @@ pub struct BuildOptions {
     ///
     /// Defaults to OutputMode::String with prefix "msg_".
     pub output_mode: OutputMode,
+
+    /// Whether to return an error if duplicate message keys are found
+    /// within the same language.
+    ///
+    /// Defaults to true.
+    pub deny_duplicate_keys: bool,
 }
 
 impl Default for BuildOptions {
@@ -51,6 +57,7 @@ impl Default for BuildOptions {
             default_language: "en".to_string(),
             format: true,
             output_mode: OutputMode::default(),
+            deny_duplicate_keys: true,
         }
     }
 }
@@ -88,6 +95,11 @@ impl BuildOptions {
 
     pub fn with_output_mode(mut self, mode: OutputMode) -> Self {
         self.output_mode = mode;
+        self
+    }
+
+    pub fn with_allow_duplicate_keys(mut self) -> Self {
+        self.deny_duplicate_keys = false;
         self
     }
 
