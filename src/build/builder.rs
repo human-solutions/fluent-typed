@@ -56,10 +56,10 @@ impl Builder {
             .replace("    ", &self.options.indentation);
 
         let output_file_path = &self.options.output_file_path;
-        if let Some(current_file) = fs::read_to_string(output_file_path).ok() {
-            if current_file == generated {
-                return Ok(());
-            }
+        if let Ok(current_file) = fs::read_to_string(output_file_path)
+            && current_file == generated
+        {
+            return Ok(());
         }
 
         fs::write(output_file_path, &generated).map_err(|e| BuildError::WriteOutput {

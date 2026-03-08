@@ -1,19 +1,19 @@
 mod ext;
 mod generated_ftl;
 mod message;
-#[allow(dead_code, unused_mut, unused_imports)]
+#[allow(dead_code, unused_mut, unused_imports, clippy::derivable_impls)]
 mod template;
 
 use super::{BuildOptions, LangBundle, Message};
 pub use ext::StrExt;
 pub use generated_ftl::GeneratedFtl;
 
-pub fn generate<'a>(
+pub fn generate(
     options: &BuildOptions,
     locales: &[LangBundle],
-    messages: &[&'a Message],
+    messages: &[&Message],
 ) -> Result<String, String> {
-    let generated_ftl = options.ftl_output.generate(&locales)?;
+    let generated_ftl = options.ftl_output.generate(locales)?;
 
     let mut langs = locales
         .iter()
@@ -39,7 +39,7 @@ static ALL_LANGS: [L10n; {}] = [
     // languages as an array
 {enum_entries}
 ];"#,
-        langs.iter().count()
+        langs.len()
     );
     replacements.push(("<<placeholder all_langs>>", all_langs));
 
@@ -172,15 +172,14 @@ static ALL_LANGS: [L10n; {}] = [
     // ///////////////////////////
 
     let langneg_fn = if cfg!(feature = "langneg") {
-        format!(
-            r#"
+        r#"
     /// Negotiate the best language to use based on the `Accept-Language` header.
     ///
     /// Falls back to the default language if none of the languages in the header are available.
-    pub fn langneg(accept_language: &str) -> L10n {{
+    pub fn langneg(accept_language: &str) -> L10n {
         negotiate_languages(accept_language, &ALL_LANGS)
-    }}"#,
-        )
+    }"#
+        .to_string()
     } else {
         String::new()
     };
