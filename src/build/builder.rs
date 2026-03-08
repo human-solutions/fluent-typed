@@ -11,13 +11,7 @@ impl Builder {
         let folder = &options.locales_folder;
         println!("cargo::rerun-if-changed={folder}");
 
-        let mut langbundles =
-            from_locales_folder(folder, options.deny_duplicate_keys).map_err(|e| {
-                BuildError::LocalesFolder {
-                    folder: folder.to_string(),
-                    source: Box::new(e),
-                }
-            })?;
+        let mut langbundles = from_locales_folder(folder, options.deny_duplicate_keys)?;
 
         langbundles.sort_by_cached_key(|lb| lb.language_id.clone());
 
@@ -101,10 +95,14 @@ fn from_locales_folder(
     folder: &str,
     deny_duplicate_keys: bool,
 ) -> Result<Vec<LangBundle>, BuildError> {
-    let locales_dir = fs::read_dir(folder)?;
+    let map_io = |e| BuildError::LocalesFolder {
+        folder: folder.to_string(),
+        source: e,
+    };
+    let locales_dir = fs::read_dir(folder).map_err(map_io)?;
     let mut locales = Vec::new();
     for entry in locales_dir {
-        let entry = entry?;
+        let entry = entry.map_err(map_io)?;
         let path = entry.path();
         if path.is_dir() {
             let lang = path.file_name().unwrap().to_str().unwrap();
