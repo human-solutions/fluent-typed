@@ -1,6 +1,7 @@
 mod ast;
 mod complex;
 mod r#gen;
+mod runtime;
 
 use std::fs;
 
@@ -36,6 +37,9 @@ fn assert_gen(module: &str, resource_name: &str, ftl: &str) {
 
     let builder = Builder::load_one(options, resource_name, "en", ftl).unwrap();
     builder.generate().unwrap();
+
+    let generated = fs::read_to_string(&file).unwrap();
+    insta::assert_snapshot!(mod_name, generated);
 }
 
 #[track_caller]
@@ -59,12 +63,15 @@ fn assert_gen_with_output_mode(
 
     let builder = Builder::load_one(options, resource_name, "en", ftl).unwrap();
     builder.generate().unwrap();
+
+    let generated = fs::read_to_string(&file).unwrap();
+    insta::assert_snapshot!(format!("{mod_name}_{suffix}"), generated);
 }
 
 #[test]
 fn test_locales_folder() {
     let ftl_opts = FtlOutputOptions::SingleFile {
-        output_ftl_file: format!("src/tests/gen/test_locales.ftl"),
+        output_ftl_file: "src/tests/gen/test_locales.ftl".to_string(),
         compressor: None,
     };
     let options = BuildOptions::default()
@@ -73,12 +80,15 @@ fn test_locales_folder() {
         .with_output_file_path("src/tests/gen/test_locales_gen.rs")
         .with_default_language("en-gb");
     Builder::load(options).unwrap().generate().unwrap();
+
+    let generated = fs::read_to_string("src/tests/gen/test_locales_gen.rs").unwrap();
+    insta::assert_snapshot!("test_locales", generated);
 }
 
 #[test]
 fn test_locales_multi_resources() {
     let ftl_opts = FtlOutputOptions::SingleFile {
-        output_ftl_file: format!("src/tests/gen/test_locales_multi_resources.ftl"),
+        output_ftl_file: "src/tests/gen/test_locales_multi_resources.ftl".to_string(),
         compressor: None,
     };
     let options = BuildOptions::default()
@@ -88,12 +98,16 @@ fn test_locales_multi_resources() {
         .with_default_language("en-gb");
 
     Builder::load(options).unwrap().generate().unwrap();
+
+    let generated =
+        fs::read_to_string("src/tests/gen/test_locales_multi_resources_gen.rs").unwrap();
+    insta::assert_snapshot!("test_locales_multi_resources", generated);
 }
 
 #[test]
 fn test_locales_missing_msg() {
     let ftl_opts = FtlOutputOptions::SingleFile {
-        output_ftl_file: format!("src/tests/gen/test_locales_missing_msg.ftl"),
+        output_ftl_file: "src/tests/gen/test_locales_missing_msg.ftl".to_string(),
         compressor: None,
     };
     let options = BuildOptions::default()
@@ -102,6 +116,9 @@ fn test_locales_missing_msg() {
         .with_output_file_path("src/tests/gen/test_locales_missing_msg_gen.rs")
         .with_default_language("en-gb");
     Builder::load(options).unwrap().generate().unwrap();
+
+    let generated = fs::read_to_string("src/tests/gen/test_locales_missing_msg_gen.rs").unwrap();
+    insta::assert_snapshot!("test_locales_missing_msg", generated);
 }
 
 #[test]
@@ -167,6 +184,7 @@ fn test_locales_deep_folders() {
 
     // Verify the generated file contains messages from all depths
     let generated = fs::read_to_string("src/tests/gen/test_locales_deep_folders_gen.rs").unwrap();
+    insta::assert_snapshot!("test_locales_deep_folders", &generated);
 
     // Check that all expected message functions were generated
     assert!(generated.contains("fn msg_root_message("));
@@ -233,6 +251,49 @@ fn test_duplicate_key_single_file_fails() {
     } else {
         panic!("Expected a DuplicateKey error");
     }
+}
+
+#[test]
+fn empty_locales_folder_is_an_error() {
+    let dir = "target/test-empty-locales";
+    fs::create_dir_all(dir).unwrap();
+    let options = BuildOptions::default().with_locales_folder(dir);
+    assert!(
+        matches!(
+            Builder::load(options),
+            Err(BuildError::NoLocaleFolders { .. })
+        ),
+        "an empty locales folder should produce a NoLocaleFolders error, not a panic"
+    );
+}
+
+#[test]
+fn without_bidi_isolation_generates_non_isolating_calls() {
+    let dir = "target/test-gen-no-isolation";
+    fs::create_dir_all(dir).unwrap();
+    let rs = format!("{dir}/l10n.rs");
+    let options = BuildOptions::default()
+        .with_output_file_path(&rs)
+        .with_ftl_output(FtlOutputOptions::SingleFile {
+            output_ftl_file: format!("{dir}/translations.ftl"),
+            compressor: None,
+        })
+        .without_format()
+        .without_bidi_isolation();
+    Builder::load_one(options, "test", "en", "hello = Hi { $name }!\n")
+        .unwrap()
+        .generate()
+        .unwrap();
+
+    let generated = fs::read_to_string(&rs).unwrap();
+    assert!(
+        generated.contains("L10nBundle::new_without_isolation(lang, bytes)"),
+        "expected the non-isolating bundle constructor"
+    );
+    assert!(
+        generated.contains("L10nLanguageVec::load_without_isolation("),
+        "expected the non-isolating vec loader"
+    );
 }
 
 // #[test]

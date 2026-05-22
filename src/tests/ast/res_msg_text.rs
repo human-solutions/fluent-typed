@@ -34,13 +34,12 @@ fn ast() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let message = resource.first_message_in_resource("cookie-disclaimer");
+    let message = resource.first_message();
 
     println!("{:#?}", message);
     assert_eq!(
         message,
         Message {
-            resource: "cookie-disclaimer".to_string(),
             id: Id::new_msg("hello-world"),
             comment: vec![],
             variables: vec![],

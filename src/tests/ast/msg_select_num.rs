@@ -95,7 +95,6 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            resource: "test".to_string(),
             id: Id::new_msg("liked-count"),
             comment: vec![],
             variables: vec![Variable {

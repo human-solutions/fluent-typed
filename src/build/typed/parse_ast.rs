@@ -3,7 +3,7 @@ use fluent_syntax::ast;
 use type_in_comment::TypeInComment;
 
 impl Message {
-    pub fn parse(resource: &str, message: &ast::Message<&str>) -> Vec<Self> {
+    pub fn parse(message: &ast::Message<&str>) -> Vec<Self> {
         let mut found = Vec::new();
         let comment = message
             .comment
@@ -19,7 +19,6 @@ impl Message {
                 attribute: None,
             };
             found.push(Self {
-                resource: resource.to_owned(),
                 id,
                 comment,
                 variables,
@@ -32,7 +31,6 @@ impl Message {
                 attribute: Some(attribute.id.to_owned()),
             };
             found.push(Self {
-                resource: resource.to_owned(),
                 id,
                 comment: vec![],
                 variables,

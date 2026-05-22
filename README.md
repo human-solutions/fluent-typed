@@ -32,10 +32,10 @@ part of the crate's public interface.
 ```toml
 # in Cargo.toml
 [dependencies]
-fluent-typed = 0.1
+fluent-typed = "0.5"
 
 [build-dependencies]
-fluent-typed = { version = "0.1", features = ["build"] }
+fluent-typed = { version = "0.5", features = ["build"] }
 ```
 
 ```rust
@@ -65,13 +65,13 @@ fn main() -> std::process::ExitCode {
 mod l10n;
 use l10n::L10n;
 
-// Load english translations in an L10nLanguage struct.
-// It provides safe function for accessing all messages.
+// Load English translations into an L10nLanguage struct.
+// It provides safe functions for accessing all messages.
 let strs: L10nLanguage = L10n::EnGb.load();
 
 // With the feature "langneg" enabled you can do automatic language
 // negotiation, which falls back on the default language as
-// configured in the BuildOptions in the build.rs when generating.
+// configured in the BuildOptions in build.rs when generating.
 let found_lang: L10nLanguage = L10n::langneg("en");
 
 // In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
@@ -81,18 +81,21 @@ let found_lang: L10nLanguage = L10n::langneg("en");
 // A message without arguments.
 assert_eq!("Welcome!", strs.msg_greeting());
 // A message with a string argument (AsRef<str>).
-assert_eq!("Hello world", strs.msg_hello("world"));
+let hello: String = strs.msg_hello("world");
 // A message with a number argument (Into<FluentNumber>).
-assert_eq!("You have 2 unread messages", strs.msg_unread_messages(2));
+let unread: String = strs.msg_unread_messages(2);
+// Note: interpolated values are wrapped in Unicode bidi isolation
+// marks by default, so `hello` is "Hello \u{2068}world\u{2069}".
+// See "Bidi isolation" below.
 
-// the list of the translated, human-readable language names.
+// The list of translated, human-readable language names.
 let language_names: Vec<&str>
-  = L10n.iter().map(|lang| lang.language_name()).collect();
+  = L10n::iter().map(|lang| lang.language_name()).collect();
 
-// typically server-side, you'll load all the languages
+// Server-side, you typically load all the languages once.
 let languages = L10n::load_all();
-// then you can use it like
-assert_eq!("Welcome!", languages.get(L10n::en).msg_greeting());
+// `get` returns the lower-level `L10nBundle`; access messages by id:
+let greeting = languages.get(L10n::En).msg("greeting", None).unwrap();
 ```
 
 ## Output modes
@@ -130,10 +133,11 @@ project uses the following rules to infer the type of the translation variables:
   - If a variable's comment contains `(String)`, as in `# $name (String) - The name.`
 - Number:
   - If a variable's comment contains `(Number)`, as in `# $count (Number) - How many.`
-  - If a [NUMBER](https://projectfluent.org/fluent/guide/functions.html#number-1) function is used, asin `dpi-ratio = Your DPI ratio is { NUMBER($ratio) }`
+  - If a [NUMBER](https://projectfluent.org/fluent/guide/functions.html#number-1) function is used, as in `dpi-ratio = Your DPI ratio is { NUMBER($ratio) }`
   - If a [selector](https://projectfluent.org/fluent/guide/selectors.html) only contains numbers
-    and CLDR plural catagories: `zero`, `one`, `two`, `few`, `many`, and `other`. Example:
-    `text
+    and CLDR plural categories (`zero`, `one`, `two`, `few`, `many`, `other`). For example:
+
+```text
 your-rank = { NUMBER($pos, type: "ordinal") ->
    [1] You finished first!
    [one] You finished {$pos}st
@@ -141,5 +145,25 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
    [few] You finished {$pos}rd
   *[other] You finished {$pos}th
 }
-`
-    gg
+```
+
+## Bidi isolation
+
+By default, the generated accessors wrap every interpolated variable in Unicode
+bidi isolation marks (FSI `U+2068` … PDI `U+2069`). This is the safe default for
+text rendered in a bidi-aware context such as a web UI: it keeps an interpolated
+value's text direction from corrupting the surrounding message, which matters
+whenever a right-to-left locale is used or user-provided text is interpolated.
+
+```rust
+// strs.msg_hello("world") == "Hello \u{2068}world\u{2069}"
+```
+
+If the generated strings are never rendered in a bidi-aware context — and you do
+not use right-to-left locales or interpolate user-provided text — you can turn
+the marks off:
+
+```rust
+// in build.rs
+let options = BuildOptions::default().without_bidi_isolation();
+```

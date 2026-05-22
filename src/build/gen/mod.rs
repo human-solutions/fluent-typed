@@ -1,6 +1,12 @@
 mod ext;
 mod generated_ftl;
 mod message;
+// `template.rs` is used in two ways: it is compiled as a normal module so the
+// compiler guarantees the skeleton stays valid Rust, and it is also read as a
+// string by `generate()` (via `include_str!`) and expanded by replacing the
+// `<<placeholder ...>>` markers. The `#[allow(...)]` below silences lints that
+// only apply to the never-executed compiled copy. The sibling `ftl.bin` is an
+// empty stub that exists only so the template's `include_bytes!` compiles.
 #[allow(dead_code, unused_mut, unused_imports, clippy::derivable_impls)]
 mod template;
 
@@ -189,8 +195,16 @@ static ALL_LANGS: [L10n; {}] = [
     // ///////////////////////////
     replacements.push((
         "<<placeholder load functions>>",
-        generated_ftl.accessor_replacement(),
+        generated_ftl.accessor_replacement(options.use_isolating),
     ));
+
+    // ///////////////////////////
+    let l10n_bundle_new = if options.use_isolating {
+        "        Ok(Self(L10nBundle::new(lang, bytes)?))".to_string()
+    } else {
+        "        Ok(Self(L10nBundle::new_without_isolation(lang, bytes)?))".to_string()
+    };
+    replacements.push(("<<placeholder l10n bundle new>>", l10n_bundle_new));
 
     // ///////////////////////////
     let impls = collect(messages.iter(), |msg| {

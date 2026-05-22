@@ -1,3 +1,7 @@
+---
+source: src/tests/mod.rs
+expression: generated
+---
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
 use std::{
@@ -7,20 +11,24 @@ use std::{
     str::FromStr,
 };
 
-static LANG_DATA: &[u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
-static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
+static LANG_DATA: &[u8] = include_bytes!("msg_text_gen.ftl");
 
-// <<placeholder static enum langid>>
+static ALL_LANGS: [L10n; 1] = [
+    // languages as an array
+    L10n::En,
+];
+
+static EN: LanguageIdentifier = langid!("en");
 
 /// The languages that have translations available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum L10n {
-    Placeholder, // <<placeholder enum variant>>
+    En,
 }
 
 impl Default for L10n {
     fn default() -> Self {
-        Self::Placeholder // <<placeholder default lang>>
+        Self::En
     }
 }
 
@@ -29,7 +37,7 @@ impl FromStr for L10n {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "placeholder" => Ok(Self::Placeholder), // <<placeholder enum from_str>>
+            "en" => Ok(Self::En),
             _ => Err(format!("Unknown language: {}", s)),
         }
     }
@@ -39,12 +47,19 @@ impl Deref for L10n {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         match self {
-            Self::Placeholder => "placeholder", // <<placeholder enum to_str>>
+            Self::En => "en",
         }
     }
 }
 
-// <<placeholder as_ref_langid>>
+impl AsRef<LanguageIdentifier> for L10n {
+    fn as_ref(&self) -> &LanguageIdentifier {
+        match self {
+            Self::En => &EN,
+        }
+    }
+}
+
 impl AsRef<str> for L10n {
     fn as_ref(&self) -> &str {
         self
@@ -61,9 +76,33 @@ impl L10n {
     pub fn iter() -> Iter<'static, L10n> {
         ALL_LANGS.iter()
     }
-    // <<placeholder lang_name function>>
-    // <<placeholder langneg function>>
-    // <<placeholder load functions>>
+
+    /// Negotiate the best language to use based on the `Accept-Language` header.
+    ///
+    /// Falls back to the default language if none of the languages in the header are available.
+    pub fn langneg(accept_language: &str) -> L10n {
+        negotiate_languages(accept_language, &ALL_LANGS)
+    }
+
+    fn byte_range(&self) -> Range<usize> {
+        match self {
+            Self::En => 0..30,
+        }
+    }
+    /// Load a L10nLanguage from the embedded data.
+    pub fn load(&self) -> L10nLanguage {
+        let bytes = LANG_DATA[self.byte_range()].to_vec();
+        L10nLanguage::new(self, &bytes).unwrap()
+    }
+
+    /// Load all languages (L10nLanguage) from the embedded data.
+    pub fn load_all() -> L10nLanguageVec {
+        L10nLanguageVec::load(
+            LANG_DATA,
+            Self::iter().map(|lang| (lang, lang.byte_range())),
+        )
+        .unwrap()
+    }
 }
 
 /// A thin wrapper around the Fluent messages for one language.
@@ -79,8 +118,10 @@ impl L10nLanguage {
     ///
     /// The bytes are expected to be the contents of a .ftl file
     pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
-        Ok(Self(L10nBundle::new(lang, bytes)?)) // <<placeholder l10n bundle new>>
+        Ok(Self(L10nBundle::new(lang, bytes)?))
     }
 
-    // <<message implementations>>
+    pub fn msg_hello_world(&self) -> String {
+        self.0.msg("hello-world", None).unwrap()
+    }
 }

@@ -71,7 +71,6 @@ fn typed() {
     assert_eq!(
         message,
         Message {
-            resource: "test".to_string(),
             id: Id::new_msg("time-elapsed"),
             comment: vec!["$duration (Number) - The duration in seconds.".to_string()],
             variables: vec![Variable {
