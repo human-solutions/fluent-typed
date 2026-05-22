@@ -156,10 +156,11 @@ fn parse_ftl<'a>(ftl: &'a str, path: &Path) -> Result<Resource<&'a str>, BuildEr
 }
 
 fn format_parse_error(src: &str, error: &ParserError) -> String {
-    // `error.pos.start` is a raw byte offset that may land inside a multi-byte
-    // character, so it must not be used to slice `src` directly.
+    // `error.kind` is formatted with `Display` (a human-readable sentence from
+    // fluent-syntax), not `Debug`. `error.pos.start` is a raw byte offset that
+    // may land inside a multi-byte character, so it must not slice `src`.
     format!(
-        "line {}: {:?}",
+        "line {}: {}",
         line_at_byte(src, error.pos.start),
         error.kind
     )

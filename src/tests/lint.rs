@@ -363,6 +363,24 @@ fn a_parse_error_names_the_file_and_line() {
 }
 
 #[test]
+fn a_parse_error_carries_a_human_readable_message() {
+    // fluent-syntax's own `Display` message, not the terse `Debug` enum form.
+    let err = LangBundle::from_ftl("broken { $x }\n", "bad.ftl", "en", true)
+        .expect_err("a message without `=` must fail to parse");
+    match &err {
+        BuildError::FtlParse { errors, .. } => {
+            assert_eq!(errors.len(), 1, "{errors:?}");
+            assert!(
+                errors[0].contains("Expected a token"),
+                "expected a readable message, got {:?}",
+                errors[0],
+            );
+        }
+        other => panic!("expected FtlParse, got {other:?}"),
+    }
+}
+
+#[test]
 fn a_parse_error_in_a_non_ascii_file_does_not_panic() {
     // Malformed line preceded by multi-byte UTF-8 — the error byte offset must
     // not be used to slice the source at a non-char-boundary.
