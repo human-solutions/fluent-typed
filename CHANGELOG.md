@@ -12,6 +12,9 @@
   also requires every variable of every generated message to resolve to a
   concrete type.
 - `BuildError::DefaultLanguageNotFound` and `BuildError::Lint` variants.
+- `BuildError::Multiple` — parse errors, unreadable files and duplicate keys are
+  now collected across every `.ftl` file and reported together, instead of the
+  build failing on the first one encountered.
 - Structured (`(Element)`) messages: annotate a variable or term with
   `(Element)` to have fluent-typed generate a struct of resolved text segments
   split at those points, instead of a single `String`. Variable elements are
