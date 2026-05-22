@@ -60,6 +60,7 @@ fn typed() {
             id: Id::new_msg("hello-world"),
             comment: vec![],
             variables: vec![],
+            elements: vec![],
         }
     );
 }

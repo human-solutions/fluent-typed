@@ -5,6 +5,8 @@ use fluent_syntax::ast::{
 };
 use unic_langid::LanguageIdentifier;
 
+use crate::structured::Segment;
+
 pub struct L10nBundle {
     lang: String,
     bundle: FluentBundle<FluentResource>,
@@ -70,6 +72,72 @@ impl L10nBundle {
         to_owned_pattern(pattern)
     }
 
+    /// Resolve `id` into ordered [`Segment`]s, split at the `(Element)` markers
+    /// named in `element_vars` / `element_terms`.
+    ///
+    /// The result alternates `Text, Element, Text, …` and always holds
+    /// `2 * markers + 1` entries (text segments may be empty). Generated
+    /// structured-message accessors map this directly into a typed struct.
+    pub fn msg_segments(
+        &self,
+        id: &str,
+        element_vars: &[&str],
+        element_terms: &[&str],
+        args: Option<FluentArgs>,
+    ) -> Result<Vec<Segment>, String> {
+        let pattern = self.try_get_pattern(id, None)?;
+        let args = args.as_ref();
+
+        let mut segments = Vec::new();
+        let mut current: Vec<PatternElement<&str>> = Vec::new();
+
+        for element in &pattern.elements {
+            match element_marker(element, element_vars, element_terms) {
+                Some(Marker::Variable) => {
+                    segments.push(Segment::Text(self.resolve_segment(id, &current, args)?));
+                    current.clear();
+                    segments.push(Segment::Gap);
+                }
+                Some(Marker::Term) => {
+                    segments.push(Segment::Text(self.resolve_segment(id, &current, args)?));
+                    current.clear();
+                    let text = self.resolve_segment(id, std::slice::from_ref(element), args)?;
+                    segments.push(Segment::Term(text));
+                }
+                None => current.push(element.clone()),
+            }
+        }
+        segments.push(Segment::Text(self.resolve_segment(id, &current, args)?));
+        Ok(segments)
+    }
+
+    /// Resolve a slice of pattern elements as their own sub-pattern.
+    ///
+    /// A leading empty `TextElement` is prepended so the sub-pattern always has
+    /// more than one element. Fluent only wraps a placeable in bidi isolation
+    /// marks when its pattern has `len > 1`, so this padding makes a split
+    /// segment resolve byte-identically to the same span of the whole,
+    /// un-split message.
+    fn resolve_segment(
+        &self,
+        id: &str,
+        elements: &[PatternElement<&str>],
+        args: Option<&FluentArgs>,
+    ) -> Result<String, String> {
+        let mut padded = Vec::with_capacity(elements.len() + 1);
+        padded.push(PatternElement::TextElement { value: "" });
+        padded.extend(elements.iter().cloned());
+        let sub = Pattern { elements: padded };
+
+        let mut errors = vec![];
+        let value = self.bundle.format_pattern(&sub, args, &mut errors);
+        if errors.is_empty() {
+            Ok(value.to_string())
+        } else {
+            Err(format!("Invalid format for message '{id}': {errors:?}"))
+        }
+    }
+
     fn try_get_pattern(
         &self,
         msg_id: &str,
@@ -115,6 +183,35 @@ impl L10nBundle {
         } else {
             Ok(value.to_string())
         }
+    }
+}
+
+/// Which kind of `(Element)` marker a pattern element is, if any.
+enum Marker {
+    Variable,
+    Term,
+}
+
+fn element_marker(
+    element: &PatternElement<&str>,
+    element_vars: &[&str],
+    element_terms: &[&str],
+) -> Option<Marker> {
+    let PatternElement::Placeable { expression } = element else {
+        return None;
+    };
+    match expression {
+        Expression::Inline(InlineExpression::VariableReference { id })
+            if element_vars.contains(&id.name) =>
+        {
+            Some(Marker::Variable)
+        }
+        Expression::Inline(InlineExpression::TermReference { id, .. })
+            if element_terms.contains(&id.name) =>
+        {
+            Some(Marker::Term)
+        }
+        _ => None,
     }
 }
 

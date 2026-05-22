@@ -85,6 +85,7 @@ fn typed() {
             comment: vec!["This is a message comment".to_string()],
             id: Id::new_msg("hello"),
             variables: vec![],
+            elements: vec![],
         }
     );
     println!("{:#?}", attr);
@@ -97,6 +98,7 @@ fn typed() {
                 id: "userName".to_string(),
                 typ: VarType::Any
             }],
+            elements: vec![],
         }
     );
 }

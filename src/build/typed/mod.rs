@@ -10,6 +10,9 @@ pub struct Message {
     pub id: Id,
     pub comment: Vec<String>,
     pub variables: Vec<Variable>,
+    /// The `(Element)`-annotated split points, in the order they appear in the
+    /// message pattern. Empty for ordinary (non-structured) messages.
+    pub elements: Vec<ElementMarker>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -72,4 +75,21 @@ pub enum VarType {
     Any,
     String,
     Number,
+}
+
+/// An `(Element)`-annotated split point in a message pattern.
+///
+/// A variable element (`$icon`) is a pure positional gap that the consuming
+/// app fills with its own UI element. A term element (`-privacy-link`) carries
+/// translatable text that the app wraps.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct ElementMarker {
+    pub name: String,
+    pub kind: ElementKind,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum ElementKind {
+    Variable,
+    Term,
 }
