@@ -6,7 +6,7 @@
 //! and line of every problem. See [`crate::LintLevel`] for how they are
 //! reported.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::build::LangBundle;
 use crate::build::typed::{
@@ -30,9 +30,20 @@ pub struct Lints {
 /// Run every lint. `default` is the default-language bundle (whose comments are
 /// the type contract); `common` is the set of message ids that get generated.
 pub fn check(langs: &[LangBundle], default: &LangBundle, common: &HashSet<Id>) -> Lints {
+    // Index every message's pattern references by message name once, so the
+    // per-message comment check is a hash lookup rather than a rescan of all
+    // messages — keeping the comment lints O(messages) rather than O(messages²).
+    let mut refs_by_message: HashMap<&str, Vec<&Ref>> = HashMap::new();
+    for m in &default.messages {
+        refs_by_message
+            .entry(m.id.message.as_str())
+            .or_default()
+            .extend(&m.pattern_refs);
+    }
+
     let mut mistakes = Vec::new();
     for msg in &default.messages {
-        mistakes.extend(comment_mistakes(msg, &default.messages));
+        mistakes.extend(comment_mistakes(msg, &refs_by_message));
     }
     mistakes.extend(detached_comments(default));
     mistakes.sort();
@@ -76,24 +87,24 @@ pub fn check(langs: &[LangBundle], default: &LangBundle, common: &HashSet<Id>) -
 }
 
 /// L1 (typo'd keyword) and L2 (annotation of a non-existent variable/term),
-/// scanning one message's comment. `all` is every message of the default
-/// locale, so an annotation pointing at an *attribute*'s variable is seen too.
-fn comment_mistakes(msg: &Message, all: &[Message]) -> Vec<String> {
+/// scanning one message's comment. `refs_by_message` maps each message name to
+/// every pattern reference of its value *and* its attributes, so an annotation
+/// pointing at an *attribute*'s variable is seen too.
+fn comment_mistakes(msg: &Message, refs_by_message: &HashMap<&str, Vec<&Ref>>) -> Vec<String> {
     if msg.comment.is_empty() {
         return Vec::new();
     }
-    let refs: Vec<&Ref> = all
-        .iter()
-        .filter(|m| m.id.message == msg.id.message)
-        .flat_map(|m| &m.pattern_refs)
-        .collect();
+    let no_refs = Vec::new();
+    let refs = refs_by_message
+        .get(msg.id.message.as_str())
+        .unwrap_or(&no_refs);
 
     let mut out = Vec::new();
     for (i, line) in msg.comment.iter().enumerate() {
         let Some(a) = annotation(line) else { continue };
         let at = format!("{}:{}", msg.file, msg.comment_line + i);
         if a.is_recognized() {
-            if !target_exists(&a, &refs) {
+            if !target_exists(&a, refs) {
                 out.push(format!(
                     "{at}: comment annotates {}{} but {} references no such {}",
                     a.sigil(),
