@@ -17,6 +17,7 @@ use std::process::ExitCode;
 pub(crate) use builder::Builder;
 pub(crate) use lang_bundle::LangBundle;
 pub(crate) use typed::Message;
+pub(crate) use utils::LineIndex;
 pub(crate) use validations::Analyzed;
 
 /// Internal build-pipeline pieces re-exported for the benchmark suite

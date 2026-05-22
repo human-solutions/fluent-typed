@@ -11,7 +11,7 @@ mod msg_with_var;
 mod res_msg_text;
 
 use super::{assert_gen, bundle};
-use crate::build::Message;
+use crate::build::{LineIndex, Message};
 use fluent_syntax::ast;
 
 #[test]
@@ -36,8 +36,9 @@ trait AstResourceExt {
 
 impl AstResourceExt for ast::Resource<&str> {
     fn first_message(&self, src: &str) -> Message {
+        let lines = LineIndex::new(src);
         match &self.body[0] {
-            ast::Entry::Message(message) => Message::parse(message, src, "test.ftl")
+            ast::Entry::Message(message) => Message::parse(message, &lines, "test.ftl")
                 .into_iter()
                 .next()
                 .unwrap(),
@@ -46,9 +47,10 @@ impl AstResourceExt for ast::Resource<&str> {
     }
 
     fn two_messages(&self, src: &str) -> [Message; 2] {
+        let lines = LineIndex::new(src);
         match &self.body[0] {
             ast::Entry::Message(message) => {
-                let msgs = Message::parse(message, src, "test.ftl");
+                let msgs = Message::parse(message, &lines, "test.ftl");
                 assert_eq!(msgs.len(), 2);
                 msgs.try_into().unwrap()
             }

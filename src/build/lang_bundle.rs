@@ -1,4 +1,5 @@
-use crate::build::utils::{Traversable, line_at_byte, line_of};
+use crate::build::LineIndex;
+use crate::build::utils::Traversable;
 
 use super::{BuildError, Message};
 use fluent_syntax::ast::{Entry, Resource};
@@ -36,6 +37,7 @@ impl LangBundle {
     ) -> Result<Self, BuildError> {
         let path = PathBuf::from(name);
         let ast = parse_ftl(ftl, &path)?;
+        let lines = LineIndex::new(ftl);
         let mut seen = HashMap::new();
         let mut errors = Vec::new();
         let messages = to_messages(
@@ -43,7 +45,7 @@ impl LangBundle {
             deny_duplicate_keys,
             &mut seen,
             &path,
-            ftl,
+            &lines,
             &mut errors,
         );
         if !errors.is_empty() {
@@ -53,7 +55,7 @@ impl LangBundle {
             language_name: lang_name(&ast),
             language_id: lang.to_string(),
             messages,
-            standalone_comments: standalone_comments(&ast, ftl, &path.display().to_string()),
+            standalone_comments: standalone_comments(&ast, &lines, &path.display().to_string()),
             ftl: ftl.to_string(),
         })
     }
@@ -108,6 +110,7 @@ impl LangBundle {
                     continue;
                 }
             };
+            let lines = LineIndex::new(&ftl);
 
             if let Some(lang_name) = lang_name(&ast)
                 && bundle.language_name.is_none()
@@ -125,14 +128,14 @@ impl LangBundle {
             let file = path.display().to_string();
             bundle
                 .standalone_comments
-                .extend(standalone_comments(&ast, &ftl, &file));
+                .extend(standalone_comments(&ast, &lines, &file));
 
             let messages = to_messages(
                 &ast,
                 deny_duplicate_keys,
                 &mut seen,
                 &path,
-                &ftl,
+                &lines,
                 &mut errors,
             );
             bundle.messages.extend(messages);
@@ -149,21 +152,21 @@ impl LangBundle {
 /// Parse an FTL string, turning any parse errors into a [`BuildError::FtlParse`]
 /// that names the file and the line of each error.
 fn parse_ftl<'a>(ftl: &'a str, path: &Path) -> Result<Resource<&'a str>, BuildError> {
-    parser::parse(ftl).map_err(|(_, errors)| BuildError::FtlParse {
-        path: path.to_path_buf(),
-        errors: errors.iter().map(|e| format_parse_error(ftl, e)).collect(),
+    parser::parse(ftl).map_err(|(_, errors)| {
+        let lines = LineIndex::new(ftl);
+        BuildError::FtlParse {
+            path: path.to_path_buf(),
+            errors: errors.iter().map(|e| format_parse_error(&lines, e)).collect(),
+        }
     })
 }
 
-fn format_parse_error(src: &str, error: &ParserError) -> String {
+fn format_parse_error(lines: &LineIndex, error: &ParserError) -> String {
     // `error.kind` is formatted with `Display` (a human-readable sentence from
     // fluent-syntax), not `Debug`. `error.pos.start` is a raw byte offset that
-    // may land inside a multi-byte character, so it must not slice `src`.
-    format!(
-        "line {}: {}",
-        line_at_byte(src, error.pos.start),
-        error.kind
-    )
+    // may land inside a multi-byte character, so `line_at_byte` counts over raw
+    // bytes rather than slicing.
+    format!("line {}: {}", lines.line_at_byte(error.pos.start), error.kind)
 }
 
 /// Parse the messages of one resource file. Duplicate keys are pushed onto
@@ -174,14 +177,14 @@ fn to_messages(
     deny_duplicate_keys: bool,
     seen: &mut HashMap<String, (PathBuf, usize)>,
     path: &Path,
-    src: &str,
+    lines: &LineIndex,
     errors: &mut Vec<BuildError>,
 ) -> Vec<Message> {
     let file = path.display().to_string();
     let mut messages = Vec::new();
     for entry in &ast.body {
         let Entry::Message(m) = entry else { continue };
-        for msg in Message::parse(m, src, &file) {
+        for msg in Message::parse(m, lines, &file) {
             if deny_duplicate_keys {
                 let seen_key = msg.id.to_string();
                 if let Some((original, original_line)) = seen.get(&seen_key) {
@@ -204,14 +207,14 @@ fn to_messages(
 
 /// Collect the lines of every standalone `#` comment (an `Entry::Comment` — a
 /// comment not attached to a message).
-fn standalone_comments(ast: &Resource<&str>, src: &str, file: &str) -> Vec<CommentLine> {
+fn standalone_comments(ast: &Resource<&str>, lines: &LineIndex, file: &str) -> Vec<CommentLine> {
     let mut out = Vec::new();
     for entry in &ast.body {
         if let Entry::Comment(comment) = entry {
             for line in &comment.content {
                 out.push(CommentLine {
                     file: file.to_owned(),
-                    line: line_of(src, line),
+                    line: lines.line_of(line),
                     text: (*line).to_owned(),
                 });
             }
