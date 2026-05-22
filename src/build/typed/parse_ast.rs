@@ -55,39 +55,108 @@ impl Attribute {
     }
 }
 
+/// Collect every `$variable` referenced anywhere in a message pattern, in the
+/// order they first appear, inferring `Number` where the syntax demands it.
+///
+/// The walk descends into selects (the selector *and* every variant body),
+/// function- and term-call arguments, and nested placeables — anywhere a
+/// variable can hide. A variable is typed `Number` when it is the value
+/// formatted by a `NUMBER()` call or the selector of an all-numeric select;
+/// otherwise it is `Any` (a `(String)`/`(Number)` comment annotation may still
+/// refine it later — see `TypeInComment::update_types`).
 pub fn find_variable_references(pattern: &ast::Pattern<&str>) -> Vec<Variable> {
-    let mut variables = vec![];
+    let mut collector = VarCollector::default();
+    collector.visit_pattern(pattern);
+    collector.variables
+}
 
-    for element in &pattern.elements {
-        match element {
-            ast::PatternElement::Placeable { expression } => match expression {
-                ast::Expression::Inline(ast::InlineExpression::VariableReference { id }) => {
-                    variables.push(Variable {
-                        id: id.name.to_owned(),
-                        typ: VarType::Any,
-                    });
+#[derive(Default)]
+struct VarCollector {
+    variables: Vec<Variable>,
+}
+
+impl VarCollector {
+    /// Record a reference to `$id`. The same variable may be referenced many
+    /// times; it is collected once and keeps its most specific type — once
+    /// known to be a `Number` it is never downgraded back to `Any`.
+    fn add(&mut self, id: &str, typ: VarType) {
+        match self.variables.iter_mut().find(|v| v.id == id) {
+            Some(existing) => {
+                if existing.typ == VarType::Any {
+                    existing.typ = typ;
                 }
-                ast::Expression::Select {
-                    selector: ast::InlineExpression::VariableReference { id },
-                    variants,
-                } => {
-                    let is_num = variants.iter().all(|v| v.is_number());
-                    let typ = if is_num {
-                        VarType::Number
-                    } else {
-                        VarType::Any
-                    };
-                    variables.push(Variable {
-                        id: id.name.to_owned(),
-                        typ,
-                    });
-                }
-                _ => {}
-            },
-            ast::PatternElement::TextElement { value: _ } => {}
+            }
+            None => self.variables.push(Variable {
+                id: id.to_owned(),
+                typ,
+            }),
         }
     }
-    variables
+
+    fn visit_pattern(&mut self, pattern: &ast::Pattern<&str>) {
+        for element in &pattern.elements {
+            if let ast::PatternElement::Placeable { expression } = element {
+                self.visit_expression(expression);
+            }
+        }
+    }
+
+    fn visit_expression(&mut self, expression: &ast::Expression<&str>) {
+        match expression {
+            ast::Expression::Inline(inline) => self.visit_inline(inline, VarType::Any),
+            ast::Expression::Select { selector, variants } => {
+                // A selector whose variants are all numbers / CLDR plural
+                // categories forces the selected variable to `Number`.
+                let typ = if variants.iter().all(|v| v.is_number()) {
+                    VarType::Number
+                } else {
+                    VarType::Any
+                };
+                self.visit_inline(selector, typ);
+                for variant in variants {
+                    self.visit_pattern(&variant.value);
+                }
+            }
+        }
+    }
+
+    /// Walk an inline expression. `ctx` is the type to assign to a bare
+    /// `$variable` found directly here (e.g. `Number` for a numeric selector).
+    fn visit_inline(&mut self, inline: &ast::InlineExpression<&str>, ctx: VarType) {
+        match inline {
+            ast::InlineExpression::VariableReference { id } => self.add(id.name, ctx),
+            ast::InlineExpression::FunctionReference { id, arguments } => {
+                // `NUMBER()` formats its positional argument as a number.
+                let positional = if id.name == "NUMBER" {
+                    VarType::Number
+                } else {
+                    ctx
+                };
+                self.visit_call_arguments(arguments, positional);
+            }
+            ast::InlineExpression::TermReference { arguments, .. } => {
+                if let Some(arguments) = arguments {
+                    self.visit_call_arguments(arguments, VarType::Any);
+                }
+            }
+            ast::InlineExpression::Placeable { expression } => self.visit_expression(expression),
+            // Literals and message references contain no variables.
+            ast::InlineExpression::StringLiteral { .. }
+            | ast::InlineExpression::NumberLiteral { .. }
+            | ast::InlineExpression::MessageReference { .. } => {}
+        }
+    }
+
+    /// Positional arguments inherit `positional`; named option values are only
+    /// ever `Any` — they configure the call, they are not the formatted value.
+    fn visit_call_arguments(&mut self, arguments: &ast::CallArguments<&str>, positional: VarType) {
+        for arg in &arguments.positional {
+            self.visit_inline(arg, positional);
+        }
+        for named in &arguments.named {
+            self.visit_inline(&named.value, VarType::Any);
+        }
+    }
 }
 
 pub fn find_attributes<'ast>(attributes: &'ast [ast::Attribute<&'ast str>]) -> Vec<Attribute> {

@@ -70,7 +70,7 @@ pub struct Variable {
     pub typ: VarType,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum VarType {
     Any,
     String,
