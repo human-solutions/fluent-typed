@@ -29,6 +29,38 @@ part of the crate's public interface.
 
 ## Usage
 
+Translations live in a `locales/` folder, with one subfolder per language
+(`locales/en/`, `locales/fr/`, …) holding `.ftl`
+([Fluent](https://projectfluent.org)) files:
+
+```ftl
+# locales/en/main.ftl
+language-name = English
+greeting = Welcome!
+
+# $name (String) - the user's name
+hello = Hello { $name }
+
+unread-messages = { $count ->
+    [one] You have one message
+   *[other] You have { $count } messages
+}
+
+login = Log in
+    .placeholder = Enter your email
+```
+
+fluent-typed turns each message into a typed accessor on `L10nLanguage`,
+inferring argument types from comments, `NUMBER()` calls and plural selectors:
+
+```rust
+strs.msg_greeting();            // plain message -> String
+strs.msg_hello("Sam");          // string arg (typed via the comment)
+strs.msg_unread_messages(3);    // number arg (typed via the plural selector)
+strs.msg_login_placeholder();   // a message attribute
+L10n::En.language_name();       // language name, for a language menu
+```
+
 ```toml
 # in Cargo.toml
 [dependencies]
