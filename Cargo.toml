@@ -20,6 +20,10 @@ doctest = false
 default = ["build", "langneg"]
 build = []
 langneg = ["dep:icu_locale_core"]
+# Re-exports internal build-pipeline pieces (parse/analyze/lint/generate) for
+# the benchmark suite. Non-default and not part of the stable public API;
+# enable it only when running `cargo bench`.
+bench-internals = ["build"]
 
 [dependencies]
 fluent-syntax = "0.12"
@@ -30,3 +34,9 @@ icu_locale_core = { version = "2.1", optional = true, features = ["alloc"] }
 [dev-dependencies]
 insta = "1.46"
 unic-langid = { version = "0.9", features = ["macros"] }
+criterion = "0.8"
+
+[[bench]]
+name = "build_pipeline"
+harness = false
+required-features = ["bench-internals"]

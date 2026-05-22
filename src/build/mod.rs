@@ -19,6 +19,21 @@ pub(crate) use lang_bundle::LangBundle;
 pub(crate) use typed::Message;
 pub(crate) use validations::Analyzed;
 
+/// Internal build-pipeline pieces re-exported for the benchmark suite
+/// (`benches/build_pipeline.rs`).
+///
+/// Gated behind the non-default `bench-internals` feature. **Not** part of the
+/// stable public API: these items may change or be removed without a semver
+/// bump. Application code must not depend on this module.
+#[cfg(feature = "bench-internals")]
+pub mod bench_internals {
+    pub use super::lang_bundle::LangBundle;
+    pub use super::lint::{Lints, check};
+    pub use super::r#gen::generate;
+    pub use super::typed::{Id, Message};
+    pub use super::validations::Analyzed;
+}
+
 /// Generate rust code and ftl files from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
 ///
 /// The generation should be done in a build script:
