@@ -3,6 +3,7 @@
 mod build;
 mod l10n_bundle;
 mod l10n_language_vec;
+mod structured;
 
 #[cfg(all(test, feature = "build"))]
 mod tests;
@@ -16,6 +17,7 @@ pub use build::{
 pub mod prelude {
     pub use crate::l10n_bundle::L10nBundle;
     pub use crate::l10n_language_vec::L10nLanguageVec;
+    pub use crate::structured::{ElementGap, Segment};
     pub use fluent_bundle::{FluentArgs, FluentValue, types::FluentNumber};
     pub use fluent_syntax::ast::{Pattern, PatternElement};
     #[cfg(feature = "langneg")]

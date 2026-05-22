@@ -2,8 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     build::LangBundle,
-    build::typed::{Id, Variable},
+    build::typed::{ElementMarker, Id, Variable},
 };
+
+/// A message's cross-locale signature: its argument variables together with its
+/// ordered `(Element)` layout. Two locales' messages are compatible only when
+/// both match.
+type Signature<'a> = (&'a [Variable], &'a [ElementMarker]);
 
 #[derive(Debug)]
 pub struct Analyzed {
@@ -50,13 +55,13 @@ fn signature_mismatches(
     (messages, mismatched_ids)
 }
 
-fn signatures_for_id<'a>(id: &Id, langs: &'a [LangBundle]) -> HashMap<&'a [Variable], Vec<String>> {
-    let mut signatures: HashMap<&[Variable], Vec<String>> = HashMap::new();
+fn signatures_for_id<'a>(id: &Id, langs: &'a [LangBundle]) -> HashMap<Signature<'a>, Vec<String>> {
+    let mut signatures: HashMap<Signature<'a>, Vec<String>> = HashMap::new();
     for lang in langs {
         for msg in &lang.messages {
             if &msg.id == id {
                 signatures
-                    .entry(&msg.variables)
+                    .entry((msg.variables.as_slice(), msg.elements.as_slice()))
                     .or_default()
                     .push(msg.trait_signature());
             }

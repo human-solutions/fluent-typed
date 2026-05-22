@@ -179,6 +179,45 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
 }
 ```
 
+## Structured messages
+
+Some translations need the app to inject a UI element mid-sentence — an icon, a
+link, a button — without splitting the translated string on a placeholder token.
+Annotate a variable or term with `(Element)` and fluent-typed generates a struct
+of resolved text segments split at those points:
+
+```ftl
+# $count (Number) - How many unread.
+# $icon (Element) - An icon injected by the app.
+# -privacy-link (Element) - Link text the app wraps in an <a>.
+notice = { $icon } You have { $count } unread, see { -privacy-link }.
+-privacy-link = our privacy policy
+```
+
+An `(Element)` **variable** (`$icon`) is a pure positional gap — the app fills it
+with its own element. An `(Element)` **term** (`-privacy-link`) carries
+translatable text the app wraps. The generated accessor returns a struct whose
+fields are the resolved text runs and the element slots, in render order:
+
+```rust
+pub struct Notice {
+    pub s0: String,           // text before $icon
+    pub icon: ElementGap,     // $icon slot — filled by the app
+    pub s1: String,           // text between the elements
+    pub privacy_link: String, // resolved -privacy-link text
+    pub s2: String,           // text after -privacy-link
+}
+
+// $icon / -privacy-link are not parameters; only real arguments are:
+let n: Notice = strs.notice(3);
+// `Notice` also implements `Display`, joining the text for plain-text use.
+```
+
+Selectors and ordinary variables inside each segment are fully resolved, so the
+app never re-implements plural logic. When rendering, wrap each field and each
+injected element in an isolated bidi run (an HTML `<bdi>`, or
+`unicode-bidi: isolate`) — see "Bidi isolation".
+
 ## Bidi isolation
 
 By default, the generated accessors wrap every interpolated variable in Unicode

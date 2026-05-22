@@ -68,6 +68,7 @@ fn typed() {
                 id: "first-name".to_string(),
                 typ: VarType::Any
             }],
+            elements: vec![],
         }
     );
 }
