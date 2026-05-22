@@ -84,3 +84,4 @@ impl L10nLanguage {
 
     // <<message implementations>>
 }
+// <<message structs>>

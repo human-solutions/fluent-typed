@@ -14,6 +14,9 @@ impl Message {
             let mut variables = find_variable_references(value);
             let tic = TypeInComment::parse(&comment);
             tic.update_types(&mut variables);
+            let elements = find_elements(value, tic.element_vars(), tic.element_terms());
+            // Element variables are positional gaps, not function arguments.
+            variables.retain(|v| !tic.element_vars().contains(&v.id));
             let id = Id {
                 message: message.id.name.to_owned(),
                 attribute: None,
@@ -22,6 +25,7 @@ impl Message {
                 id,
                 comment,
                 variables,
+                elements,
             });
         }
         for attribute in find_attributes(&message.attributes) {
@@ -34,6 +38,7 @@ impl Message {
                 id,
                 comment: vec![],
                 variables,
+                elements: vec![],
             });
         }
         found
@@ -87,6 +92,45 @@ pub fn find_variable_references(pattern: &ast::Pattern<&str>) -> Vec<Variable> {
 
 pub fn find_attributes<'ast>(attributes: &'ast [ast::Attribute<&'ast str>]) -> Vec<Attribute> {
     attributes.iter().map(Attribute::parse).collect()
+}
+
+/// Walk the pattern and collect the `(Element)`-annotated placeables, in order.
+///
+/// A placeable is a marker iff its variable/term name was annotated `(Element)`
+/// in the message comment. Everything else (text, ordinary variables, selects,
+/// un-annotated term references) is ordinary content.
+pub fn find_elements(
+    pattern: &ast::Pattern<&str>,
+    element_vars: &[String],
+    element_terms: &[String],
+) -> Vec<ElementMarker> {
+    let mut elements = vec![];
+
+    for element in &pattern.elements {
+        let ast::PatternElement::Placeable { expression } = element else {
+            continue;
+        };
+        match expression {
+            ast::Expression::Inline(ast::InlineExpression::VariableReference { id })
+                if element_vars.iter().any(|v| v == id.name) =>
+            {
+                elements.push(ElementMarker {
+                    name: id.name.to_owned(),
+                    kind: ElementKind::Variable,
+                });
+            }
+            ast::Expression::Inline(ast::InlineExpression::TermReference { id, .. })
+                if element_terms.iter().any(|t| t == id.name) =>
+            {
+                elements.push(ElementMarker {
+                    name: id.name.to_owned(),
+                    kind: ElementKind::Term,
+                });
+            }
+            _ => {}
+        }
+    }
+    elements
 }
 
 trait AstVariantExt {

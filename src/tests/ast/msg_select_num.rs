@@ -101,6 +101,7 @@ fn typed() {
                 id: "num".to_string(),
                 typ: VarType::Number,
             }],
+            elements: vec![],
         }
     );
 }

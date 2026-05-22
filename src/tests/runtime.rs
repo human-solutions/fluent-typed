@@ -3,7 +3,7 @@
 //! These exercise the actual message-formatting path end to end, including
 //! the bidi-isolation behavior that the generated accessors depend on.
 
-use crate::prelude::{FluentArgs, L10nBundle, L10nLanguageVec};
+use crate::prelude::{FluentArgs, L10nBundle, L10nLanguageVec, Segment};
 
 const FTL: &str = r#"
 greeting = Hello world
@@ -54,6 +54,75 @@ fn attribute_message() {
 fn unknown_message_is_an_error() {
     let bundle = L10nBundle::new("en", FTL.as_bytes()).unwrap();
     assert!(bundle.msg("does-not-exist", None).is_err());
+}
+
+const ELEMENT_FTL: &str = r#"
+calendar-sync-description =
+    Sync calendar { $num } using { $provider ->
+        [google] Google Calendar
+       *[other] external calendar
+    } { $icon } feed, see { -privacy-link } for more information.
+-privacy-link = our privacy policy
+edge = { $before }{ $count }{ $after }
+"#;
+
+#[test]
+fn msg_segments_splits_at_element_markers() {
+    let bundle = L10nBundle::new("en", ELEMENT_FTL.as_bytes()).unwrap();
+    let mut args = FluentArgs::new();
+    args.set("num", 2);
+    args.set("provider", "google");
+
+    let segments = bundle
+        .msg_segments(
+            "calendar-sync-description",
+            &["icon"],
+            &["privacy-link"],
+            Some(args),
+        )
+        .unwrap();
+
+    // Text segments resolve with selects evaluated and variables bidi-isolated;
+    // the variable element is a gap, the term element carries resolved text.
+    assert_eq!(
+        segments,
+        vec![
+            Segment::Text(
+                "Sync calendar \u{2068}2\u{2069} using \u{2068}Google Calendar\u{2069} "
+                    .to_string()
+            ),
+            Segment::Gap,
+            Segment::Text(" feed, see ".to_string()),
+            Segment::Term("our privacy policy".to_string()),
+            Segment::Text(" for more information.".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn msg_segments_pads_lone_placeable_for_bidi_isolation() {
+    // `$count` sits alone between two adjacent element markers. Fluent skips
+    // bidi isolation for a single-element pattern; the empty-TextElement
+    // padding in `resolve_segment` makes the lone placeable isolate exactly
+    // as it would in the whole, un-split message.
+    let bundle = L10nBundle::new("en", ELEMENT_FTL.as_bytes()).unwrap();
+    let mut args = FluentArgs::new();
+    args.set("count", 5);
+
+    let segments = bundle
+        .msg_segments("edge", &["before", "after"], &[], Some(args))
+        .unwrap();
+
+    assert_eq!(
+        segments,
+        vec![
+            Segment::Text(String::new()),
+            Segment::Gap,
+            Segment::Text("\u{2068}5\u{2069}".to_string()),
+            Segment::Gap,
+            Segment::Text(String::new()),
+        ]
+    );
 }
 
 #[test]

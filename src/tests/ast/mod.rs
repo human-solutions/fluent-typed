@@ -1,4 +1,5 @@
 mod attrib_only;
+mod msg_element;
 mod msg_number;
 mod msg_select;
 mod msg_select_num;

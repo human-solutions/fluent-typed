@@ -212,6 +212,23 @@ static ALL_LANGS: [L10n; {}] = [
     });
     replacements.push(("<<message implementations>>", impls));
 
+    // ///////////////////////////
+    // Module-level `struct` + `Display` definitions for structured (element)
+    // messages. Empty when no message uses `(Element)` markers, in which case
+    // `do_replace` drops the placeholder line.
+    let structs = messages
+        .iter()
+        .filter_map(|msg| msg.element_struct())
+        .collect::<Vec<_>>();
+    let structs = if structs.is_empty() {
+        // Drops the placeholder line entirely; output is unchanged for
+        // projects without any structured (element) messages.
+        String::new()
+    } else {
+        format!("\n{}", structs.join("\n\n"))
+    };
+    replacements.push(("<<message structs>>", structs));
+
     let mut base = do_replace(include_str!("template.rs"), replacements);
     base.push('\n');
 
@@ -232,8 +249,10 @@ fn do_replace(base: &str, replacements: Vec<(&str, String)>) -> String {
             }
             for (placeholder, replacement) in &replacements {
                 if line.contains(placeholder) {
+                    // An empty replacement drops the placeholder line; this is
+                    // expected for optional sections (e.g. no element structs,
+                    // or feature-gated code).
                     return if replacement.is_empty() {
-                        eprintln!("Empty replacement for placeholder: {}", placeholder);
                         None
                     } else {
                         Some(replacement.to_string())
