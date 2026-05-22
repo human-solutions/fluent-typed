@@ -126,6 +126,21 @@ fn msg_segments_pads_lone_placeable_for_bidi_isolation() {
 }
 
 #[test]
+fn number_builtin_is_registered() {
+    // `NUMBER()` is an FTL builtin; it must be registered on the bundle or the
+    // message fails to format and `msg` returns an `Err`. See README
+    // "Type deduction".
+    let ftl = "dpi-ratio = Your DPI ratio is { NUMBER($ratio) }\n";
+    let bundle = L10nBundle::new("en", ftl.as_bytes()).unwrap();
+    let mut args = FluentArgs::new();
+    args.set("ratio", 2);
+    assert_eq!(
+        bundle.msg("dpi-ratio", Some(args)).unwrap(),
+        "Your DPI ratio is \u{2068}2\u{2069}"
+    );
+}
+
+#[test]
 fn language_vec_loads_each_range() {
     let en = "greeting = Hello\n";
     let de = "greeting = Hallo\n";
