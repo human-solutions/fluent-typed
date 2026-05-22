@@ -10,7 +10,7 @@ mod tests;
 
 #[cfg(any(doc, feature = "build"))]
 pub use build::{
-    BuildError, BuildOptions, FtlOutputOptions, OutputMode, build_from_locales_folder,
+    BuildError, BuildOptions, FtlOutputOptions, build_from_locales_folder,
     try_build_from_locales_folder,
 };
 
@@ -19,7 +19,6 @@ pub mod prelude {
     pub use crate::l10n_language_vec::L10nLanguageVec;
     pub use crate::structured::{ElementGap, Segment};
     pub use fluent_bundle::{FluentArgs, FluentValue, types::FluentNumber};
-    pub use fluent_syntax::ast::{Pattern, PatternElement};
     #[cfg(feature = "langneg")]
     pub use icu_locale_core::{LanguageIdentifier, langid};
 

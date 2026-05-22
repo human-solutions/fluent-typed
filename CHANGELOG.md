@@ -19,6 +19,16 @@
   `true`). Direct struct construction must include this field;
   `BuildOptions::default()` users are unaffected.
 
+### Removed
+- **Breaking:** the `Pattern<String>` output mode and everything tied to it —
+  the `OutputMode` enum, `BuildOptions::with_output_mode()`,
+  `L10nBundle::msg_pattern()` / `attr_pattern()`, and the `Pattern` /
+  `PatternElement` prelude re-exports. Generated accessors always return a
+  resolved `String` (or a struct for `(Element)` messages); use the `(Element)`
+  annotation for messages where the app injects its own UI elements. The
+  `BuildOptions::output_mode` field is replaced by a `prefix: String` field,
+  set with the (no longer deprecated) `BuildOptions::with_prefix()`.
+
 ### Fixed
 - An empty locales folder now returns the new `BuildError::NoLocaleFolders`
   variant instead of panicking.
