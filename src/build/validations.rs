@@ -21,9 +21,21 @@ impl Analyzed {
     /// `(Element)` layout). A message is generated only when every other locale
     /// defines it too, with a structurally compatible pattern.
     pub fn from(langs: &[LangBundle], default: &LangBundle) -> Self {
-        let others: Vec<&LangBundle> = langs
+        // Each non-default locale, paired with its messages indexed by id, so
+        // the per-message contract check below is a hash lookup rather than a
+        // linear scan — keeping the whole analysis O(messages · locales).
+        let others: Vec<(&LangBundle, HashMap<&Id, &Message>)> = langs
             .iter()
             .filter(|l| l.language_id != default.language_id)
+            .map(|l| {
+                let mut by_id: HashMap<&Id, &Message> = HashMap::new();
+                for m in &l.messages {
+                    // Keep the first occurrence, matching the previous
+                    // `.find()` — significant when duplicate keys are allowed.
+                    by_id.entry(&m.id).or_insert(m);
+                }
+                (l, by_id)
+            })
             .collect();
 
         let mut common = HashSet::new();
@@ -34,8 +46,8 @@ impl Analyzed {
             let mut missing_in: Vec<String> = Vec::new();
             let mut incompatible_in: Vec<String> = Vec::new();
 
-            for lang in &others {
-                match lang.messages.iter().find(|m| &m.id == id) {
+            for (lang, by_id) in &others {
+                match by_id.get(id) {
                     None => missing_in.push(lang.language_id.clone()),
                     Some(msg) if !compatible(contract, msg) => {
                         incompatible_in
@@ -74,11 +86,14 @@ impl Analyzed {
 
 /// Warn about messages that exist in non-default locales but are absent from
 /// the default locale — they have no contract, so no accessor is generated.
-fn orphan_warnings(others: &[&LangBundle], default: &LangBundle) -> Vec<String> {
+fn orphan_warnings(
+    others: &[(&LangBundle, HashMap<&Id, &Message>)],
+    default: &LangBundle,
+) -> Vec<String> {
     let default_ids: HashSet<&Id> = default.messages.iter().map(|m| &m.id).collect();
     let mut orphans: HashMap<Id, Vec<String>> = HashMap::new();
 
-    for lang in others {
+    for (lang, _) in others {
         for msg in &lang.messages {
             if !default_ids.contains(&msg.id) {
                 orphans
