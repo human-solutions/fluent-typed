@@ -49,7 +49,7 @@ pub mod prelude {
                     .map(|lid| (lid, quality))
             })
             .collect();
-        requested.sort_by(|a, b| b.1.cmp(&a.1));
+        requested.sort_by_key(|entry| std::cmp::Reverse(entry.1));
 
         // Find the first available language whose language subtag matches a requested one
         for (req, _) in &requested {

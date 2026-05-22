@@ -1,4 +1,6 @@
-#![allow(unused)]
+// These are generated fixtures; the manual `impl Default` is intentional
+// (the default language is chosen at generation time).
+#![allow(unused, clippy::derivable_impls)]
 mod attrib_only_gen;
 mod complex_gen;
 mod msg_number_gen;

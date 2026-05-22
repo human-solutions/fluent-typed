@@ -16,6 +16,9 @@ pub enum BuildError {
         folder: String,
         source: io::Error,
     },
+    NoLocaleFolders {
+        folder: String,
+    },
     WriteOutput {
         path: String,
         source: io::Error,
@@ -53,6 +56,13 @@ impl fmt::Display for BuildError {
             }
             Self::LocalesFolder { folder, .. } => {
                 write!(f, "Could not read locales folder '{folder}'")
+            }
+            Self::NoLocaleFolders { folder } => {
+                write!(
+                    f,
+                    "No locale subfolders found in '{folder}'. Expected \
+                     '<lang-id>/<resource>.ftl' files, e.g. 'en/main.ftl'."
+                )
             }
             Self::WriteOutput { path, .. } => {
                 write!(f, "Could not write file '{path}'")
