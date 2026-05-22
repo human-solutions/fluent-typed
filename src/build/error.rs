@@ -41,6 +41,21 @@ pub enum BuildError {
     },
     Rustfmt(String),
     Generation(String),
+    /// Several independent build errors, collected so they can all be fixed in
+    /// one pass instead of one rebuild at a time.
+    Multiple(Vec<BuildError>),
+}
+
+impl BuildError {
+    /// Collapse a list of errors into one: the error itself when there is
+    /// exactly one, otherwise a [`BuildError::Multiple`].
+    pub(crate) fn collapse(mut errors: Vec<BuildError>) -> BuildError {
+        if errors.len() == 1 {
+            errors.pop().unwrap()
+        } else {
+            BuildError::Multiple(errors)
+        }
+    }
 }
 
 impl fmt::Display for BuildError {
@@ -109,6 +124,19 @@ impl fmt::Display for BuildError {
             }
             Self::Rustfmt(msg) => write!(f, "Rustfmt error: {msg}"),
             Self::Generation(msg) => write!(f, "{msg}"),
+            Self::Multiple(errors) => {
+                write!(f, "{} build errors:", errors.len())?;
+                for e in errors {
+                    for (i, line) in e.to_string().lines().enumerate() {
+                        if i == 0 {
+                            write!(f, "\n  - {line}")?;
+                        } else {
+                            write!(f, "\n    {line}")?;
+                        }
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }

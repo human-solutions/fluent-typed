@@ -150,13 +150,22 @@ fn from_locales_folder(
     };
     let locales_dir = fs::read_dir(folder).map_err(map_io)?;
     let mut locales = Vec::new();
+    let mut errors: Vec<BuildError> = Vec::new();
     for entry in locales_dir {
         let entry = entry.map_err(map_io)?;
         let path = entry.path();
         if path.is_dir() {
             let lang = path.file_name().unwrap().to_str().unwrap();
-            locales.push(LangBundle::from_folder(&path, lang, deny_duplicate_keys)?);
+            // Collect every locale's errors rather than stopping at the first,
+            // so one rebuild surfaces them all.
+            match LangBundle::from_folder(&path, lang, deny_duplicate_keys) {
+                Ok(bundle) => locales.push(bundle),
+                Err(errs) => errors.extend(errs),
+            }
         }
+    }
+    if !errors.is_empty() {
+        return Err(BuildError::collapse(errors));
     }
     if locales.is_empty() {
         return Err(BuildError::NoLocaleFolders {

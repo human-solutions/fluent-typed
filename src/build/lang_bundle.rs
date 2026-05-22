@@ -37,20 +37,35 @@ impl LangBundle {
         let path = PathBuf::from(name);
         let ast = parse_ftl(ftl, &path)?;
         let mut seen = HashMap::new();
+        let mut errors = Vec::new();
+        let messages = to_messages(
+            &ast,
+            deny_duplicate_keys,
+            &mut seen,
+            &path,
+            ftl,
+            &mut errors,
+        );
+        if !errors.is_empty() {
+            return Err(BuildError::collapse(errors));
+        }
         Ok(LangBundle {
             language_name: lang_name(&ast),
             language_id: lang.to_string(),
-            messages: to_messages(&ast, deny_duplicate_keys, &mut seen, &path, ftl)?,
+            messages,
             standalone_comments: standalone_comments(&ast, ftl, &path.display().to_string()),
             ftl: ftl.to_string(),
         })
     }
 
+    /// Load every `.ftl` file of one locale folder. Parse errors, unreadable
+    /// files and duplicate keys are *collected* across all files rather than
+    /// failing on the first, so a single rebuild surfaces them all.
     pub fn from_folder(
         folder: &Path,
         lang: &str,
         deny_duplicate_keys: bool,
-    ) -> Result<Self, BuildError> {
+    ) -> Result<Self, Vec<BuildError>> {
         let mut bundle = LangBundle {
             language_name: None,
             language_id: lang.to_string(),
@@ -58,24 +73,41 @@ impl LangBundle {
             standalone_comments: Vec::new(),
             ftl: String::new(),
         };
+        let mut errors: Vec<BuildError> = Vec::new();
 
-        let mut paths = folder
+        let mut paths = match folder
             .gather_all_files(|file| file.extension().map(|s| s == "ftl") == Some(true))
-            .map_err(|e| BuildError::FtlRead {
-                path: folder.to_path_buf(),
-                source: std::io::Error::other(e.to_string()),
-            })?;
-
+        {
+            Ok(paths) => paths,
+            Err(e) => {
+                return Err(vec![BuildError::FtlRead {
+                    path: folder.to_path_buf(),
+                    source: std::io::Error::other(e.to_string()),
+                }]);
+            }
+        };
         paths.sort();
 
         let mut seen: HashMap<String, (PathBuf, usize)> = HashMap::new();
 
         for path in paths {
-            let ftl = fs::read_to_string(&path).map_err(|e| BuildError::FtlRead {
-                path: path.clone(),
-                source: e,
-            })?;
-            let ast = parse_ftl(&ftl, &path)?;
+            let ftl = match fs::read_to_string(&path) {
+                Ok(ftl) => ftl,
+                Err(e) => {
+                    errors.push(BuildError::FtlRead {
+                        path: path.clone(),
+                        source: e,
+                    });
+                    continue;
+                }
+            };
+            let ast = match parse_ftl(&ftl, &path) {
+                Ok(ast) => ast,
+                Err(e) => {
+                    errors.push(e);
+                    continue;
+                }
+            };
 
             if let Some(lang_name) = lang_name(&ast)
                 && bundle.language_name.is_none()
@@ -95,10 +127,22 @@ impl LangBundle {
                 .standalone_comments
                 .extend(standalone_comments(&ast, &ftl, &file));
 
-            let messages = to_messages(&ast, deny_duplicate_keys, &mut seen, &path, &ftl)?;
+            let messages = to_messages(
+                &ast,
+                deny_duplicate_keys,
+                &mut seen,
+                &path,
+                &ftl,
+                &mut errors,
+            );
             bundle.messages.extend(messages);
         }
-        Ok(bundle)
+
+        if errors.is_empty() {
+            Ok(bundle)
+        } else {
+            Err(errors)
+        }
     }
 }
 
@@ -121,38 +165,40 @@ fn format_parse_error(src: &str, error: &ParserError) -> String {
     )
 }
 
+/// Parse the messages of one resource file. Duplicate keys are pushed onto
+/// `errors` (and the duplicate is skipped) rather than aborting, so every
+/// duplicate in the locale is reported.
 fn to_messages(
     ast: &Resource<&str>,
     deny_duplicate_keys: bool,
     seen: &mut HashMap<String, (PathBuf, usize)>,
     path: &Path,
     src: &str,
-) -> Result<Vec<Message>, BuildError> {
+    errors: &mut Vec<BuildError>,
+) -> Vec<Message> {
     let file = path.display().to_string();
-    ast.body
-        .iter()
-        .filter_map(|entry| match entry {
-            Entry::Message(m) => Some(Message::parse(m, src, &file)),
-            _ => None,
-        })
-        .flatten()
-        .map(|msg| {
+    let mut messages = Vec::new();
+    for entry in &ast.body {
+        let Entry::Message(m) = entry else { continue };
+        for msg in Message::parse(m, src, &file) {
             if deny_duplicate_keys {
                 let seen_key = msg.id.to_string();
                 if let Some((original, original_line)) = seen.get(&seen_key) {
-                    return Err(BuildError::DuplicateKey {
+                    errors.push(BuildError::DuplicateKey {
                         key: msg.id.message.clone(),
                         original: original.clone(),
                         original_line: *original_line,
                         duplicate: path.to_path_buf(),
                         duplicate_line: msg.line,
                     });
+                    continue;
                 }
                 seen.insert(seen_key, (path.to_path_buf(), msg.line));
             }
-            Ok(msg)
-        })
-        .collect()
+            messages.push(msg);
+        }
+    }
+    messages
 }
 
 /// Collect the lines of every standalone `#` comment (an `Entry::Comment` — a

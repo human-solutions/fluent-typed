@@ -466,3 +466,109 @@ fn a_deny_failure_message_does_not_mention_strict_mode() {
     );
     assert!(display.contains("lint error"), "{display}");
 }
+
+// ----------------------------------------------------------------------------
+// Errors are collected across files, not reported one rebuild at a time.
+// ----------------------------------------------------------------------------
+
+#[test]
+fn parse_errors_in_several_files_are_reported_together() {
+    let dir = "target/test-lint/multi-parse-err";
+    let en = format!("{dir}/locales/en");
+    std::fs::create_dir_all(&en).unwrap();
+    std::fs::write(format!("{en}/a.ftl"), "broken { $x }\n").unwrap();
+    std::fs::write(format!("{en}/b.ftl"), "ok = fine\nalso-broken { $y }\n").unwrap();
+
+    let opts = BuildOptions::default()
+        .with_locales_folder(&format!("{dir}/locales"))
+        .with_output_file_path(&format!("{dir}/l10n.rs"))
+        .with_ftl_output(FtlOutputOptions::SingleFile {
+            output_ftl_file: format!("{dir}/t.ftl"),
+            compressor: None,
+        });
+
+    let err = Builder::load(opts)
+        .err()
+        .expect("two malformed files must fail the build");
+    let display = err.to_string();
+    assert!(
+        display.contains("a.ftl") && display.contains("b.ftl"),
+        "the report must name both files: {display}"
+    );
+    match err {
+        BuildError::Multiple(errors) => {
+            assert_eq!(errors.len(), 2, "{errors:?}");
+            assert!(
+                errors
+                    .iter()
+                    .all(|e| matches!(e, BuildError::FtlParse { .. })),
+                "{errors:?}",
+            );
+        }
+        other => panic!("expected BuildError::Multiple, got {other:?}"),
+    }
+}
+
+#[test]
+fn every_duplicate_key_is_reported() {
+    // Two distinct keys are each defined twice — all four-into-two duplicates
+    // must be reported, not just the first.
+    let err = LangBundle::from_ftl(
+        "hello = One\nhello = Two\nbye = A\nbye = B\n",
+        "dup.ftl",
+        "en",
+        true,
+    )
+    .expect_err("duplicate keys must fail");
+    match err {
+        BuildError::Multiple(errors) => {
+            assert_eq!(errors.len(), 2, "{errors:?}");
+            assert!(
+                errors
+                    .iter()
+                    .all(|e| matches!(e, BuildError::DuplicateKey { .. })),
+                "{errors:?}",
+            );
+        }
+        other => panic!("expected BuildError::Multiple, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_parse_error_and_a_duplicate_key_are_reported_together() {
+    let dir = "target/test-lint/mixed-errors";
+    let en = format!("{dir}/locales/en");
+    std::fs::create_dir_all(&en).unwrap();
+    std::fs::write(format!("{en}/a.ftl"), "broken { $x }\n").unwrap();
+    std::fs::write(format!("{en}/b.ftl"), "dup = One\ndup = Two\n").unwrap();
+
+    let opts = BuildOptions::default()
+        .with_locales_folder(&format!("{dir}/locales"))
+        .with_output_file_path(&format!("{dir}/l10n.rs"))
+        .with_ftl_output(FtlOutputOptions::SingleFile {
+            output_ftl_file: format!("{dir}/t.ftl"),
+            compressor: None,
+        });
+
+    let err = Builder::load(opts)
+        .err()
+        .expect("both problems must fail the build");
+    match err {
+        BuildError::Multiple(errors) => {
+            assert_eq!(errors.len(), 2, "{errors:?}");
+            assert!(
+                errors
+                    .iter()
+                    .any(|e| matches!(e, BuildError::FtlParse { .. })),
+                "{errors:?}",
+            );
+            assert!(
+                errors
+                    .iter()
+                    .any(|e| matches!(e, BuildError::DuplicateKey { .. })),
+                "{errors:?}",
+            );
+        }
+        other => panic!("expected BuildError::Multiple, got {other:?}"),
+    }
+}
