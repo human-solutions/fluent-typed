@@ -4,9 +4,11 @@ When using translation keys, there is often no easy way to know if they are bein
 correctly and if they are being used at all. This project generates, using the `fluent` ast,
 the function definitions for the translation keys in a fluent file.
 
-In order to guarantee the safeness, funtions are only generated for messages that
-are found in all the locales. For those only found for some locales
-or if the signature of the messages are different a warning is printed.
+To guarantee safety, an accessor is generated only for a message that is present
+in every locale with a compatible set of variables. The **default locale**
+(configured in `BuildOptions`) is the single source of truth for each message's
+argument types. A message missing from a locale, or one whose variables differ,
+is skipped — with a warning naming the `.ftl` file and line.
 
 Each locale's ftl resources are appended into a single ftl file, and you can configure it
 to either embed all of them into the binary with accessors suitable both for server-side
@@ -133,7 +135,14 @@ let greeting = languages.get(L10n::En).msg("greeting", None).unwrap();
 ## Type deduction
 
 Since the fluent syntax doesn't explicitly specify the type of the translation variables, this
-project uses the following rules to infer the type of the translation variables:
+project uses the following rules to infer the type of the translation variables.
+
+Types are read from the **default locale** only (set with
+`BuildOptions::with_default_language`, `en` by default). A type comment in any
+other locale has no effect — the [linter](#linting) flags it. Translators never
+need to maintain type metadata.
+
+The rules:
 
 - String:
   - If a variable's comment contains `(String)`, as in `# $name (String) - The name.`
@@ -152,6 +161,37 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
   *[other] You finished {$pos}th
 }
 ```
+
+## Linting
+
+Because argument types come from message comments, a mistake in a comment would
+otherwise silently leave a variable untyped. The linter catches the common ones
+and reports the `.ftl` file and line of each:
+
+- a typo'd keyword — `(Numbr)` instead of `(Number)`;
+- an annotation of a variable the message doesn't have — `# $nme` vs `$name`;
+- a type-annotation comment detached from its message by a blank line;
+- a type annotation in a non-default locale, where it has no effect.
+
+`BuildOptions::with_lint_level` controls how strict the check is:
+
+- `LintLevel::Off` — no lint diagnostics.
+- `LintLevel::Warn` (the default) — problems are reported as `cargo::warning=`
+  lines; the build still succeeds.
+- `LintLevel::Deny` — comment mistakes in the default locale become hard build
+  errors. An untyped variable is still allowed.
+- `LintLevel::Strict` — like `Deny`, and additionally every variable of every
+  generated message must resolve to a concrete type (via a `(String)`/`(Number)`
+  comment, a `NUMBER()` call or a plural selector). An untyped variable fails
+  the build.
+
+```rust,ignore
+// in build.rs
+let options = BuildOptions::default().with_lint_level(LintLevel::Strict);
+```
+
+Diagnostics about non-default locales stay warnings even under `Strict` — they
+concern translator-owned files and must never block a build.
 
 ## Structured messages
 

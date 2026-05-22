@@ -68,19 +68,28 @@ fn ast_use() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let message = resource.first_message();
+    let message = resource.first_message(FTL);
 
     println!("{:#?}", message);
     assert_eq!(
         message,
         Message {
-            comment: vec![],
+            // The message has no value of its own, so its comment is carried
+            // on the first attribute (so the linter can still inspect it).
+            comment: vec!["This is a message comment".to_string()],
             id: Id::new_attr("hello", "tooltip"),
             variables: vec![Variable {
                 id: "userName".to_string(),
                 typ: VarType::Any
             }],
             elements: vec![],
+            pattern_refs: vec![Ref {
+                name: "userName".to_string(),
+                kind: RefKind::Variable,
+            }],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
         }
     );
 }

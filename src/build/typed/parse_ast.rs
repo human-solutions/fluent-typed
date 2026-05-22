@@ -1,57 +1,150 @@
 use super::*;
+use crate::build::utils::line_of;
 use fluent_syntax::ast;
 use type_in_comment::TypeInComment;
 
 impl Message {
-    pub fn parse(message: &ast::Message<&str>) -> Vec<Self> {
+    /// Parse an AST message into one `Message` for its value (if any) plus one
+    /// per attribute. `src` is the full FTL source the message was parsed from
+    /// (used to recover line numbers) and `file` is its path (for diagnostics).
+    pub fn parse(message: &ast::Message<&str>, src: &str, file: &str) -> Vec<Self> {
         let mut found = Vec::new();
         let comment = message
             .comment
             .as_ref()
             .map(|v| v.content.iter().map(|s| s.to_string()).collect::<Vec<_>>())
             .unwrap_or_default();
+        let comment_line = message
+            .comment
+            .as_ref()
+            .and_then(|c| c.content.first())
+            .map(|first| line_of(src, first))
+            .unwrap_or(0);
+        let tic = TypeInComment::parse(&comment);
+
         if let Some(value) = message.value.as_ref() {
             let mut variables = find_variable_references(value);
-            let tic = TypeInComment::parse(&comment);
             tic.update_types(&mut variables);
             let elements = find_elements(value, tic.element_vars(), tic.element_terms());
             // Element variables are positional gaps, not function arguments.
-            variables.retain(|v| !tic.element_vars().contains(&v.id));
-            let id = Id {
-                message: message.id.name.to_owned(),
-                attribute: None,
-            };
+            // Retain on the elements `find_elements` actually matched (a
+            // top-level placeable), so an `(Element)` annotation on a name
+            // that is not a real element placeable leaves the variable as an
+            // ordinary argument rather than dropping it from both lists.
+            let element_var_names: Vec<&str> = elements
+                .iter()
+                .filter(|e| e.kind == ElementKind::Variable)
+                .map(|e| e.name.as_str())
+                .collect();
+            variables.retain(|v| !element_var_names.contains(&v.id.as_str()));
             found.push(Self {
-                id,
-                comment,
+                id: Id {
+                    message: message.id.name.to_owned(),
+                    attribute: None,
+                },
+                comment: comment.clone(),
                 variables,
                 elements,
+                pattern_refs: find_refs(value),
+                file: file.to_owned(),
+                line: line_of(src, message.id.name),
+                comment_line,
             });
         }
-        for attribute in find_attributes(&message.attributes) {
-            let variables = attribute.variables;
-            let id = Id {
-                message: message.id.name.to_owned(),
-                attribute: Some(attribute.id.to_owned()),
-            };
+        for (idx, attribute) in message.attributes.iter().enumerate() {
+            // The message comment also types the attributes' variables — a
+            // fluent attribute cannot carry a comment of its own.
+            let mut variables = find_variable_references(&attribute.value);
+            tic.update_types(&mut variables);
+            // A message with no value of its own produced no value-Message to
+            // carry its comment; attach it to the first attribute so the
+            // linter can still inspect that comment.
+            let carries_comment = message.value.is_none() && idx == 0;
             found.push(Self {
-                id,
-                comment: vec![],
+                id: Id {
+                    message: message.id.name.to_owned(),
+                    attribute: Some(attribute.id.name.to_owned()),
+                },
+                comment: if carries_comment {
+                    comment.clone()
+                } else {
+                    vec![]
+                },
                 variables,
                 elements: vec![],
+                pattern_refs: find_refs(&attribute.value),
+                file: file.to_owned(),
+                line: line_of(src, attribute.id.name),
+                comment_line: if carries_comment { comment_line } else { 0 },
             });
         }
         found
     }
 }
 
-impl Attribute {
-    pub fn parse(attribute: &ast::Attribute<&str>) -> Self {
-        let variables = find_variable_references(&attribute.value);
-        Self {
-            id: attribute.id.name.to_owned(),
-            variables,
+/// Collect every `$variable` and `-term` reference in a pattern, in document
+/// order, **independent of comments**. Walks the same depth as
+/// [`find_variable_references`] (selects, variants, call arguments, nested
+/// placeables). The result is used for comment-independent cross-locale
+/// compatibility checks; it is intentionally not deduplicated, so a repeated
+/// reference (e.g. the same `(Element)` used twice) is preserved.
+pub fn find_refs(pattern: &ast::Pattern<&str>) -> Vec<Ref> {
+    let mut refs = Vec::new();
+    collect_refs_pattern(pattern, &mut refs);
+    refs
+}
+
+fn collect_refs_pattern(pattern: &ast::Pattern<&str>, refs: &mut Vec<Ref>) {
+    for element in &pattern.elements {
+        if let ast::PatternElement::Placeable { expression } = element {
+            collect_refs_expr(expression, refs);
         }
+    }
+}
+
+fn collect_refs_expr(expression: &ast::Expression<&str>, refs: &mut Vec<Ref>) {
+    match expression {
+        ast::Expression::Inline(inline) => collect_refs_inline(inline, refs),
+        ast::Expression::Select { selector, variants } => {
+            collect_refs_inline(selector, refs);
+            for variant in variants {
+                collect_refs_pattern(&variant.value, refs);
+            }
+        }
+    }
+}
+
+fn collect_refs_inline(inline: &ast::InlineExpression<&str>, refs: &mut Vec<Ref>) {
+    match inline {
+        ast::InlineExpression::VariableReference { id } => refs.push(Ref {
+            name: id.name.to_owned(),
+            kind: RefKind::Variable,
+        }),
+        ast::InlineExpression::TermReference { id, arguments, .. } => {
+            refs.push(Ref {
+                name: id.name.to_owned(),
+                kind: RefKind::Term,
+            });
+            if let Some(arguments) = arguments {
+                collect_refs_call_arguments(arguments, refs);
+            }
+        }
+        ast::InlineExpression::FunctionReference { arguments, .. } => {
+            collect_refs_call_arguments(arguments, refs)
+        }
+        ast::InlineExpression::Placeable { expression } => collect_refs_expr(expression, refs),
+        ast::InlineExpression::StringLiteral { .. }
+        | ast::InlineExpression::NumberLiteral { .. }
+        | ast::InlineExpression::MessageReference { .. } => {}
+    }
+}
+
+fn collect_refs_call_arguments(arguments: &ast::CallArguments<&str>, refs: &mut Vec<Ref>) {
+    for arg in &arguments.positional {
+        collect_refs_inline(arg, refs);
+    }
+    for named in &arguments.named {
+        collect_refs_inline(&named.value, refs);
     }
 }
 
@@ -157,10 +250,6 @@ impl VarCollector {
             self.visit_inline(&named.value, VarType::Any);
         }
     }
-}
-
-pub fn find_attributes<'ast>(attributes: &'ast [ast::Attribute<&'ast str>]) -> Vec<Attribute> {
-    attributes.iter().map(Attribute::parse).collect()
 }
 
 /// Walk the pattern and collect the `(Element)`-annotated placeables, in order.

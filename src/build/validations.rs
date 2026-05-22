@@ -1,112 +1,157 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    build::LangBundle,
-    build::typed::{ElementMarker, Id, Variable},
-};
+use crate::build::LangBundle;
+use crate::build::typed::{ElementKind, Id, Message, RefKind};
 
-/// A message's cross-locale signature: its argument variables together with its
-/// ordered `(Element)` layout. Two locales' messages are compatible only when
-/// both match.
-type Signature<'a> = (&'a [Variable], &'a [ElementMarker]);
-
+/// The result of comparing every locale against the default-locale contract.
 #[derive(Debug)]
 pub struct Analyzed {
+    /// The message ids that will be generated: defined in the default locale,
+    /// present in every other locale, and structurally compatible everywhere.
     pub common: HashSet<Id>,
-    pub missing_messages: Vec<String>,
-    pub signature_mismatches: Vec<String>,
+    /// Human-readable warnings for messages that could *not* be generated.
+    /// Each names the `.ftl` file and line involved. Sorted for determinism.
+    pub warnings: Vec<String>,
 }
+
 impl Analyzed {
-    pub fn from(langs: &[LangBundle]) -> Self {
-        let common_ids = common_message_ids(langs);
-        let missing_messages = missing_message_ids(&common_ids, langs);
-        let (signature_mismatches, ids) = signature_mismatches(&common_ids, langs);
-        let common: HashSet<Id> = common_ids.difference(&ids).cloned().collect();
-        Self {
-            common,
-            missing_messages,
-            signature_mismatches,
-        }
-    }
-}
+    /// Analyze the locales against `default`, the default-language bundle.
+    ///
+    /// The default locale defines each message's contract (its variables and
+    /// `(Element)` layout). A message is generated only when every other locale
+    /// defines it too, with a structurally compatible pattern.
+    pub fn from(langs: &[LangBundle], default: &LangBundle) -> Self {
+        let others: Vec<&LangBundle> = langs
+            .iter()
+            .filter(|l| l.language_id != default.language_id)
+            .collect();
 
-fn signature_mismatches(
-    common_ids: &HashSet<Id>,
-    langs: &[LangBundle],
-) -> (Vec<String>, HashSet<Id>) {
-    let mut messages = vec![];
-    let mut mismatched_ids = HashSet::new();
+        let mut common = HashSet::new();
+        let mut warnings = Vec::new();
 
-    for id in common_ids {
-        let signatures = signatures_for_id(id, langs);
-        if signatures.len() > 1 {
-            mismatched_ids.insert(id.clone());
-            let sig_vals = signatures
-                .values()
-                .map(|v| format!("[{}]", v.join(", ")))
-                .collect::<Vec<_>>()
-                .join(" != ");
+        for contract in &default.messages {
+            let id = &contract.id;
+            let mut missing_in: Vec<String> = Vec::new();
+            let mut incompatible_in: Vec<String> = Vec::new();
 
-            messages.push(format!(
-                "Different signatures for message {id} in languages: {sig_vals}",
-            ));
-        }
-    }
-    (messages, mismatched_ids)
-}
+            for lang in &others {
+                match lang.messages.iter().find(|m| &m.id == id) {
+                    None => missing_in.push(lang.language_id.clone()),
+                    Some(msg) if !compatible(contract, msg) => {
+                        incompatible_in
+                            .push(format!("{} ({}:{})", lang.language_id, msg.file, msg.line));
+                    }
+                    Some(_) => {}
+                }
+            }
 
-fn signatures_for_id<'a>(id: &Id, langs: &'a [LangBundle]) -> HashMap<Signature<'a>, Vec<String>> {
-    let mut signatures: HashMap<Signature<'a>, Vec<String>> = HashMap::new();
-    for lang in langs {
-        for msg in &lang.messages {
-            if &msg.id == id {
-                signatures
-                    .entry((msg.variables.as_slice(), msg.elements.as_slice()))
-                    .or_default()
-                    .push(msg.trait_signature());
+            if !missing_in.is_empty() {
+                warnings.push(format!(
+                    "{}:{}: {id} is not generated — missing from locale(s): {}",
+                    contract.file,
+                    contract.line,
+                    missing_in.join(", "),
+                ));
+            } else if !incompatible_in.is_empty() {
+                warnings.push(format!(
+                    "{}:{}: {id} is not generated — incompatible variables or \
+                     elements in locale(s): {}",
+                    contract.file,
+                    contract.line,
+                    incompatible_in.join(", "),
+                ));
+            } else {
+                common.insert(id.clone());
             }
         }
+
+        warnings.extend(orphan_warnings(&others, default));
+        warnings.sort();
+
+        Self { common, warnings }
     }
-    signatures
 }
 
-fn common_message_ids(langs: &[LangBundle]) -> HashSet<Id> {
-    let mut lang_signatures = vec![];
+/// Warn about messages that exist in non-default locales but are absent from
+/// the default locale — they have no contract, so no accessor is generated.
+fn orphan_warnings(others: &[&LangBundle], default: &LangBundle) -> Vec<String> {
+    let default_ids: HashSet<&Id> = default.messages.iter().map(|m| &m.id).collect();
+    let mut orphans: HashMap<Id, Vec<String>> = HashMap::new();
 
-    for lang in langs {
-        lang_signatures.push(
-            lang.messages
-                .iter()
-                .map(|msg| msg.id.clone())
-                .collect::<HashSet<Id>>(),
-        );
-    }
-    let mut iter = lang_signatures.iter();
-    // Safe: `from_locales_folder` rejects an empty locales folder, and
-    // `Builder::load_one` always produces exactly one bundle.
-    let mut common = iter.next().expect("at least one language bundle").clone();
-
-    for other in iter {
-        common = common.intersection(other).cloned().collect();
-    }
-    common
-}
-
-fn missing_message_ids(common_ids: &HashSet<Id>, langs: &[LangBundle]) -> Vec<String> {
-    let mut not_present: HashMap<Id, Vec<String>> = HashMap::new();
-
-    for lang in langs {
+    for lang in others {
         for msg in &lang.messages {
-            if !common_ids.contains(&msg.id) {
-                not_present
+            if !default_ids.contains(&msg.id) {
+                orphans
                     .entry(msg.id.clone())
                     .or_default()
                     .push(lang.language_id.clone());
             }
         }
     }
-    not_present
+
+    orphans
         .into_iter()
-        .map(|(id, v)| format!("Missing {id} for languages: {}", v.join(", ")))
+        .map(|(id, mut langs)| {
+            langs.sort();
+            format!(
+                "{id} is not generated — present in locale(s) {} but missing from \
+                 the default locale '{}'",
+                langs.join(", "),
+                default.language_id,
+            )
+        })
         .collect()
+}
+
+/// Whether `other` (a non-default locale's message) is structurally compatible
+/// with the `contract` (the default locale's message of the same id).
+///
+/// The check is comment-independent: it uses `pattern_refs`, the raw
+/// `$variable`/`-term` references, never the per-locale comment annotations.
+fn compatible(contract: &Message, other: &Message) -> bool {
+    let args: HashSet<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
+
+    if contract.elements.is_empty() {
+        // Plain message: every variable the other locale references must be a
+        // known contract argument. Extra args would be unfilled at runtime.
+        other
+            .pattern_refs
+            .iter()
+            .filter(|r| r.kind == RefKind::Variable)
+            .all(|r| args.contains(r.name.as_str()))
+    } else {
+        // Element message: the element markers must line up exactly so that
+        // `msg_segments` splits the other locale's pattern into the same slots.
+        let element_names: HashSet<&str> =
+            contract.elements.iter().map(|e| e.name.as_str()).collect();
+
+        let contract_elems: Vec<(&str, ElementKind)> = contract
+            .elements
+            .iter()
+            .map(|e| (e.name.as_str(), e.kind))
+            .collect();
+        let other_elems: Vec<(&str, ElementKind)> = other
+            .pattern_refs
+            .iter()
+            .filter(|r| element_names.contains(r.name.as_str()))
+            .map(|r| (r.name.as_str(), element_kind(r.kind)))
+            .collect();
+        if contract_elems != other_elems {
+            return false;
+        }
+
+        // Non-element variables must still be known contract arguments.
+        other
+            .pattern_refs
+            .iter()
+            .filter(|r| r.kind == RefKind::Variable && !element_names.contains(r.name.as_str()))
+            .all(|r| args.contains(r.name.as_str()))
+    }
+}
+
+fn element_kind(kind: RefKind) -> ElementKind {
+    match kind {
+        RefKind::Variable => ElementKind::Variable,
+        RefKind::Term => ElementKind::Term,
+    }
 }

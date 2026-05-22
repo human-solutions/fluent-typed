@@ -1,4 +1,7 @@
-use super::{Analyzed, BuildError, BuildOptions, LangBundle, Message, r#gen::generate, typed::Id};
+use super::{
+    Analyzed, BuildError, BuildOptions, LangBundle, LintLevel, Message, r#gen::generate, lint,
+    typed::Id,
+};
 use std::{collections::HashSet, fs};
 
 pub struct Builder {
@@ -41,16 +44,25 @@ impl Builder {
     }
 
     pub fn generate(&self) -> Result<(), BuildError> {
-        let analyzed = Analyzed::from(&self.langbundles);
+        // The default locale is the single source of truth for every message's
+        // typed signature, so it must exist.
+        let default = self
+            .langbundles
+            .iter()
+            .find(|b| b.language_id == self.options.default_language)
+            .ok_or_else(|| BuildError::DefaultLanguageNotFound {
+                language: self.options.default_language.clone(),
+                folder: self.options.locales_folder.clone(),
+            })?;
 
-        for warn in analyzed.missing_messages {
+        let analyzed = Analyzed::from(&self.langbundles, default);
+        for warn in &analyzed.warnings {
             println!("cargo::warning={warn}");
         }
-        for warn in analyzed.signature_mismatches {
-            println!("cargo::warning={warn}");
-        }
 
-        let messages = &self.messages(&analyzed.common);
+        self.run_lints(default, &analyzed.common)?;
+
+        let messages = &self.messages(default, &analyzed.common);
         let generated = generate(&self.options, &self.langbundles, messages)
             .map_err(BuildError::Generation)?
             .replace("    ", &self.options.indentation);
@@ -80,14 +92,51 @@ impl Builder {
         Ok(())
     }
 
-    fn messages(&self, common: &HashSet<Id>) -> Vec<&Message> {
-        let mut added = HashSet::new();
-        self.langbundles
+    /// Run the comment lints and report them according to the configured
+    /// [`LintLevel`]. Returns an error only in strict mode, when there are
+    /// hard lint failures.
+    fn run_lints(&self, default: &LangBundle, common: &HashSet<Id>) -> Result<(), BuildError> {
+        let lints = lint::check(&self.langbundles, default, common);
+
+        match self.options.lint_level {
+            LintLevel::Off => {}
+            LintLevel::Warn => {
+                for w in lints.mistakes.iter().chain(&lints.ineffective) {
+                    println!("cargo::warning={w}");
+                }
+            }
+            LintLevel::Deny | LintLevel::Strict => {
+                // Diagnostics about non-default locales stay warnings — they
+                // concern translator-owned files.
+                for w in &lints.ineffective {
+                    println!("cargo::warning={w}");
+                }
+                let mut errors = lints.mistakes;
+                // `Strict` additionally requires every variable to be typed.
+                if self.options.lint_level == LintLevel::Strict {
+                    errors.extend(lints.untyped);
+                }
+                if !errors.is_empty() {
+                    errors.sort();
+                    return Err(BuildError::Lint { messages: errors });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The messages to generate: the default locale's, in declaration order,
+    /// restricted to the ids that survived cross-locale analysis. An id is
+    /// emitted only once, even if duplicate keys were allowed and the default
+    /// locale defines it more than once.
+    fn messages<'a>(&self, default: &'a LangBundle, common: &HashSet<Id>) -> Vec<&'a Message> {
+        let mut seen = HashSet::new();
+        default
+            .messages
             .iter()
-            .flat_map(|r| &r.messages)
             .filter(|msg| common.contains(&msg.id))
-            .filter(|msg| added.insert(&msg.id))
-            .collect::<Vec<_>>()
+            .filter(|msg| seen.insert(&msg.id))
+            .collect()
     }
 }
 
@@ -101,13 +150,22 @@ fn from_locales_folder(
     };
     let locales_dir = fs::read_dir(folder).map_err(map_io)?;
     let mut locales = Vec::new();
+    let mut errors: Vec<BuildError> = Vec::new();
     for entry in locales_dir {
         let entry = entry.map_err(map_io)?;
         let path = entry.path();
         if path.is_dir() {
             let lang = path.file_name().unwrap().to_str().unwrap();
-            locales.push(LangBundle::from_folder(&path, lang, deny_duplicate_keys)?);
+            // Collect every locale's errors rather than stopping at the first,
+            // so one rebuild surfaces them all.
+            match LangBundle::from_folder(&path, lang, deny_duplicate_keys) {
+                Ok(bundle) => locales.push(bundle),
+                Err(errs) => errors.extend(errs),
+            }
         }
+    }
+    if !errors.is_empty() {
+        return Err(BuildError::collapse(errors));
     }
     if locales.is_empty() {
         return Err(BuildError::NoLocaleFolders {
