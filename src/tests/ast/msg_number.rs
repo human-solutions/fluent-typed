@@ -77,6 +77,7 @@ fn typed() {
                 id: "duration".to_string(),
                 typ: VarType::Number,
             }],
+            elements: vec![],
         }
     );
 }

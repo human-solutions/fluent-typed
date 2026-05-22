@@ -3,6 +3,7 @@
 #![allow(unused, clippy::derivable_impls)]
 mod attrib_only_gen;
 mod complex_gen;
+mod msg_element_gen;
 mod msg_number_gen;
 mod msg_string_gen;
 mod msg_text_both_gen;

@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- Structured (`(Element)`) messages: annotate a variable or term with
+  `(Element)` to have fluent-typed generate a struct of resolved text segments
+  split at those points, instead of a single `String`. Variable elements are
+  positional gaps the app fills; term elements carry translatable text. Adds
+  `L10nBundle::msg_segments()` and the `Segment` / `ElementGap` prelude types.
 - `BuildOptions::without_bidi_isolation()` and the `BuildOptions::use_isolating`
   field to control whether generated accessors wrap interpolated variables in
   Unicode bidi isolation marks (FSI/PDI). Defaults to enabled.
