@@ -75,7 +75,6 @@ fn typed() {
         message,
         Message {
             comment: vec![],
-            resource: "test".to_string(),
             id: Id::new_attr("hello", "tooltip"),
             variables: vec![Variable {
                 id: "userName".to_string(),

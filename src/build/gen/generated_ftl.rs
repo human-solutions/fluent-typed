@@ -32,13 +32,13 @@ impl GeneratedFtl {
         })
     }
 
-    pub fn accessor_replacement(&self) -> String {
+    pub fn accessor_replacement(&self, use_isolating: bool) -> String {
         match self {
             Self::SingleFile {
                 positions,
                 compressed,
                 ..
-            } => self.single_file_load_fn(positions, *compressed),
+            } => self.single_file_load_fn(positions, *compressed, use_isolating),
             Self::MultiFile => "".to_string(),
         }
     }
@@ -47,6 +47,7 @@ impl GeneratedFtl {
         &self,
         positions: &[(String, Range<usize>)],
         compressed: bool,
+        use_isolating: bool,
     ) -> String {
         let mut out = String::new();
 
@@ -107,6 +108,13 @@ impl GeneratedFtl {
         };
 
         out.push_str(load_all_fn);
+
+        if !use_isolating {
+            out = out.replace(
+                "L10nLanguageVec::load(",
+                "L10nLanguageVec::load_without_isolation(",
+            );
+        }
         out
     }
 }

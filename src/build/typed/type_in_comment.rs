@@ -52,7 +52,7 @@ fn parse_line(line: &str) -> Found<'_> {
     let id = &id[1..];
 
     let rest = rest.trim();
-    if rest.trim().starts_with("(Number)") {
+    if rest.starts_with("(Number)") {
         Found::Number(id)
     } else if rest.starts_with("(String)") {
         Found::String(id)

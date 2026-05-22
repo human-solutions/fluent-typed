@@ -11,11 +11,30 @@ pub struct L10nBundle {
 }
 
 impl L10nBundle {
+    /// Load the messages for `lang` from the bytes of a `.ftl` file.
+    ///
+    /// Interpolated variables are wrapped in Unicode bidi isolation marks
+    /// (FSI `U+2068` / PDI `U+2069`), which is the safe default for text
+    /// rendered in a bidi-aware context such as a web UI. Use
+    /// [`Self::new_without_isolation`] to disable this.
     pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
+        Self::build(lang, bytes, true)
+    }
+
+    /// Like [`Self::new`], but without Unicode bidi isolation marks around
+    /// interpolated variables. Only use this if the strings are never
+    /// rendered in a bidi-aware context, or you never use right-to-left
+    /// locales or interpolate user-provided text.
+    pub fn new_without_isolation(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
+        Self::build(lang, bytes, false)
+    }
+
+    fn build(lang: impl AsRef<str>, bytes: &[u8], use_isolating: bool) -> Result<Self, String> {
         let ftl = String::from_utf8(bytes.to_vec())
             .map_err(|e| format!("Could not read ftl string due to: {e}"))?;
         let lang_id: LanguageIdentifier = lang.as_ref().parse().map_err(|e| format!("{e:?}"))?;
         let mut bundle = FluentBundle::new(vec![lang_id]);
+        bundle.set_use_isolating(use_isolating);
         let resource = FluentResource::try_new(ftl).map_err(|e| format!("{e:?}"))?;
         bundle
             .add_resource(resource)

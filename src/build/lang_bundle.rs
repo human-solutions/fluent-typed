@@ -29,7 +29,7 @@ impl LangBundle {
         Ok(LangBundle {
             language_name: lang_name(&ast),
             language_id: lang.to_string(),
-            messages: to_messages(name, &ast, deny_duplicate_keys, &mut seen, &path)?,
+            messages: to_messages(&ast, deny_duplicate_keys, &mut seen, &path)?,
             ftl: ftl.to_string(),
         })
     }
@@ -77,7 +77,7 @@ impl LangBundle {
             bundle.ftl.push_str(&ftl);
             bundle.ftl.push('\n');
 
-            let messages = to_messages(&name, &ast, deny_duplicate_keys, &mut seen, &path)?;
+            let messages = to_messages(&ast, deny_duplicate_keys, &mut seen, &path)?;
             bundle.messages.extend(messages);
         }
         Ok(bundle)
@@ -85,7 +85,6 @@ impl LangBundle {
 }
 
 fn to_messages(
-    name: &str,
     ast: &Resource<&str>,
     deny_duplicate_keys: bool,
     seen: &mut HashMap<String, PathBuf>,
@@ -94,7 +93,7 @@ fn to_messages(
     ast.body
         .iter()
         .filter_map(|entry| match entry {
-            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(name, m)),
+            fluent_syntax::ast::Entry::Message(m) => Some(Message::parse(m)),
             _ => None,
         })
         .flatten()
