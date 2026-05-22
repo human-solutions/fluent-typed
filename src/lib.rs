@@ -14,6 +14,11 @@ pub use build::{
     try_build_from_locales_folder,
 };
 
+/// Internal build-pipeline pieces exposed for the benchmark suite only. Gated
+/// behind the non-default `bench-internals` feature; not a stable API.
+#[cfg(feature = "bench-internals")]
+pub use build::bench_internals;
+
 pub mod prelude {
     pub use crate::l10n_bundle::L10nBundle;
     pub use crate::l10n_language_vec::L10nLanguageVec;
