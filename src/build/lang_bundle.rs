@@ -27,7 +27,7 @@ pub struct LangBundle {
 }
 
 impl LangBundle {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bench-internals"))]
     pub fn from_ftl(
         ftl: &str,
         name: &str,
