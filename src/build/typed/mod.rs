@@ -5,7 +5,9 @@ use std::fmt::Display;
 
 use crate::build::r#gen::StrExt;
 
-#[derive(Debug, PartialEq)]
+pub use type_in_comment::{Annotation, annotation};
+
+#[derive(Debug)]
 pub struct Message {
     pub id: Id,
     pub comment: Vec<String>,
@@ -13,6 +15,45 @@ pub struct Message {
     /// The `(Element)`-annotated split points, in the order they appear in the
     /// message pattern. Empty for ordinary (non-structured) messages.
     pub elements: Vec<ElementMarker>,
+    /// Every `$variable` and `-term` reference in the message pattern, in
+    /// document order, derived purely from the AST (independent of comments).
+    /// Used for comment-independent cross-locale compatibility checks.
+    pub pattern_refs: Vec<Ref>,
+    /// The `.ftl` file this message was parsed from (for diagnostics).
+    pub file: String,
+    /// The 1-based line of the message (or attribute) id.
+    pub line: usize,
+    /// The 1-based line of the first comment line, or `0` when there is no
+    /// comment. Comment blocks are contiguous, so `comment[i]` is at
+    /// `comment_line + i`.
+    pub comment_line: usize,
+}
+
+/// Equality compares the *semantic* shape of a message — its id, comment,
+/// variables, elements and pattern references — and deliberately ignores the
+/// source-location fields (`file`, `line`, `comment_line`), which are diagnostic
+/// metadata rather than identity.
+impl PartialEq for Message {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.comment == other.comment
+            && self.variables == other.variables
+            && self.elements == other.elements
+            && self.pattern_refs == other.pattern_refs
+    }
+}
+
+/// A `$variable` or `-term` reference in a message pattern.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Ref {
+    pub name: String,
+    pub kind: RefKind,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum RefKind {
+    Variable,
+    Term,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -56,12 +97,6 @@ impl Id {
             .unwrap_or_default();
         format!("{}{atr}", self.message).rust_id()
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Attribute {
-    pub id: String,
-    pub variables: Vec<Variable>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
