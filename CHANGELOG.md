@@ -30,6 +30,13 @@
   set with the (no longer deprecated) `BuildOptions::with_prefix()`.
 
 ### Fixed
+- `NUMBER()` calls now trigger number type deduction as documented. A variable
+  used inside `NUMBER(...)`, in a function-reference selector, or only inside a
+  select variant's body was not detected at all, so the generated accessor
+  silently omitted that parameter.
+- FTL builtins (`NUMBER`, …) are now registered on the runtime `L10nBundle`.
+  Previously a message using `{ NUMBER($x) }` failed to format, which made the
+  generated accessor panic when called.
 - An empty locales folder now returns the new `BuildError::NoLocaleFolders`
   variant instead of panicking.
 

@@ -34,6 +34,10 @@ impl L10nBundle {
         let lang_id: LanguageIdentifier = lang.as_ref().parse().map_err(|e| format!("{e:?}"))?;
         let mut bundle = FluentBundle::new(vec![lang_id]);
         bundle.set_use_isolating(use_isolating);
+        // Register the FTL builtins (`NUMBER`, …). Without this, any message
+        // using `{ NUMBER($x) }` fails to format and `msg`/`attr` return an
+        // `Err`, which the generated accessors `.unwrap()` into a panic.
+        bundle.add_builtins().map_err(|e| format!("{e:?}"))?;
         let resource = FluentResource::try_new(ftl).map_err(|e| format!("{e:?}"))?;
         bundle
             .add_resource(resource)
