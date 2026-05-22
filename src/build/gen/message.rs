@@ -2,19 +2,6 @@ use crate::build::r#gen::StrExt;
 use crate::build::typed::{ElementKind, ElementMarker, Message, VarType, Variable};
 
 impl Message {
-    pub fn trait_signature(&self) -> String {
-        let mut out = Vec::new();
-        let func_name = self.id.func_name();
-        out.push(self.comment_lines());
-        let mut sig = self.signature(&self.variables, &func_name);
-        if !self.elements.is_empty() {
-            sig.push_str(&format!(" /* elements: {} */", self.elements_summary()));
-        }
-        out.push(sig.with_semicolon());
-
-        out.join("\n")
-    }
-
     fn signature(&self, variables: &[Variable], func_name: &str) -> String {
         if variables.is_empty() {
             format!(r"    pub fn {func_name}(&self) -> String")
@@ -98,21 +85,6 @@ impl Message {
             .map(|c| format!("    /// {c}\n"))
             .collect::<Vec<_>>()
             .join("")
-    }
-
-    /// A short, human-readable summary of the `(Element)` layout. Used so that
-    /// cross-locale signature-mismatch warnings reflect element order.
-    fn elements_summary(&self) -> String {
-        let parts = self
-            .elements
-            .iter()
-            .map(|m| match m.kind {
-                ElementKind::Variable => format!("${}", m.name),
-                ElementKind::Term => format!("-{}", m.name),
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("[{parts}]")
     }
 
     /// The ordered struct fields for a structured (element) message: a text

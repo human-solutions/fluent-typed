@@ -76,7 +76,7 @@ fn ast_use() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let [message, attr] = resource.two_messages();
+    let [message, attr] = resource.two_messages(FTL);
 
     println!("{:#?}", message);
     assert_eq!(
@@ -86,6 +86,10 @@ fn typed() {
             id: Id::new_msg("hello"),
             variables: vec![],
             elements: vec![],
+            pattern_refs: vec![],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
         }
     );
     println!("{:#?}", attr);
@@ -99,6 +103,13 @@ fn typed() {
                 typ: VarType::Any
             }],
             elements: vec![],
+            pattern_refs: vec![Ref {
+                name: "userName".to_string(),
+                kind: RefKind::Variable,
+            }],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
         }
     );
 }

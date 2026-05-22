@@ -1,4 +1,5 @@
 use super::ftl_output_options::FtlOutputOptions;
+use super::lint_level::LintLevel;
 
 const DEFAULT_PREFIX: &str = "msg_";
 
@@ -47,6 +48,11 @@ pub struct BuildOptions {
     /// Defaults to true.
     pub deny_duplicate_keys: bool,
 
+    /// How strictly the comments in your `.ftl` files are checked.
+    ///
+    /// Defaults to [`LintLevel::Warn`].
+    pub lint_level: LintLevel,
+
     /// Whether the generated code wraps interpolated variables in Unicode
     /// bidi isolation marks (FSI `U+2068` / PDI `U+2069`).
     ///
@@ -69,6 +75,7 @@ impl Default for BuildOptions {
             format: true,
             prefix: DEFAULT_PREFIX.to_string(),
             deny_duplicate_keys: true,
+            lint_level: LintLevel::default(),
             use_isolating: true,
         }
     }
@@ -114,6 +121,13 @@ impl BuildOptions {
 
     pub fn with_allow_duplicate_keys(mut self) -> Self {
         self.deny_duplicate_keys = false;
+        self
+    }
+
+    /// Set how strictly the comments in your `.ftl` files are checked.
+    /// See [`LintLevel`].
+    pub fn with_lint_level(mut self, level: LintLevel) -> Self {
+        self.lint_level = level;
         self
     }
 

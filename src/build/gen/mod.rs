@@ -69,14 +69,8 @@ static ALL_LANGS: [L10n; {}] = [
     replacements.push(("<<placeholder enum variant>>", enum_variants));
 
     // ///////////////////////////
-
-    if !langs.contains(&options.default_language.as_str()) {
-        return Err(format!(
-            "Default language '{}' not found in locales",
-            options.default_language
-        ));
-    }
-
+    // `Builder::generate` has already verified that the default language is
+    // present in the locales.
     let default_lang = format!(
         "        Self::{}",
         &options.default_language.rust_var_name()

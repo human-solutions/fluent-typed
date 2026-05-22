@@ -3,7 +3,6 @@ pub trait StrExt {
     fn rust_static_name(&self) -> String;
     fn rust_var_name(&self) -> String;
     fn rust_id(&self) -> String;
-    fn with_semicolon(&self) -> String;
 }
 
 impl StrExt for str {
@@ -50,9 +49,5 @@ impl StrExt for str {
             }
         }
         s
-    }
-
-    fn with_semicolon(&self) -> String {
-        format!("{self};")
     }
 }
