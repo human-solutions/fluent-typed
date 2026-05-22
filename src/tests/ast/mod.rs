@@ -30,22 +30,25 @@ fn load_bundle() {
 }
 
 trait AstResourceExt {
-    fn first_message(&self) -> Message;
-    fn two_messages(&self) -> [Message; 2];
+    fn first_message(&self, src: &str) -> Message;
+    fn two_messages(&self, src: &str) -> [Message; 2];
 }
 
 impl AstResourceExt for ast::Resource<&str> {
-    fn first_message(&self) -> Message {
+    fn first_message(&self, src: &str) -> Message {
         match &self.body[0] {
-            ast::Entry::Message(message) => Message::parse(message).into_iter().next().unwrap(),
+            ast::Entry::Message(message) => Message::parse(message, src, "test.ftl")
+                .into_iter()
+                .next()
+                .unwrap(),
             _ => panic!("Expected a message."),
         }
     }
 
-    fn two_messages(&self) -> [Message; 2] {
+    fn two_messages(&self, src: &str) -> [Message; 2] {
         match &self.body[0] {
             ast::Entry::Message(message) => {
-                let msgs = Message::parse(message);
+                let msgs = Message::parse(message, src, "test.ftl");
                 assert_eq!(msgs.len(), 2);
                 msgs.try_into().unwrap()
             }

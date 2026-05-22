@@ -2,13 +2,14 @@ mod builder;
 mod error;
 pub mod r#gen;
 mod lang_bundle;
+pub mod lint;
 pub mod options;
 pub mod typed;
 mod utils;
 mod validations;
 
 pub use error::BuildError;
-pub use options::{BuildOptions, FtlOutputOptions};
+pub use options::{BuildOptions, FtlOutputOptions, LintLevel};
 use std::process::ExitCode;
 
 // Crate-internal: the `build` module itself is private, so these are not part

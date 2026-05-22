@@ -50,7 +50,7 @@ fn ast() {
 #[test]
 fn typed() {
     let resource = parser::parse(FTL).expect("Failed to parse an FTL resource.");
-    let message = resource.first_message();
+    let message = resource.first_message(FTL);
 
     println!("{message:#?}");
     assert_eq!(
@@ -63,6 +63,13 @@ fn typed() {
                 typ: VarType::Number,
             }],
             elements: vec![],
+            pattern_refs: vec![Ref {
+                name: "ratio".to_string(),
+                kind: RefKind::Variable,
+            }],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
         }
     );
 }
@@ -87,9 +94,13 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
 }
 "#;
     let resource = parser::parse(ftl).expect("Failed to parse an FTL resource.");
-    let message = resource.first_message();
+    let message = resource.first_message(ftl);
 
     println!("{message:#?}");
+    let pos_ref = || Ref {
+        name: "pos".to_string(),
+        kind: RefKind::Variable,
+    };
     assert_eq!(
         message,
         Message {
@@ -100,6 +111,11 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
                 typ: VarType::Number,
             }],
             elements: vec![],
+            // `$pos` in the selector and in each of the four variant bodies.
+            pattern_refs: vec![pos_ref(), pos_ref(), pos_ref(), pos_ref(), pos_ref(),],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
         }
     );
 }
@@ -115,7 +131,7 @@ status = { $state ->
 }
 "#;
     let resource = parser::parse(ftl).expect("Failed to parse an FTL resource.");
-    let message = resource.first_message();
+    let message = resource.first_message(ftl);
 
     println!("{message:#?}");
     assert_eq!(
@@ -134,6 +150,19 @@ status = { $state ->
                 },
             ],
             elements: vec![],
+            pattern_refs: vec![
+                Ref {
+                    name: "state".to_string(),
+                    kind: RefKind::Variable,
+                },
+                Ref {
+                    name: "detail".to_string(),
+                    kind: RefKind::Variable,
+                },
+            ],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
         }
     );
 }

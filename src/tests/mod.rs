@@ -1,6 +1,7 @@
 mod ast;
 mod complex;
 mod r#gen;
+mod lint;
 mod runtime;
 
 use std::fs;
@@ -183,6 +184,7 @@ fn test_duplicate_key_fails() {
         key,
         original,
         duplicate,
+        ..
     }) = &Builder::load(options)
     {
         assert_eq!(key, "hello-world");
@@ -213,11 +215,15 @@ fn test_duplicate_key_single_file_fails() {
     if let Err(BuildError::DuplicateKey {
         key,
         original,
+        original_line,
         duplicate,
+        duplicate_line,
     }) = &Builder::load_one(options, "test", "en", ftl)
     {
         assert_eq!(key, "hello-world");
         assert_eq!(original, duplicate);
+        assert_eq!(*original_line, 1);
+        assert_eq!(*duplicate_line, 2);
     } else {
         panic!("Expected a DuplicateKey error");
     }

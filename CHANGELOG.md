@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- Comment linting. `LintLevel` (`Off` / `Warn` / `Deny` / `Strict`) and
+  `BuildOptions::with_lint_level()`. fluent-typed now checks `.ftl` comments for
+  typo'd type keywords (`(Numbr)`), annotations of variables the message does
+  not have, type-annotation comments detached from their message by a blank
+  line, and (ineffective) type annotations in non-default locales — reporting
+  the file and line of each. `Deny` turns these into hard build errors; `Strict`
+  also requires every variable of every generated message to resolve to a
+  concrete type.
+- `BuildError::DefaultLanguageNotFound` and `BuildError::Lint` variants.
 - Structured (`(Element)`) messages: annotate a variable or term with
   `(Element)` to have fluent-typed generate a struct of resolved text segments
   split at those points, instead of a single `String`. Variable elements are
@@ -15,9 +24,21 @@
   `L10nLanguageVec::load_without_isolation()` constructors.
 
 ### Changed
-- **Breaking:** `BuildOptions` has a new `use_isolating` field (default
-  `true`). Direct struct construction must include this field;
-  `BuildOptions::default()` users are unaffected.
+- **Breaking:** message argument types are now read from the **default locale**
+  only. Previously each locale was typed from its own comments and a message was
+  dropped when locales disagreed; now the default locale defines the contract
+  and other locales need only a compatible *set* of variables, not matching type
+  comments. Type comments in non-default locales no longer affect output (the
+  linter flags them). The generated doc comments now always come from the
+  default locale.
+- **Breaking:** `BuildError::FtlParse` is now a struct variant
+  `{ path, errors }` — was a tuple `FtlParse(String)` — and reports the file and
+  the line of each parse error. `BuildError::DuplicateKey` gains `original_line`
+  and `duplicate_line` fields and its message now includes line numbers.
+- **Breaking:** `BuildOptions` has a new `lint_level` field (default
+  `LintLevel::Warn`) and a new `use_isolating` field (default `true`). Direct
+  struct construction must include these fields; `BuildOptions::default()`
+  users are unaffected.
 
 ### Removed
 - **Breaking:** the `Pattern<String>` output mode and everything tied to it —
