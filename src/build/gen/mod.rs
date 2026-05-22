@@ -207,9 +207,7 @@ static ALL_LANGS: [L10n; {}] = [
     replacements.push(("<<placeholder l10n bundle new>>", l10n_bundle_new));
 
     // ///////////////////////////
-    let impls = collect(messages.iter(), |msg| {
-        msg.implementations(&options.output_mode)
-    });
+    let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
     replacements.push(("<<message implementations>>", impls));
 
     // ///////////////////////////

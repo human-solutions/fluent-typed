@@ -1,5 +1,6 @@
 use super::ftl_output_options::FtlOutputOptions;
-use super::output_mode::OutputMode;
+
+const DEFAULT_PREFIX: &str = "msg_";
 
 pub struct BuildOptions {
     /// The path to the folder containing the locales.
@@ -34,11 +35,11 @@ pub struct BuildOptions {
     /// Defaults to true.
     pub format: bool,
 
-    /// Controls whether generated functions return String, Pattern, or both.
-    /// Each variant carries its own prefix for the generated function names.
+    /// The prefix prepended to every generated message accessor's name,
+    /// e.g. `"msg_"` produces `msg_hello_world()`.
     ///
-    /// Defaults to OutputMode::String with prefix "msg_".
-    pub output_mode: OutputMode,
+    /// Defaults to `"msg_"`.
+    pub prefix: String,
 
     /// Whether to return an error if duplicate message keys are found
     /// within the same language.
@@ -66,7 +67,7 @@ impl Default for BuildOptions {
             indentation: "    ".to_string(),
             default_language: "en".to_string(),
             format: true,
-            output_mode: OutputMode::default(),
+            prefix: DEFAULT_PREFIX.to_string(),
             deny_duplicate_keys: true,
             use_isolating: true,
         }
@@ -104,8 +105,10 @@ impl BuildOptions {
         self
     }
 
-    pub fn with_output_mode(mut self, mode: OutputMode) -> Self {
-        self.output_mode = mode;
+    /// Set the prefix prepended to every generated message accessor's name.
+    /// See [`BuildOptions::prefix`].
+    pub fn with_prefix(mut self, prefix: &str) -> Self {
+        self.prefix = prefix.to_string();
         self
     }
 
@@ -123,12 +126,5 @@ impl BuildOptions {
     pub fn without_bidi_isolation(mut self) -> Self {
         self.use_isolating = false;
         self
-    }
-
-    #[deprecated(note = "Use with_output_mode(OutputMode::String { prefix }) instead")]
-    pub fn with_prefix(self, prefix: &str) -> Self {
-        self.with_output_mode(OutputMode::String {
-            prefix: prefix.to_string(),
-        })
     }
 }

@@ -8,7 +8,7 @@ mod utils;
 mod validations;
 
 pub use error::BuildError;
-pub use options::{BuildOptions, FtlOutputOptions, OutputMode};
+pub use options::{BuildOptions, FtlOutputOptions};
 use std::process::ExitCode;
 
 // Crate-internal: the `build` module itself is private, so these are not part
