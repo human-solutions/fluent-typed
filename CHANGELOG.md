@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `BuildOptions::without_bidi_isolation()` and the `BuildOptions::use_isolating`
+  field to control whether generated accessors wrap interpolated variables in
+  Unicode bidi isolation marks (FSI/PDI). Defaults to enabled.
+- `L10nBundle::new_without_isolation()` and
+  `L10nLanguageVec::load_without_isolation()` constructors.
+
+### Changed
+- **Breaking:** `BuildOptions` has a new `use_isolating` field (default
+  `true`). Direct struct construction must include this field;
+  `BuildOptions::default()` users are unaffected.
+
+### Fixed
+- An empty locales folder now returns the new `BuildError::NoLocaleFolders`
+  variant instead of panicking.
+
 ## 0.5.0
 
 ### Added

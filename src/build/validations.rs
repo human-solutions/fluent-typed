@@ -77,7 +77,9 @@ fn common_message_ids(langs: &[LangBundle]) -> HashSet<Id> {
         );
     }
     let mut iter = lang_signatures.iter();
-    let mut common = iter.next().unwrap().clone();
+    // Safe: `from_locales_folder` rejects an empty locales folder, and
+    // `Builder::load_one` always produces exactly one bundle.
+    let mut common = iter.next().expect("at least one language bundle").clone();
 
     for other in iter {
         common = common.intersection(other).cloned().collect();

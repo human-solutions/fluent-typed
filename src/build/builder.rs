@@ -109,5 +109,10 @@ fn from_locales_folder(
             locales.push(LangBundle::from_folder(&path, lang, deny_duplicate_keys)?);
         }
     }
+    if locales.is_empty() {
+        return Err(BuildError::NoLocaleFolders {
+            folder: folder.to_string(),
+        });
+    }
     Ok(locales)
 }

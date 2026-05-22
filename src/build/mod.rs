@@ -7,13 +7,16 @@ pub mod typed;
 mod utils;
 mod validations;
 
-pub use builder::Builder;
 pub use error::BuildError;
-pub use lang_bundle::LangBundle;
 pub use options::{BuildOptions, FtlOutputOptions, OutputMode};
 use std::process::ExitCode;
-pub use typed::Message;
-pub use validations::Analyzed;
+
+// Crate-internal: the `build` module itself is private, so these are not part
+// of the public API. They are re-exported here only for use within the crate.
+pub(crate) use builder::Builder;
+pub(crate) use lang_bundle::LangBundle;
+pub(crate) use typed::Message;
+pub(crate) use validations::Analyzed;
 
 /// Generate rust code and ftl files from locales folder, which contains `<lang-id>/<resource-name>.ftl` files.
 ///

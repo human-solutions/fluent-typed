@@ -45,6 +45,16 @@ pub struct BuildOptions {
     ///
     /// Defaults to true.
     pub deny_duplicate_keys: bool,
+
+    /// Whether the generated code wraps interpolated variables in Unicode
+    /// bidi isolation marks (FSI `U+2068` / PDI `U+2069`).
+    ///
+    /// This is the safe default for text rendered in a bidi-aware context
+    /// such as a web UI, and is required for correct rendering when a
+    /// right-to-left locale is used or user-provided text is interpolated.
+    ///
+    /// Defaults to true.
+    pub use_isolating: bool,
 }
 
 impl Default for BuildOptions {
@@ -58,6 +68,7 @@ impl Default for BuildOptions {
             format: true,
             output_mode: OutputMode::default(),
             deny_duplicate_keys: true,
+            use_isolating: true,
         }
     }
 }
@@ -100,6 +111,17 @@ impl BuildOptions {
 
     pub fn with_allow_duplicate_keys(mut self) -> Self {
         self.deny_duplicate_keys = false;
+        self
+    }
+
+    /// Disable Unicode bidi isolation marks around interpolated variables
+    /// in the generated code. See [`BuildOptions::use_isolating`].
+    ///
+    /// Only do this if the generated strings are never rendered in a
+    /// bidi-aware context, or you never use right-to-left locales or
+    /// interpolate user-provided text.
+    pub fn without_bidi_isolation(mut self) -> Self {
+        self.use_isolating = false;
         self
     }
 
