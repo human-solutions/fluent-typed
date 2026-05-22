@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
 ### Added
 - Comment linting. `LintLevel` (`Off` / `Warn` / `Deny` / `Strict`) and

@@ -52,10 +52,10 @@ pub mod bench_internals {
 /// ```toml
 /// # in Cargo.toml
 /// [dependencies]
-/// fluent-typed = 0.1
+/// fluent-typed = "0.6"
 ///
 /// [build-dependencies]
-/// fluent-typed = { version = "0.1", features = ["build"] }
+/// fluent-typed = { version = "0.6", features = ["build"] }
 /// ```
 /// During the generation, the build script will print warnings for all messages that are
 /// not present in all locales, as well as for messages with different signatures.

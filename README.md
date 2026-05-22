@@ -1,33 +1,58 @@
 # Fluent-Typed
 
-When using translation keys, there is often no easy way to know if they are being used
-correctly and if they are being used at all. This project generates, using the `fluent` ast,
-the function definitions for the translation keys in a fluent file.
+[![crates.io](https://img.shields.io/crates/v/fluent-typed.svg)](https://crates.io/crates/fluent-typed)
+[![docs.rs](https://docs.rs/fluent-typed/badge.svg)](https://docs.rs/fluent-typed)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-To guarantee safety, an accessor is generated only for a message that is present
-in every locale with a compatible set of variables. The **default locale**
-(configured in `BuildOptions`) is the single source of truth for each message's
-argument types. A message missing from a locale, or one whose variables differ,
-is skipped — with a warning naming the `.ftl` file and line.
+**Your [Fluent](https://projectfluent.org) translations as typed Rust functions.** A
+misspelled key, a missing translation, or the wrong argument type becomes a compile
+error — and a translation you no longer use becomes a build warning.
 
-Each locale's ftl resources are appended into a single ftl file, and you can configure it
-to either embed all of them into the binary with accessors suitable both for server-side
-where all of them loaded at startup and accessed via a LazyLock, or client-side where
-a single one is loaded and then can be used in a signal. This single ftl file can be
-compressed to your liking using a hook.
+Write a message in an `.ftl` file:
 
-You also have the freedom
-to handle the loading of them yourself, which is especially useful if you want to
-download a single language at a time without the need for storing them in the binary.
+```ftl
+# locales/en/main.ftl
+# $name (String) - the user's name
+hello = Hello { $name }
+```
 
-A little extra feature is that if you name one of the messages as `language-name` and it
-doesn't use any variables plus it's present in all languages, then the generated L10n
-enum will also contain the names of all the languages, which is really useful when you
-want to present the user with a drop-down menu listing all the available languages.
+…and `fluent-typed` generates a typed accessor for it. Calling it wrong no longer fails
+silently at runtime — it fails the build:
 
-Note that in order to get the warnings for unused message functions, you have to generate
-the file in the same crate as where you use them, and you cannot make L10nLanguage file
-part of the crate's public interface.
+```rust
+let strs = L10n::En.load();
+
+strs.msg_hello("Sam");   // ✓ compiles
+strs.msg_hello(42);      // ✗ wrong argument type — caught at compile time
+strs.msg_helo("Sam");    // ✗ misspelled key — caught at compile time
+```
+
+## Why fluent-typed
+
+- **Typed accessors, no boilerplate.** One `build.rs` call turns every message into a
+  typed function. Argument types are inferred from comments, `NUMBER()` calls and plural
+  selectors.
+- **Dead translations become warnings.** An unused message function raises a `cargo`
+  warning, so stale keys don't quietly accumulate.
+- **Cross-locale safety.** An accessor is generated only for a message present in *every*
+  locale with a matching set of variables — the rest are skipped with a warning naming
+  the `.ftl` file and line.
+- **A linter for comment mistakes.** Typo'd type keywords, annotations of variables that
+  don't exist, comments detached from their message — reported at `Warn`, `Deny` or
+  `Strict` levels.
+- **Embed or load on demand.** Bake every locale into the binary for server-side use, or
+  load one language at a time on the client.
+- **Automatic language negotiation.** With the `langneg` feature, `L10n::langneg("en-US")`
+  resolves a user's preferred language to the closest available locale, falling back to
+  your configured default.
+- **Bidi-safe by default.** Interpolated values are wrapped in Unicode isolation marks so
+  right-to-left text can't corrupt the surrounding message.
+- **A free language menu.** Name a message `language-name` and the generated `L10n` enum
+  hands you human-readable names for a language picker.
+
+> To get the unused-message warnings, generate the file in the crate that *uses* the
+> accessors, and keep the generated `L10n`/`L10nLanguage` types out of that crate's
+> public API — otherwise every message looks "used".
 
 ## Usage
 
@@ -66,10 +91,10 @@ L10n::En.language_name();       // language name, for a language menu
 ```toml
 # in Cargo.toml
 [dependencies]
-fluent-typed = "0.5"
+fluent-typed = "0.6"
 
 [build-dependencies]
-fluent-typed = { version = "0.5", features = ["build"] }
+fluent-typed = { version = "0.6", features = ["build"] }
 ```
 
 ```rust
