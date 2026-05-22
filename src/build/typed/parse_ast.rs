@@ -1,13 +1,14 @@
 use super::*;
-use crate::build::utils::line_of;
+use crate::build::LineIndex;
 use fluent_syntax::ast;
 use type_in_comment::TypeInComment;
 
 impl Message {
     /// Parse an AST message into one `Message` for its value (if any) plus one
-    /// per attribute. `src` is the full FTL source the message was parsed from
-    /// (used to recover line numbers) and `file` is its path (for diagnostics).
-    pub fn parse(message: &ast::Message<&str>, src: &str, file: &str) -> Vec<Self> {
+    /// per attribute. `lines` is the newline index of the FTL source the
+    /// message was parsed from (used to recover line numbers) and `file` is its
+    /// path (for diagnostics).
+    pub fn parse(message: &ast::Message<&str>, lines: &LineIndex, file: &str) -> Vec<Self> {
         let mut found = Vec::new();
         let comment = message
             .comment
@@ -18,7 +19,7 @@ impl Message {
             .comment
             .as_ref()
             .and_then(|c| c.content.first())
-            .map(|first| line_of(src, first))
+            .map(|first| lines.line_of(first))
             .unwrap_or(0);
         let tic = TypeInComment::parse(&comment);
 
@@ -47,7 +48,7 @@ impl Message {
                 elements,
                 pattern_refs: find_refs(value),
                 file: file.to_owned(),
-                line: line_of(src, message.id.name),
+                line: lines.line_of(message.id.name),
                 comment_line,
             });
         }
@@ -74,7 +75,7 @@ impl Message {
                 elements: vec![],
                 pattern_refs: find_refs(&attribute.value),
                 file: file.to_owned(),
-                line: line_of(src, attribute.id.name),
+                line: lines.line_of(attribute.id.name),
                 comment_line: if carries_comment { comment_line } else { 0 },
             });
         }
