@@ -49,12 +49,19 @@ use fluent_typed::{BuildOptions, FtlOutputOptions};
 
 /// Locale codes; index 0 (`en`) is always the default locale.
 const LOCALE_CODES: [&str; 30] = [
-    "en", "de", "fr", "es", "it", "pt", "nl", "sv", "da", "nb", "fi", "pl", "cs", "sk", "hu",
-    "ro", "el", "tr", "ru", "uk", "bg", "hr", "sl", "et", "lv", "lt", "ja", "ko", "zh", "ar",
+    "en", "de", "fr", "es", "it", "pt", "nl", "sv", "da", "nb", "fi", "pl", "cs", "sk", "hu", "ro",
+    "el", "tr", "ru", "uk", "bg", "hr", "sl", "et", "lv", "lt", "ja", "ko", "zh", "ar",
 ];
 
 /// Message-id prefixes, cycled so the generated ids resemble a real project's.
-const ID_PREFIXES: [&str; 6] = ["settings", "account", "dialog", "error", "navigation", "form"];
+const ID_PREFIXES: [&str; 6] = [
+    "settings",
+    "account",
+    "dialog",
+    "error",
+    "navigation",
+    "form",
+];
 
 /// Percentage of messages that carry a `#` comment. Comments drive lint cost,
 /// so this is kept at a realistic fraction rather than 0% or 100%.
@@ -96,7 +103,9 @@ fn generate_locale_ftl(locale: &str, num_messages: usize) -> String {
                 }
                 if i % 8 == 7 {
                     let term = terms[(i / 8) % terms.len()];
-                    s.push_str(&format!("{id} = Please see {{ {term} }} for more details.\n"));
+                    s.push_str(&format!(
+                        "{id} = Please see {{ {term} }} for more details.\n"
+                    ));
                 } else {
                     s.push_str(&format!(
                         "{id} = Translated message number {i} with some content text.\n"
@@ -108,14 +117,18 @@ fn generate_locale_ftl(locale: &str, num_messages: usize) -> String {
                 if has_comment {
                     s.push_str("# $name (String) - The user's display name.\n");
                 }
-                s.push_str(&format!("{id} = Hello {{ $name }}, your account is ready.\n"));
+                s.push_str(&format!(
+                    "{id} = Hello {{ $name }}, your account is ready.\n"
+                ));
             }
             // 15% one Number variable.
             13..=15 => {
                 if has_comment {
                     s.push_str("# $count (Number) - The number of unread messages.\n");
                 }
-                s.push_str(&format!("{id} = You have {{ NUMBER($count) }} unread messages.\n"));
+                s.push_str(&format!(
+                    "{id} = You have {{ NUMBER($count) }} unread messages.\n"
+                ));
             }
             // 10% a select expression.
             16..=17 => {
@@ -156,9 +169,21 @@ struct Scale {
 /// to run because of the super-linear `analyze`/`lint` cost noted in the module
 /// docs. Shrink these while iterating, or filter a run with `-- /small`.
 const SCALES: [Scale; 3] = [
-    Scale { name: "small", messages: 100, locales: 2 },
-    Scale { name: "medium", messages: 1_000, locales: 10 },
-    Scale { name: "large", messages: 10_000, locales: 30 },
+    Scale {
+        name: "small",
+        messages: 100,
+        locales: 2,
+    },
+    Scale {
+        name: "medium",
+        messages: 1_000,
+        locales: 10,
+    },
+    Scale {
+        name: "large",
+        messages: 10_000,
+        locales: 30,
+    },
 ];
 
 /// The `(language, ftl_source)` pairs for one scale — one resource per locale.
@@ -294,5 +319,11 @@ fn bench_generate(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_parse, bench_analyze, bench_lint, bench_generate);
+criterion_group!(
+    benches,
+    bench_parse,
+    bench_analyze,
+    bench_lint,
+    bench_generate
+);
 criterion_main!(benches);

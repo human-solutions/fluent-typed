@@ -18,6 +18,17 @@ pub enum BuildError {
         duplicate: PathBuf,
         duplicate_line: usize,
     },
+    /// A term and a message share the same bare name (e.g. `-foo` and `foo`).
+    /// fluent-bundle stores both under the same key, so loading the resource
+    /// crashes at runtime with `FluentError::Overriding`. Detected at build
+    /// time so the cliff never happens.
+    TermMessageCollision {
+        name: String,
+        term_file: PathBuf,
+        term_line: usize,
+        message_file: PathBuf,
+        message_line: usize,
+    },
     LocalesFolder {
         folder: String,
         source: io::Error,
@@ -94,6 +105,23 @@ impl fmt::Display for BuildError {
                         original.display(),
                     )
                 }
+            }
+            Self::TermMessageCollision {
+                name,
+                term_file,
+                term_line,
+                message_file,
+                message_line,
+            } => {
+                write!(
+                    f,
+                    "Term '-{name}' and message '{name}' share the same name — \
+                     fluent-bundle treats them as the same key and will crash \
+                     at runtime. Rename one. Term defined in '{}:{term_line}', \
+                     message defined in '{}:{message_line}'.",
+                    term_file.display(),
+                    message_file.display(),
+                )
             }
             Self::LocalesFolder { folder, .. } => {
                 write!(f, "Could not read locales folder '{folder}'")
