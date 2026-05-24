@@ -230,6 +230,77 @@ fn test_duplicate_key_single_file_fails() {
 }
 
 #[test]
+fn test_term_message_collision_same_file_fails() {
+    let ftl = "hello = Hi!\n-hello = a-greeting\n";
+    let ftl_opts = FtlOutputOptions::SingleFile {
+        output_ftl_file: "src/tests/gen/test_term_msg_collision_same.ftl".to_string(),
+        compressor: None,
+    };
+    let options = BuildOptions::default()
+        .with_output_file_path("src/tests/gen/test_term_msg_collision_same_gen.rs")
+        .with_ftl_output(ftl_opts);
+
+    let Err(err) = Builder::load_one(options, "test", "en", ftl) else {
+        panic!("expected a TermMessageCollision error");
+    };
+    let BuildError::TermMessageCollision {
+        name,
+        term_file,
+        term_line,
+        message_file,
+        message_line,
+    } = &err
+    else {
+        panic!("expected a TermMessageCollision error, got: {err:?}");
+    };
+    assert_eq!(name, "hello");
+    assert_eq!(term_file, message_file);
+    assert_eq!(*message_line, 1);
+    assert_eq!(*term_line, 2);
+
+    // The diagnostic itself — the whole point of the lint. Pin the exact
+    // wording so a future refactor doesn't quietly regress it.
+    let rendered = err.to_string();
+    assert_eq!(
+        rendered,
+        "Term '-hello' and message 'hello' share the same name — \
+         fluent-bundle treats them as the same key and will crash at runtime. \
+         Rename one. Term defined in 'test:2', message defined in 'test:1'."
+    );
+}
+
+#[test]
+fn test_term_message_collision_across_files_fails() {
+    if let Err(BuildError::TermMessageCollision {
+        name,
+        term_file,
+        message_file,
+        ..
+    }) = Builder::load(
+        BuildOptions::default()
+            .with_locales_folder("src/tests/test_term_message_collision")
+            .with_output_file_path("src/tests/gen/test_term_msg_collision_gen.rs")
+            .with_ftl_output(FtlOutputOptions::SingleFile {
+                output_ftl_file: "src/tests/gen/test_term_msg_collision.ftl".to_string(),
+                compressor: None,
+            })
+            .with_default_language("en"),
+    ) {
+        assert_eq!(name, "hello");
+        assert!(
+            term_file.ends_with("a.ftl"),
+            "expected term in a.ftl, got {term_file:?}",
+        );
+        assert!(
+            message_file.ends_with("b.ftl"),
+            "expected message in b.ftl, got {message_file:?}",
+        );
+    } else {
+        panic!("expected a TermMessageCollision error");
+    }
+}
+
+#[test]
 fn empty_locales_folder_is_an_error() {
     let dir = "target/test-empty-locales";
     fs::create_dir_all(dir).unwrap();

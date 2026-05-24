@@ -257,6 +257,11 @@ app never re-implements plural logic. When rendering, wrap each field and each
 injected element in an isolated bidi run (an HTML `<bdi>`, or
 `unicode-bidi: isolate`) — see "Bidi isolation".
 
+A term and a message cannot share a bare name — `-foo` and `foo` collide inside
+fluent-bundle, which keys both under `foo`. fluent-typed catches this at build
+time and reports the two source locations so it can be fixed before it becomes
+a runtime crash.
+
 ## Bidi isolation
 
 By default, the generated accessors wrap every interpolated variable in Unicode
