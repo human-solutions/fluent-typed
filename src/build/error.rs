@@ -1,6 +1,7 @@
 use std::{error::Error, fmt, io, path::PathBuf};
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum BuildError {
     FtlParse {
         path: PathBuf,
