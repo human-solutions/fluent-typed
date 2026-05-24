@@ -38,7 +38,7 @@ impl LangBundle {
         let path = PathBuf::from(name);
         let ast = parse_ftl(ftl, &path)?;
         let lines = LineIndex::new(ftl);
-        let mut seen = HashMap::new();
+        let mut seen = SeenIds::default();
         let mut errors = Vec::new();
         let messages = to_messages(
             &ast,
@@ -90,7 +90,7 @@ impl LangBundle {
         };
         paths.sort();
 
-        let mut seen: HashMap<String, (PathBuf, usize)> = HashMap::new();
+        let mut seen = SeenIds::default();
 
         for path in paths {
             let ftl = match fs::read_to_string(&path) {
@@ -156,7 +156,10 @@ fn parse_ftl<'a>(ftl: &'a str, path: &Path) -> Result<Resource<&'a str>, BuildEr
         let lines = LineIndex::new(ftl);
         BuildError::FtlParse {
             path: path.to_path_buf(),
-            errors: errors.iter().map(|e| format_parse_error(&lines, e)).collect(),
+            errors: errors
+                .iter()
+                .map(|e| format_parse_error(&lines, e))
+                .collect(),
         }
     })
 }
@@ -166,16 +169,37 @@ fn format_parse_error(lines: &LineIndex, error: &ParserError) -> String {
     // fluent-syntax), not `Debug`. `error.pos.start` is a raw byte offset that
     // may land inside a multi-byte character, so `line_at_byte` counts over raw
     // bytes rather than slicing.
-    format!("line {}: {}", lines.line_at_byte(error.pos.start), error.kind)
+    format!(
+        "line {}: {}",
+        lines.line_at_byte(error.pos.start),
+        error.kind
+    )
+}
+
+/// Cross-file bookkeeping for one locale's parse pass. Tracks every message
+/// id (with attribute, for duplicate-message detection), and every term and
+/// message bare name (for term/message collision detection across resource
+/// files of the same locale).
+#[derive(Default)]
+struct SeenIds {
+    messages: HashMap<String, (PathBuf, usize)>,
+    term_names: HashMap<String, (PathBuf, usize)>,
+    message_names: HashMap<String, (PathBuf, usize)>,
 }
 
 /// Parse the messages of one resource file. Duplicate keys are pushed onto
 /// `errors` (and the duplicate is skipped) rather than aborting, so every
 /// duplicate in the locale is reported.
+///
+/// `seen.term_names` and `seen.message_names` track the bare names seen across
+/// every file of the locale so far, so a term and message that share a name
+/// can be reported with both source locations. This collision is always an
+/// error — fluent-bundle stores terms and messages under the same key and
+/// would crash at resource-load time.
 fn to_messages(
     ast: &Resource<&str>,
     deny_duplicate_keys: bool,
-    seen: &mut HashMap<String, (PathBuf, usize)>,
+    seen: &mut SeenIds,
     path: &Path,
     lines: &LineIndex,
     errors: &mut Vec<BuildError>,
@@ -183,11 +207,43 @@ fn to_messages(
     let file = path.display().to_string();
     let mut messages = Vec::new();
     for entry in &ast.body {
-        let Entry::Message(m) = entry else { continue };
+        let m = match entry {
+            Entry::Term(t) => {
+                let line = lines.line_of(t.id.name);
+                if let Some((msg_path, msg_line)) = seen.message_names.get(t.id.name) {
+                    errors.push(BuildError::TermMessageCollision {
+                        name: t.id.name.to_owned(),
+                        term_file: path.to_path_buf(),
+                        term_line: line,
+                        message_file: msg_path.clone(),
+                        message_line: *msg_line,
+                    });
+                }
+                seen.term_names
+                    .entry(t.id.name.to_owned())
+                    .or_insert_with(|| (path.to_path_buf(), line));
+                continue;
+            }
+            Entry::Message(m) => m,
+            _ => continue,
+        };
+        let m_line = lines.line_of(m.id.name);
+        if let Some((term_path, term_line)) = seen.term_names.get(m.id.name) {
+            errors.push(BuildError::TermMessageCollision {
+                name: m.id.name.to_owned(),
+                term_file: term_path.clone(),
+                term_line: *term_line,
+                message_file: path.to_path_buf(),
+                message_line: m_line,
+            });
+        }
+        seen.message_names
+            .entry(m.id.name.to_owned())
+            .or_insert_with(|| (path.to_path_buf(), m_line));
         for msg in Message::parse(m, lines, &file) {
             if deny_duplicate_keys {
                 let seen_key = msg.id.to_string();
-                if let Some((original, original_line)) = seen.get(&seen_key) {
+                if let Some((original, original_line)) = seen.messages.get(&seen_key) {
                     errors.push(BuildError::DuplicateKey {
                         key: msg.id.message.clone(),
                         original: original.clone(),
@@ -197,7 +253,8 @@ fn to_messages(
                     });
                     continue;
                 }
-                seen.insert(seen_key, (path.to_path_buf(), msg.line));
+                seen.messages
+                    .insert(seen_key, (path.to_path_buf(), msg.line));
             }
             messages.push(msg);
         }
