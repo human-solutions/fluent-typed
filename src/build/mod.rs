@@ -28,9 +28,9 @@ pub(crate) use validations::Analyzed;
 /// bump. Application code must not depend on this module.
 #[cfg(feature = "bench-internals")]
 pub mod bench_internals {
+    pub use super::r#gen::generate;
     pub use super::lang_bundle::LangBundle;
     pub use super::lint::{Lints, check};
-    pub use super::r#gen::generate;
     pub use super::typed::{Id, Message};
     pub use super::validations::Analyzed;
 }
