@@ -5,6 +5,16 @@
 
 use crate::prelude::{FluentArgs, L10nBundle, L10nLanguageVec, Segment};
 
+#[test]
+fn runtime_types_are_send_and_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    // Guards against a future field addition silently dropping the auto traits.
+    // The generated `L10nLanguage` newtype lives outside this crate but inherits
+    // these from `L10nBundle`.
+    assert_send_sync::<L10nBundle>();
+    assert_send_sync::<L10nLanguageVec>();
+}
+
 const FTL: &str = r#"
 greeting = Hello world
 hello = Hi { $name }!
