@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 (unreleased)
+
+### Changed
+- **Breaking:** `BuildOptions`' fields are now private. Build it from
+  `BuildOptions::default()` and the `with_*` / `without_*` builder methods
+  rather than struct-literal syntax or direct field assignment. Every field
+  already has a corresponding builder method, so existing
+  `BuildOptions::default().with_…()` chains are unaffected — only code that
+  constructed the struct directly or read its fields needs to change. This
+  lets future options be added in a minor release without breaking your
+  build script.
+
 ## 0.6.2
 
 ### Changed
