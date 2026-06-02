@@ -1,4 +1,5 @@
-use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
+use fluent_bundle::concurrent::FluentBundle;
+use fluent_bundle::{FluentArgs, FluentResource};
 use fluent_syntax::ast::{Expression, InlineExpression, Pattern, PatternElement};
 use unic_langid::LanguageIdentifier;
 
@@ -32,7 +33,7 @@ impl L10nBundle {
         let ftl = String::from_utf8(bytes.to_vec())
             .map_err(|e| format!("Could not read ftl string due to: {e}"))?;
         let lang_id: LanguageIdentifier = lang.as_ref().parse().map_err(|e| format!("{e:?}"))?;
-        let mut bundle = FluentBundle::new(vec![lang_id]);
+        let mut bundle = FluentBundle::new_concurrent(vec![lang_id]);
         bundle.set_use_isolating(use_isolating);
         // Register the FTL builtins (`NUMBER`, …). Without this, any message
         // using `{ NUMBER($x) }` fails to format and `msg`/`attr` return an
