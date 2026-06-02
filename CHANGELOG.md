@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.2
+
+### Changed
+- The runtime types `L10nBundle`, `L10nLanguageVec` and the generated
+  `L10nLanguage` are now `Send + Sync`, so loaded localizations can be shared
+  across threads (e.g. behind an `Arc` in shared web-server state). Internally
+  the bundle now uses fluent-bundle's concurrent (`Mutex`-based) memoizer.
+
+## 0.6.1
+
+### Added
+- `BuildError::TermMessageCollision` — a term and a message that share a bare
+  name (e.g. `-foo` and `foo`) collide in fluent-bundle's single-namespace
+  entry map and would otherwise crash at resource-load time. This is now caught
+  at build time and reported with the name and the file/line of both the term
+  and the message definition.
+
+### Changed
+- **Breaking:** `BuildError` is now `#[non_exhaustive]`. Downstream code that
+  matches it exhaustively must add a wildcard arm. This future-proofs the enum
+  so subsequent variant additions stay on patch releases.
+
 ## 0.6.0
 
 ### Added
