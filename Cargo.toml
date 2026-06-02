@@ -2,6 +2,7 @@
 name = "fluent-typed"
 version = "0.6.2"
 edition = "2024"
+rust-version = "1.88"
 description = "Type-safe access to Fluent localization messages"
 keywords = ["fluent", "internationalization", "localization"]
 categories = [
@@ -40,3 +41,8 @@ criterion = "0.8"
 name = "build_pipeline"
 harness = false
 required-features = ["bench-internals"]
+
+# Document exactly the public feature surface on docs.rs. `bench-internals` is
+# deliberately excluded — it is not part of the stable public API.
+[package.metadata.docs.rs]
+features = ["build", "langneg"]

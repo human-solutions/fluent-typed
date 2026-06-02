@@ -2,6 +2,8 @@
 
 [![crates.io](https://img.shields.io/crates/v/fluent-typed.svg)](https://crates.io/crates/fluent-typed)
 [![docs.rs](https://docs.rs/fluent-typed/badge.svg)](https://docs.rs/fluent-typed)
+[![CI](https://github.com/human-solutions/fluent-typed/actions/workflows/rust.yml/badge.svg)](https://github.com/human-solutions/fluent-typed/actions/workflows/rust.yml)
+[![msrv](https://img.shields.io/crates/msrv/fluent-typed.svg)](https://github.com/human-solutions/fluent-typed)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 **Your [Fluent](https://projectfluent.org) translations as typed Rust functions.** A
@@ -53,6 +55,29 @@ strs.msg_helo("Sam");    // ✗ misspelled key — caught at compile time
 > To get the unused-message warnings, generate the file in the crate that *uses* the
 > accessors, and keep the generated `L10n`/`L10nLanguage` types out of that crate's
 > public API — otherwise every message looks "used".
+
+## How it compares
+
+The established way to get compile-time-checked Fluent in Rust is
+[`i18n-embed`](https://crates.io/crates/i18n-embed) with its
+[`i18n-embed-fl`](https://crates.io/crates/i18n-embed-fl) `fl!` macro, which checks a
+message id and its arguments where you call it. fluent-typed takes a different route: a
+build script generates one typed Rust function per message.
+
+|                              | fluent-typed                                  | `fl!` macro (`i18n-embed-fl`)            |
+| ---------------------------- | --------------------------------------------- | ---------------------------------------- |
+| Call site                    | `strs.msg_hello("Sam")` — a real method       | `fl!(LOADER, "hello", name = "Sam")`     |
+| Editor support               | autocomplete, go-to-definition, rename        | string ids, no completion                |
+| Unused translations          | `cargo` **warning** for messages you dropped  | not detected                             |
+| Argument types               | inferred & enforced (`String`/`Number`/…)     | checked as present                       |
+| Output                       | plain Rust you can read & commit              | macro-expanded at the call site          |
+
+Trade-offs, honestly: fluent-typed runs a build script and commits a generated file,
+where `i18n-embed` has no codegen step; `i18n-embed` has a much larger ecosystem and
+user base; and fluent-typed needs a recent toolchain (see
+[Versioning and MSRV](#versioning-and-msrv)). Pick fluent-typed when you want
+translations to feel like ordinary typed functions and want dead keys to surface
+themselves.
 
 ## Usage
 
@@ -122,16 +147,17 @@ fn main() -> std::process::ExitCode {
 ```rust
 // in lib.rs or main.rs
 mod l10n;
-use l10n::L10n;
+use l10n::{L10n, L10nLanguage};
 
 // Load English translations into an L10nLanguage struct.
 // It provides safe functions for accessing all messages.
-let strs: L10nLanguage = L10n::EnGb.load();
+let strs: L10nLanguage = L10n::En.load();
 
 // With the feature "langneg" enabled you can do automatic language
 // negotiation, which falls back on the default language as
 // configured in the BuildOptions in build.rs when generating.
-let found_lang: L10nLanguage = L10n::langneg("en");
+// `langneg` returns the closest available `L10n`; call `.load()` on it.
+let negotiated: L10nLanguage = L10n::langneg("en").load();
 
 // In Dioxus/Leptos/Silkenweb etc the L10nLanguage struct is typically
 // used inside of a Signal or other reactive construct, so that all
@@ -270,8 +296,8 @@ text rendered in a bidi-aware context such as a web UI: it keeps an interpolated
 value's text direction from corrupting the surrounding message, which matters
 whenever a right-to-left locale is used or user-provided text is interpolated.
 
-```rust
-// strs.msg_hello("world") == "Hello \u{2068}world\u{2069}"
+```text
+strs.msg_hello("world") == "Hello \u{2068}world\u{2069}"
 ```
 
 If the generated strings are never rendered in a bidi-aware context — and you do
@@ -282,3 +308,14 @@ the marks off:
 // in build.rs
 let options = BuildOptions::default().without_bidi_isolation();
 ```
+
+## Versioning and MSRV
+
+The minimum supported Rust version is **1.88** (the crate uses the 2024 edition and
+let-chains). Raising the MSRV is treated as a minor-version change.
+
+fluent-typed is pre-1.0 and its API is still settling — minor releases may contain
+breaking changes, each called out in the [CHANGELOG](./CHANGELOG.md). The runtime
+re-exports of `fluent-bundle` types (`FluentArgs`, `FluentValue`, `FluentNumber`)
+track that crate's own (pre-1.0) releases. Pin a minor version (`fluent-typed = "0.6"`)
+and read the changelog before upgrading.
