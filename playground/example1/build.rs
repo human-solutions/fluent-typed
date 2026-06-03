@@ -15,9 +15,7 @@ fn main() -> ExitCode {
 
 fn try_main() -> Result<(), BuildError> {
     let multi_opts = BuildOptions::default()
-        .with_ftl_output(FtlOutputOptions::MultiFile {
-            output_ftl_folder: "gen/multi/".to_string(),
-        })
+        .with_ftl_output(FtlOutputOptions::multi_file("gen/multi/"))
         .with_output_file_path("src/multi_l10n.rs");
     try_build_from_locales_folder(multi_opts)?;
 
