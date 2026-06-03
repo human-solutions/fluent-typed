@@ -2,7 +2,20 @@
 
 ## 0.7.0 (unreleased)
 
+### Added
+- `L10nError`, a typed runtime error enum (re-exported from the crate root and
+  the prelude). It is `#[non_exhaustive]` and carries owned strings rather than
+  `fluent-bundle`'s own error types, so it stays stable across fluent-bundle
+  updates.
+
 ### Changed
+- **Breaking:** the runtime API now returns `Result<_, L10nError>` instead of
+  `Result<_, String>`. This affects `L10nBundle::{new, new_without_isolation,
+  msg, attr, msg_segments}`, `L10nLanguageVec::{load, load_without_isolation}`,
+  the generated `L10nLanguage::new`, and the generated compressed
+  `L10n::{load, load_all}` accessors. Code that matched on or compared the
+  error `String` must switch to matching `L10nError`; code that only
+  `unwrap`/`?`-ed is unaffected.
 - **Breaking:** `FtlOutputOptions` and its variants are now `#[non_exhaustive]`.
   Construct it with `FtlOutputOptions::single_file()`,
   `single_compressed_file()` or `multi_file()` instead of the

@@ -3,7 +3,7 @@
 //! These exercise the actual message-formatting path end to end, including
 //! the bidi-isolation behavior that the generated accessors depend on.
 
-use crate::prelude::{FluentArgs, L10nBundle, L10nLanguageVec, Segment};
+use crate::prelude::{FluentArgs, L10nBundle, L10nError, L10nLanguageVec, Segment};
 
 #[test]
 fn runtime_types_are_send_and_sync() {
@@ -61,9 +61,13 @@ fn attribute_message() {
 }
 
 #[test]
-fn unknown_message_is_an_error() {
+fn unknown_message_is_a_typed_error() {
     let bundle = L10nBundle::new("en", FTL.as_bytes()).unwrap();
-    assert!(bundle.msg("does-not-exist", None).is_err());
+    let err = bundle.msg("does-not-exist", None).unwrap_err();
+    assert!(
+        matches!(&err, L10nError::MessageNotFound { id } if id == "does-not-exist"),
+        "expected MessageNotFound, got {err:?}"
+    );
 }
 
 const ELEMENT_FTL: &str = r#"

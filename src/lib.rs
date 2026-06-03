@@ -1,9 +1,12 @@
 #![doc = include_str!("../README.md")]
 #[cfg(any(doc, feature = "build"))]
 mod build;
+mod error;
 mod l10n_bundle;
 mod l10n_language_vec;
 mod structured;
+
+pub use error::L10nError;
 
 #[cfg(all(test, feature = "build"))]
 mod tests;
@@ -20,6 +23,7 @@ pub use build::{
 pub use build::bench_internals;
 
 pub mod prelude {
+    pub use crate::error::L10nError;
     pub use crate::l10n_bundle::L10nBundle;
     pub use crate::l10n_language_vec::L10nLanguageVec;
     pub use crate::structured::{ElementGap, Segment};
