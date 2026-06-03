@@ -12,6 +12,10 @@ categories = [
 ]
 license = "MIT"
 repository = "https://github.com/human-solutions/fluent-typed"
+# Keep the published crate lean: ship the library and its docs, not the
+# editor config, AI-assistant notes, or the snapshot/integration test corpus
+# (89 generated fixtures that are noise to anyone reading the source).
+exclude = ["/.vscode", "/CLAUDE.md", "/src/tests", "/tests"]
 
 [lib]
 doctest = false
