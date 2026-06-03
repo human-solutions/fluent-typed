@@ -12,8 +12,11 @@ type CompressorFn = dyn Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>>;
 /// configure how the output ftl files are generated, and also what
 /// type of access code is generated.
 ///
-/// Defaults to a SingleFileOptions with the output_ftl_folder set to "gen"
-/// and gzip set to true.
+/// Build it with [`FtlOutputOptions::single_file`],
+/// [`FtlOutputOptions::single_compressed_file`] or
+/// [`FtlOutputOptions::multi_file`] (the default is a single uncompressed file
+/// at `gen/translations.ftl`).
+#[non_exhaustive]
 pub enum FtlOutputOptions {
     /// Generates FTL files as one file per language which means
     /// that individual resource files are appended into one file.
@@ -21,6 +24,7 @@ pub enum FtlOutputOptions {
     /// This is especially useful client-side when you
     /// don't want to embed the files in the binary or
     /// download them all together.
+    #[non_exhaustive]
     MultiFile {
         /// The path to the where the output ftl files will be written.
         /// For convenience fluent-typed joins all ftl resources for each language
@@ -37,6 +41,7 @@ pub enum FtlOutputOptions {
     /// which typically is done server-side and also client-side when
     /// the files are small enough to either embed in the binary or
     /// download in a html request.
+    #[non_exhaustive]
     SingleFile {
         /// The path to the where the output ftl file will be written.
         /// For convenience fluent-typed joins all ftl resources for each language
@@ -64,6 +69,8 @@ impl Default for FtlOutputOptions {
 }
 
 impl FtlOutputOptions {
+    /// All languages joined into one uncompressed `.ftl` file at `file`,
+    /// suitable for embedding in the binary (server-side) or a single download.
     pub fn single_file(file: &str) -> Self {
         Self::SingleFile {
             output_ftl_file: file.to_string(),
@@ -71,6 +78,9 @@ impl FtlOutputOptions {
         }
     }
 
+    /// Like [`single_file`](Self::single_file), but the joined bytes are passed
+    /// through `compressor` before being written. You bring the compression
+    /// crate and must decompress the bytes the same way at load time.
     pub fn single_compressed_file<F>(file: &str, compressor: F) -> Self
     where
         F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>> + 'static,
@@ -81,6 +91,8 @@ impl FtlOutputOptions {
         }
     }
 
+    /// One `.ftl` file per language written into `folder`, for loading a single
+    /// language on demand rather than embedding them all.
     pub fn multi_file(folder: &str) -> Self {
         Self::MultiFile {
             output_ftl_folder: folder.to_string(),

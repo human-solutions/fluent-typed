@@ -3,6 +3,11 @@
 ## 0.7.0 (unreleased)
 
 ### Changed
+- **Breaking:** `FtlOutputOptions` and its variants are now `#[non_exhaustive]`.
+  Construct it with `FtlOutputOptions::single_file()`,
+  `single_compressed_file()` or `multi_file()` instead of the
+  `FtlOutputOptions::SingleFile { .. }` / `MultiFile { .. }` struct-literal
+  syntax. This lets new output modes and fields be added in a minor release.
 - **Breaking:** `BuildOptions`' fields are now private. Build it from
   `BuildOptions::default()` and the `with_*` / `without_*` builder methods
   rather than struct-literal syntax or direct field assignment. Every field
