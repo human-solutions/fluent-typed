@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.0 (unreleased)
+## 0.7.0
 
 ### Added
 - `L10nError`, a typed runtime error enum (re-exported from the crate root and
