@@ -78,7 +78,7 @@ impl L10nLanguage {
     /// an error is returned.
     ///
     /// The bytes are expected to be the contents of a .ftl file
-    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
         Ok(Self(L10nBundle::new(lang, bytes)?)) // <<placeholder l10n bundle new>>
     }
 

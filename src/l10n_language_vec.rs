@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use crate::error::L10nError;
 use crate::prelude::L10nBundle;
 
 pub struct L10nLanguageVec {
@@ -9,7 +10,7 @@ pub struct L10nLanguageVec {
 impl L10nLanguageVec {
     /// Load all languages, with Unicode bidi isolation marks around
     /// interpolated variables. See [`L10nBundle::new`].
-    pub fn load<S, I>(bytes: &[u8], iter: I) -> Result<Self, String>
+    pub fn load<S, I>(bytes: &[u8], iter: I) -> Result<Self, L10nError>
     where
         S: AsRef<str>,
         I: Iterator<Item = (S, Range<usize>)>,
@@ -19,7 +20,7 @@ impl L10nLanguageVec {
 
     /// Load all languages, without Unicode bidi isolation marks. See
     /// [`L10nBundle::new_without_isolation`].
-    pub fn load_without_isolation<S, I>(bytes: &[u8], iter: I) -> Result<Self, String>
+    pub fn load_without_isolation<S, I>(bytes: &[u8], iter: I) -> Result<Self, L10nError>
     where
         S: AsRef<str>,
         I: Iterator<Item = (S, Range<usize>)>,
@@ -27,7 +28,7 @@ impl L10nLanguageVec {
         Self::build(bytes, iter, false)
     }
 
-    fn build<S, I>(bytes: &[u8], iter: I, use_isolating: bool) -> Result<Self, String>
+    fn build<S, I>(bytes: &[u8], iter: I, use_isolating: bool) -> Result<Self, L10nError>
     where
         S: AsRef<str>,
         I: Iterator<Item = (S, Range<usize>)>,
@@ -42,7 +43,7 @@ impl L10nLanguageVec {
                         L10nBundle::new_without_isolation(lang, data)
                     }
                 })
-                .collect::<Result<Vec<_>, String>>()?,
+                .collect::<Result<Vec<_>, L10nError>>()?,
         })
     }
 
