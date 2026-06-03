@@ -59,11 +59,11 @@ impl GeneratedFtl {
     /// 
     /// The provided decompressor function is used to decompress the data
     /// and has to be the same as when the data was generated in the build.rs script.
-    pub fn load<D>(&self, decompressor: D) -> Result<L10nLanguage, String>
+    pub fn load<D>(&self, decompressor: D) -> Result<L10nLanguage, L10nError>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
-        let bytes = decompressor(LANG_DATA)?;
+        let bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
         L10nLanguage::new(self, &bytes)
     }
 "#
@@ -85,11 +85,11 @@ impl GeneratedFtl {
     /// 
     /// The provided decompressor function is used to decompress the data
     /// and has to be the same as when the data was generated in the build.rs script.
-    pub fn load_all<D>(decompressor: D) -> Result<L10nLanguageVec, String>
+    pub fn load_all<D>(decompressor: D) -> Result<L10nLanguageVec, L10nError>
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
-        let bytes = decompressor(LANG_DATA)?;
+        let bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
         L10nLanguageVec::load(
             &bytes,
             Self::iter().map(|lang| (lang, lang.byte_range())),
