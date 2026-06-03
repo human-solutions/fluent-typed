@@ -12,10 +12,11 @@ categories = [
 ]
 license = "MIT"
 repository = "https://github.com/human-solutions/fluent-typed"
-# Keep the published crate lean: ship the library and its docs, not the
-# editor config, AI-assistant notes, or the snapshot/integration test corpus
-# (89 generated fixtures that are noise to anyone reading the source).
-exclude = ["/.vscode", "/CLAUDE.md", "/src/tests", "/tests"]
+# Keep the published crate lean: drop editor config, AI-assistant notes, and
+# the 89-file snapshot test corpus under src/tests (noise to anyone reading the
+# source). The small tests/ harness is kept so cargo's auto-discovered test
+# targets still resolve at publish time instead of warning that they're missing.
+exclude = ["/.vscode", "/CLAUDE.md", "/src/tests"]
 
 [lib]
 doctest = false
