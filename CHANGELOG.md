@@ -7,6 +7,13 @@
   the prelude). It is `#[non_exhaustive]` and carries owned strings rather than
   `fluent-bundle`'s own error types, so it stays stable across fluent-bundle
   updates.
+- `L10nLanguageVec::try_get`, a non-panicking lookup returning
+  `Option<&L10nBundle>`. Use it when the language id comes from outside the
+  loaded set (a raw header, a query parameter, user input) and a miss is a case
+  to handle rather than a bug. `get` remains for known `L10n` variants but now
+  documents its panic precondition, and the generated `load`/`load_all`
+  accessors carry a diagnostic message instead of a bare `unwrap`. (These are
+  additive — no existing call needs to change.)
 
 ### Changed
 - **Breaking:** the runtime API now returns `Result<_, L10nError>` instead of

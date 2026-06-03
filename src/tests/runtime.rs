@@ -168,3 +168,18 @@ fn language_vec_loads_each_range() {
     assert_eq!(vec.get("en").msg("greeting", None).unwrap(), "Hello");
     assert_eq!(vec.get("de").msg("greeting", None).unwrap(), "Hallo");
 }
+
+#[test]
+fn try_get_returns_none_for_unloaded_language() {
+    let ftl = "greeting = Hello\n";
+    let ranges = [("en", 0..ftl.len())];
+    let vec = L10nLanguageVec::load(ftl.as_bytes(), ranges.into_iter()).unwrap();
+
+    // A loaded language resolves; an unloaded one is `None` rather than a panic.
+    assert!(vec.try_get("en").is_some());
+    assert!(vec.try_get("fr").is_none());
+    assert_eq!(
+        vec.try_get("en").unwrap().msg("greeting", None).unwrap(),
+        "Hello"
+    );
+}
