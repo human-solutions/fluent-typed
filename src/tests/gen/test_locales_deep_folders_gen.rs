@@ -103,7 +103,8 @@ impl L10n {
     /// Load a L10nLanguage from the embedded data.
     pub fn load(&self) -> L10nLanguage {
         let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10nLanguage::new(self, &bytes).unwrap()
+        L10nLanguage::new(self, &bytes)
+            .expect("fluent-typed: the embedded .ftl could not be loaded. This is a build-time bug; please report it.")
     }
 
     /// Load all languages (L10nLanguage) from the embedded data.
@@ -112,7 +113,7 @@ impl L10n {
             LANG_DATA,
             Self::iter().map(|lang| (lang, lang.byte_range())),
         )
-        .unwrap()
+        .expect("fluent-typed: the embedded .ftl could not be loaded. This is a build-time bug; please report it.")
     }
 }
 
