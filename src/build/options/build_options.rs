@@ -39,6 +39,9 @@ pub struct BuildOptions {
 
     /// The indentation used in the generated file.
     ///
+    /// Only effective together with `format: false` — rustfmt re-indents the
+    /// generated file back to its own style, silently undoing this option.
+    ///
     /// Defaults to four spaces.
     pub(crate) indentation: String,
 
@@ -115,6 +118,11 @@ impl BuildOptions {
     }
 
     /// Set the indentation used in the generated file. Defaults to four spaces.
+    ///
+    /// Only takes effect together with
+    /// [`without_format`](Self::without_format): formatting is on by default,
+    /// and rustfmt re-indents the generated file back to its own style
+    /// (4 spaces), silently undoing this option.
     pub fn with_indentation(mut self, indentation: &str) -> Self {
         self.indentation = indentation.to_string();
         self
@@ -136,6 +144,10 @@ impl BuildOptions {
     }
 
     /// Do not run `rustfmt` on the generated file. Formatting is on by default.
+    ///
+    /// Required for [`with_indentation`](Self::with_indentation) to have any
+    /// effect — rustfmt would otherwise re-indent the file back to its own
+    /// style.
     pub fn without_format(mut self) -> Self {
         self.format = false;
         self

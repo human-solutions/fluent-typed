@@ -1,5 +1,23 @@
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
+
+/// Write `content` to `path` only when it differs from the file's current
+/// content.
+///
+/// Build outputs are watched by consumers — `cargo::rerun-if-changed` on the
+/// generated files, dev-loop file watchers — and several build units may share
+/// one `gen/` dir (host + wasm32 target dirs each keep their own fingerprints
+/// watching the same files). An unconditional rewrite bumps the mtime and
+/// re-triggers all of them on every no-op rebuild.
+pub fn write_if_changed(path: &Path, content: &[u8]) -> io::Result<()> {
+    if let Ok(current) = fs::read(path)
+        && current == content
+    {
+        return Ok(());
+    }
+    fs::write(path, content)
+}
 
 /// A precomputed newline index for one source string.
 ///
