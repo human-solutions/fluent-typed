@@ -1,4 +1,0 @@
-{
-  "rust-analyzer.cargo.features": ["build", "langneg"],
-  "rust-analyzer.check.features": ["build", "langneg"]
-}

@@ -20,3 +20,6 @@ Cargo.lock
 
 # Local files
 *.local.*
+
+# Editor config (kept local, not tracked)
+.vscode/
