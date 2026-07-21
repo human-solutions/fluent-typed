@@ -1,8 +1,14 @@
 use super::{
     Analyzed, BuildError, BuildOptions, LangBundle, LintLevel, Message, r#gen::generate, lint,
-    typed::Id,
+    typed::Id, utils::write_if_changed,
 };
-use std::{collections::HashSet, fs};
+use std::{
+    collections::HashSet,
+    fs,
+    io::Write,
+    path::Path,
+    process::{Command, Stdio},
+};
 
 pub struct Builder {
     options: BuildOptions,
@@ -63,33 +69,26 @@ impl Builder {
         self.run_lints(default, &analyzed.common)?;
 
         let messages = &self.messages(default, &analyzed.common);
-        let generated = generate(&self.options, &self.langbundles, messages)
+        let mut generated = generate(&self.options, &self.langbundles, messages)
             .map_err(BuildError::Generation)?
             .replace("    ", &self.options.indentation);
 
-        let output_file_path = &self.options.output_file_path;
-        if let Ok(current_file) = fs::read_to_string(output_file_path)
-            && current_file == generated
-        {
-            return Ok(());
-        }
-
-        fs::write(output_file_path, &generated).map_err(|e| BuildError::WriteOutput {
-            path: output_file_path.clone(),
-            source: e,
-        })?;
-
+        // Format before the skip-if-unchanged compare: the file on disk holds
+        // rustfmt's output, so comparing pre-format text against it would
+        // never match and every build would rewrite the file — bumping its
+        // mtime and re-triggering anything watching it. This also means a
+        // rustfmt failure leaves no unformatted file behind.
         if self.options.format {
-            let status = std::process::Command::new("rustfmt")
-                .arg(output_file_path)
-                .status()
-                .map_err(|e| BuildError::Rustfmt(e.to_string()))?;
-            if !status.success() {
-                return Err(BuildError::Rustfmt("rustfmt failed".to_string()));
-            }
+            generated = rustfmt(&generated)?;
         }
 
-        Ok(())
+        let output_file_path = &self.options.output_file_path;
+        write_if_changed(Path::new(output_file_path), generated.as_bytes()).map_err(|e| {
+            BuildError::WriteOutput {
+                path: output_file_path.clone(),
+                source: e,
+            }
+        })
     }
 
     /// Run the comment lints and report them according to the configured
@@ -140,6 +139,37 @@ impl Builder {
     }
 }
 
+/// Format `source` by piping it through rustfmt's stdin/stdout, returning the
+/// formatted text.
+///
+/// Config resolution differs slightly from formatting a file in place:
+/// stdin mode resolves `rustfmt.toml` from the process cwd (the consumer crate
+/// root when run from a build script) upward, while file mode resolves it from
+/// the output file's directory upward. For the normal in-crate `gen/` layout
+/// both walks reach the same crate/workspace config.
+fn rustfmt(source: &str) -> Result<String, BuildError> {
+    let map_io = |e: std::io::Error| BuildError::Rustfmt(e.to_string());
+    let mut child = Command::new("rustfmt")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(map_io)?;
+    // rustfmt parses all of stdin before emitting anything, so writing the
+    // whole input first cannot deadlock against a filling stdout pipe.
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(source.as_bytes())
+        .map_err(map_io)?;
+    let output = child.wait_with_output().map_err(map_io)?;
+    if !output.status.success() {
+        return Err(BuildError::Rustfmt("rustfmt failed".to_string()));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|e| BuildError::Rustfmt(format!("rustfmt produced non-UTF-8 output: {e}")))
+}
+
 fn from_locales_folder(
     folder: &str,
     deny_duplicate_keys: bool,
@@ -173,4 +203,21 @@ fn from_locales_folder(
         });
     }
     Ok(locales)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rustfmt_formats_in_memory() {
+        let formatted = rustfmt("fn  main( ){ }\n").unwrap();
+        assert_eq!(formatted, "fn main() {}\n");
+    }
+
+    #[test]
+    fn rustfmt_failure_is_a_build_error() {
+        let err = rustfmt("fn {\n").unwrap_err();
+        assert!(matches!(err, BuildError::Rustfmt(_)), "got: {err:?}");
+    }
 }
