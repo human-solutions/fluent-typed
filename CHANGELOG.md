@@ -37,6 +37,21 @@
   lets future options be added in a minor release without breaking your
   build script.
 
+### Fixed
+- Build outputs are now written skip-if-unchanged, so a no-op rebuild leaves
+  every output file's mtime untouched. Previously the generated `.rs` file was
+  compared against the on-disk file *before* rustfmt ran, so with `format` on
+  (the default) any rustfmt-altered byte — in particular a custom
+  `with_indentation` — meant the guard never fired and every build-script run
+  rewrote the file; the joined `.ftl` outputs were rewritten unconditionally.
+  The mtime bumps retriggered file watchers and `cargo::rerun-if-changed`
+  consumers on every build. Formatting now happens in memory (rustfmt via
+  stdin/stdout) before the compare, which also means a failed rustfmt run no
+  longer leaves an unformatted file on disk.
+- `BuildOptions::with_indentation` now documents that a custom indentation
+  only survives together with `without_format()` — otherwise rustfmt
+  re-indents the generated file and the option is a silent no-op.
+
 ## 0.6.2
 
 ### Changed

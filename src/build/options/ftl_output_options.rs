@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::build::{LangBundle, r#gen::GeneratedFtl};
+use crate::build::{LangBundle, r#gen::GeneratedFtl, utils::write_if_changed};
 
 type CompressorFn = dyn Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>>;
 
@@ -148,7 +148,8 @@ impl FtlOutputOptions {
 }
 
 fn write(content: &[u8], file: &Path) -> Result<(), String> {
-    fs::write(file, content).map_err(|e| format!("Could not write ftl file '{file:?}': {e:?}"))
+    write_if_changed(file, content)
+        .map_err(|e| format!("Could not write ftl file '{file:?}': {e:?}"))
 }
 
 fn create_dir(folder: &Path) -> Result<(), String> {
