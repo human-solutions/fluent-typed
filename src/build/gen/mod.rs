@@ -71,10 +71,7 @@ static ALL_LANGS: [L10n; {}] = [
     // ///////////////////////////
     // `Builder::generate` has already verified that the default language is
     // present in the locales.
-    let default_lang = format!(
-        "        Self::{}",
-        &options.default_language.rust_var_name()
-    );
+    let default_lang = format!("        Self::{}", options.default_language.rust_var_name());
 
     replacements.push(("<<placeholder default lang>>", default_lang));
 
