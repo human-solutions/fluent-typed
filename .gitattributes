@@ -1,0 +1,4 @@
+# Checkouts must keep LF regardless of core.autocrlf: the test snapshots
+# record byte offsets and sizes of the .ftl fixtures, so a CRLF checkout
+# (git's default on Windows) shifts every byte range and fails the suite.
+* text=auto eol=lf

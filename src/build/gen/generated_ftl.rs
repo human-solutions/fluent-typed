@@ -2,7 +2,7 @@ use std::{
     collections::VecDeque,
     fs, io,
     ops::Range,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use super::StrExt;
@@ -166,12 +166,25 @@ fn relative_path(from_file: &str, to_file: &str) -> io::Result<String> {
     let mut rel_file = relative(&from_dir, &to_dir)?;
     rel_file.push(to_file_name);
 
-    rel_file.to_str().map(|s| s.to_string()).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Could not convert relative path to string",
-        )
-    })
+    to_forward_slashes(&rel_file)
+}
+
+/// Join a relative path's components with `/` regardless of platform.
+///
+/// The result is spliced into `include_bytes!("...")`, where a native Windows
+/// separator would form invalid escape sequences like `\g` (issue #37).
+/// `include_bytes!` accepts forward slashes on every platform.
+fn to_forward_slashes(path: &Path) -> io::Result<String> {
+    let mut parts = Vec::new();
+    for comp in path.components() {
+        parts.push(comp.as_os_str().to_str().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Could not convert relative path to string",
+            )
+        })?);
+    }
+    Ok(parts.join("/"))
 }
 
 fn relative(from_path: &Path, to_path: &Path) -> io::Result<PathBuf> {
@@ -184,6 +197,25 @@ fn relative(from_path: &Path, to_path: &Path) -> io::Result<PathBuf> {
 
     let mut from = from_path.components().collect::<VecDeque<_>>();
     let mut to = to_path.components().collect::<VecDeque<_>>();
+
+    // On Windows two absolute paths can be rooted on different drives, in
+    // which case no relative path between them exists. Without this check the
+    // loop below would emit `..` segments followed by the other drive's
+    // absolute path — garbage that only fails later inside `include_bytes!`.
+    if let (Some(Component::Prefix(from_prefix)), Some(Component::Prefix(to_prefix))) =
+        (from.front(), to.front())
+        && from_prefix != to_prefix
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!(
+                "No relative path exists between '{}' and '{}' (different drives). \
+                 Place the generated .rs file and the .ftl output on the same drive.",
+                from_path.display(),
+                to_path.display()
+            ),
+        ));
+    }
 
     // Remove common components
     while let (Some(fr_comp), Some(to_comp)) = (from.front(), to.front()) {
@@ -204,8 +236,28 @@ fn relative(from_path: &Path, to_path: &Path) -> io::Result<PathBuf> {
     Ok(relative)
 }
 
-#[test]
-fn test_relative_path() {
-    let rel = relative(Path::new("/a/b/c.rs"), Path::new("/a/d/e.flt")).unwrap();
-    assert_eq!(rel, PathBuf::from("../../d/e.flt"));
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Absolute-path fixtures per platform: `/a/b` is not absolute on Windows.
+    #[cfg(not(windows))]
+    const FIXTURE: (&str, &str) = ("/a/b/c.rs", "/a/d/e.flt");
+    #[cfg(windows)]
+    const FIXTURE: (&str, &str) = (r"C:\a\b\c.rs", r"C:\a\d\e.flt");
+
+    #[test]
+    fn test_relative_path() {
+        let rel = relative(Path::new(FIXTURE.0), Path::new(FIXTURE.1)).unwrap();
+        // Regression for issue #37: the string spliced into `include_bytes!`
+        // must use `/` on every platform, never the native `\`.
+        assert_eq!(to_forward_slashes(&rel).unwrap(), "../../d/e.flt");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_relative_path_across_drives_is_an_error() {
+        let err = relative(Path::new(r"C:\a\b"), Path::new(r"D:\c\d")).unwrap_err();
+        assert!(err.to_string().contains("different drives"), "{err}");
+    }
 }

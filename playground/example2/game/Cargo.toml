@@ -1,0 +1,10 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fluent-typed = { path = "../../.." }
+
+[build-dependencies]
+fluent-typed = { path = "../../..", features = ["build"] }
