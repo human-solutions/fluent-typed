@@ -12,7 +12,13 @@ env:
 jobs:
   test:
     name: Test (stable)
-    runs-on: ubuntu-latest
+    # Windows is in the matrix because the generated `include_bytes!` path and
+    # the test-suite portability regress silently on a unix-only matrix
+    # (issue #37).
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

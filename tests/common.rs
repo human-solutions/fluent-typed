@@ -1,4 +1,4 @@
-use std::{io, os::unix::fs::MetadataExt, path::Path, process::Command};
+use std::{io, path::Path, process::Command};
 
 pub fn cargo<I, S>(dir: &Path, args: I)
 where
@@ -48,7 +48,7 @@ pub fn ls_ascii(path: &Path, indent: usize) -> io::Result<String> {
             "{}{} ({} bytes)",
             "  ".repeat(indent),
             file.file_name().unwrap().to_string_lossy(),
-            file.metadata().unwrap().size()
+            file.metadata().unwrap().len()
         ));
     }
 

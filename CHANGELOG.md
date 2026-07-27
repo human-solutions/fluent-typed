@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.1
+
+### Fixed
+- The generated `include_bytes!` path is now emitted with forward slashes on
+  every platform. On Windows it used the native `\` separator, which forms
+  invalid escape sequences inside the string literal and failed the build
+  whenever the generated `.rs` file and the `.ftl` output live in different
+  directories — e.g. a workspace with the locales at the workspace root
+  (#37).
+- On Windows, a generated `.rs` file and an `.ftl` output on *different
+  drives* now produce a clear build error instead of an unbuildable path.
+- The test suite now compiles and passes on Windows: the integration-test
+  helper no longer uses the unix-only `MetadataExt`, the relative-path unit
+  test uses platform-appropriate absolute paths, and a `.gitattributes` pins
+  checkouts to LF so the byte-exact snapshots survive `core.autocrlf=true`.
+  CI now runs the test job on Windows as well.
+
 ## 0.7.0
 
 ### Added

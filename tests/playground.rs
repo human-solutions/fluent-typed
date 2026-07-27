@@ -46,3 +46,35 @@ fn build_example1() {
         fr.ftl (243 bytes)
     "###);
 }
+
+/// Issue #37: in a workspace, the generated `.rs` and the output `.ftl` live in
+/// different directories, so the `include_bytes!` path has to climb out of
+/// `src/`. On Windows that path was emitted with `\` separators, which are
+/// invalid escape sequences in the string literal and failed the build.
+#[test]
+fn build_example2_workspace() {
+    let root = PathBuf::from("playground/example2");
+    let l10n = root.join("game/src/l10n.rs");
+    if l10n.exists() {
+        fs::remove_file(&l10n).unwrap();
+    }
+    for dir in [root.join("target"), root.join("gen")] {
+        if dir.exists() {
+            fs::remove_dir_all(&dir).unwrap();
+        }
+    }
+
+    cargo(&root, ["test"]);
+
+    let generated = fs::read_to_string(&l10n).unwrap();
+    // The include path must use forward slashes on every platform — `\` would
+    // be an escape sequence inside the literal.
+    assert!(
+        generated.contains(r#"include_bytes!("../../gen/translations.ftl")"#),
+        "expected a forward-slash include path, got: {}",
+        generated
+            .lines()
+            .find(|l| l.contains("include_bytes!"))
+            .unwrap_or("<no include_bytes! line>")
+    );
+}
