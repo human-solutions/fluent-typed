@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.1
 
 ### Fixed
 - The generated `include_bytes!` path is now emitted with forward slashes on
