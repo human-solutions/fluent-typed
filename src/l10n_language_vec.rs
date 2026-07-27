@@ -47,6 +47,46 @@ impl L10nLanguageVec {
         })
     }
 
+    /// Add `bundle` to the loaded set, replacing any bundle already loaded for
+    /// the same language.
+    ///
+    /// This is how a translation that was not part of the build becomes
+    /// available at runtime: load an external `.ftl` (with the generated
+    /// `L10nLanguage::new_external`, or [`L10nBundle::new`] directly) and
+    /// insert it. Inserting an already-loaded language replaces it, which is
+    /// the hot-reload path for a translation under revision.
+    pub fn insert(&mut self, bundle: L10nBundle) {
+        match self.langs.iter_mut().find(|b| b.lang() == bundle.lang()) {
+            Some(slot) => *slot = bundle,
+            None => self.langs.push(bundle),
+        }
+    }
+
+    /// Negotiate the best of the *loaded* languages for an `Accept-Language`
+    /// header — including any added at runtime with [`Self::insert`], which
+    /// the generated `L10n::langneg` (compiled from the build-time language
+    /// set) can never return.
+    ///
+    /// Returns `None` when nothing matches; there is no compiled-in default
+    /// here, so the caller picks its own fallback, e.g.
+    /// `vec.langneg(header).unwrap_or_else(|| vec.get(L10n::default()))`.
+    #[cfg(feature = "langneg")]
+    pub fn langneg(&self, accept_language: &str) -> Option<&L10nBundle> {
+        use icu_locale_core::LanguageIdentifier;
+
+        let available: Vec<Option<LanguageIdentifier>> =
+            self.langs.iter().map(|b| b.lang().parse().ok()).collect();
+        for req in crate::prelude::requested_languages(accept_language) {
+            let found = available
+                .iter()
+                .position(|a| a.as_ref().is_some_and(|a| a.language == req.language));
+            if let Some(idx) = found {
+                return Some(&self.langs[idx]);
+            }
+        }
+        None
+    }
+
     /// Get the bundle for `lang`, or `None` if no such language was loaded.
     ///
     /// `lang` is matched against the language ids the vec was loaded from (the

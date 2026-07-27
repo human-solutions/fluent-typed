@@ -170,6 +170,51 @@ fn language_vec_loads_each_range() {
 }
 
 #[test]
+fn insert_adds_a_runtime_loaded_language() {
+    let ftl = "greeting = Hello\n";
+    let ranges = [("en", 0..ftl.len())];
+    let mut vec = L10nLanguageVec::load(ftl.as_bytes(), ranges.into_iter()).unwrap();
+
+    // A language that was never part of the build, loaded from external bytes.
+    let pl = L10nBundle::new("pl", "greeting = Witaj\n".as_bytes()).unwrap();
+    vec.insert(pl);
+
+    assert_eq!(vec.get("pl").msg("greeting", None).unwrap(), "Witaj");
+    assert_eq!(vec.get("en").msg("greeting", None).unwrap(), "Hello");
+}
+
+#[test]
+fn insert_replaces_an_already_loaded_language() {
+    let ftl = "greeting = Hello\n";
+    let ranges = [("en", 0..ftl.len())];
+    let mut vec = L10nLanguageVec::load(ftl.as_bytes(), ranges.into_iter()).unwrap();
+
+    // The hot-reload path: same language, revised translation.
+    let revised = L10nBundle::new("en", "greeting = Hi there\n".as_bytes()).unwrap();
+    vec.insert(revised);
+
+    assert_eq!(vec.get("en").msg("greeting", None).unwrap(), "Hi there");
+    assert!(vec.try_get("en").is_some());
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn vec_langneg_includes_runtime_added_languages() {
+    let ftl = "greeting = Hello\n";
+    let ranges = [("en", 0..ftl.len())];
+    let mut vec = L10nLanguageVec::load(ftl.as_bytes(), ranges.into_iter()).unwrap();
+    vec.insert(L10nBundle::new("pl", "greeting = Witaj\n".as_bytes()).unwrap());
+
+    // The runtime-added language wins negotiation; region subtags still match
+    // on the language; no match at all is None (caller picks the fallback).
+    let pl = vec.langneg("pl-PL, en;q=0.5").unwrap();
+    assert_eq!(pl.lang(), "pl");
+    let en = vec.langneg("de, en;q=0.1").unwrap();
+    assert_eq!(en.lang(), "en");
+    assert!(vec.langneg("de, fr;q=0.9").is_none());
+}
+
+#[test]
 fn try_get_returns_none_for_unloaded_language() {
     let ftl = "greeting = Hello\n";
     let ranges = [("en", 0..ftl.len())];

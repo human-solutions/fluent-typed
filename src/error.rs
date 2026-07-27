@@ -73,6 +73,15 @@ pub enum L10nError {
         /// One entry per formatting error reported by fluent-bundle.
         errors: Vec<String>,
     },
+
+    /// External `.ftl` content failed validation against the message contract
+    /// compiled into the generated API (see [`validate_ftl`](crate::validate_ftl)
+    /// and the generated `L10nLanguage::new_external`). Every violation is
+    /// listed, not just the first.
+    Validation {
+        /// One entry per contract violation.
+        violations: Vec<crate::ContractViolation>,
+    },
 }
 
 impl fmt::Display for L10nError {
@@ -116,6 +125,16 @@ impl fmt::Display for L10nError {
                 }
                 for e in errors {
                     write!(f, "\n  {e}")?;
+                }
+                Ok(())
+            }
+            Self::Validation { violations } => {
+                write!(
+                    f,
+                    "The .ftl content does not satisfy the compiled message contract:"
+                )?;
+                for v in violations {
+                    write!(f, "\n  {v}")?;
                 }
                 Ok(())
             }
