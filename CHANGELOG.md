@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.8.0
+
+### Added
+- **Runtime loading of external translations** (#38). The generated
+  `L10nLanguage` gains `new_external(lang, bytes)`: it loads an `.ftl` that was
+  not part of the build — a new language shipped after release, or a
+  hot-reloaded translation under revision — after validating it against the
+  *message contract* now compiled into the generated file (the
+  `MESSAGE_CONTRACTS` static). Validation enforces the same rules every
+  build-time locale is held to: every generated message and attribute must be
+  defined, no pattern may reference a variable outside the accessor's
+  arguments, structured messages must keep their exact `(Element)` marker
+  sequence — plus a check that every referenced term is defined. A translation
+  that would panic in an accessor is rejected at load with the new
+  `L10nError::Validation`, which lists every violation. See the README section
+  "Loading translations at runtime".
+- `validate_ftl`, `MessageContract`, `ElementContract` and `ContractViolation`
+  in the crate root and prelude — the validation machinery behind
+  `new_external`, usable directly against raw bytes.
+- `L10nError::Validation` variant (additive; the enum is `#[non_exhaustive]`).
+- `L10nLanguageVec::insert`, which adds a bundle to the loaded set or replaces
+  the already-loaded bundle of the same language — the missing mutation API
+  for adding a runtime-loaded language or hot-swapping a revised one.
+- `L10nLanguageVec::langneg` (behind the `langneg` feature): negotiates an
+  `Accept-Language` header against the *loaded* languages — including ones
+  added with `insert`, which the generated `L10n::langneg` (compiled from the
+  build-time language set) can never return. Returns `Option`; the caller
+  picks its own fallback.
+
+### Changed
+- The build-time cross-locale compatibility check and the new runtime
+  validation now share one implementation, so the two rule sets cannot drift
+  apart. No behavior change for existing builds.
+
 ## 0.7.1
 
 ### Fixed

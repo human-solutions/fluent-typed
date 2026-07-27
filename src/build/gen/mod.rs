@@ -10,6 +10,7 @@ mod message;
 #[allow(dead_code, unused_mut, unused_imports, clippy::derivable_impls)]
 mod template;
 
+use super::typed::ElementKind;
 use super::{BuildOptions, LangBundle, Message};
 pub use ext::StrExt;
 pub use generated_ftl::GeneratedFtl;
@@ -33,6 +34,15 @@ pub fn generate(
     replacements.push((
         "<<placeholder lang_data>>",
         generated_ftl.include_replacement(&options.output_file_path)?,
+    ));
+
+    // ///////////////////////////
+    // One contract entry per generated accessor, embedded so that
+    // `L10nLanguage::new_external` can validate an external `.ftl` at runtime
+    // against exactly what the generated accessors expect.
+    replacements.push((
+        "<<placeholder message contracts>>",
+        message_contracts(messages),
     ));
 
     // ///////////////////////////
@@ -224,6 +234,44 @@ static ALL_LANGS: [L10n; {}] = [
     #[cfg(not(test))]
     let base = base.replace("use crate::prelude::*;", "use fluent_typed::prelude::*;");
     Ok(base)
+}
+
+/// The `MESSAGE_CONTRACTS` static: the message/argument/element contract of
+/// every generated accessor, in generation order.
+fn message_contracts(messages: &[&Message]) -> String {
+    if messages.is_empty() {
+        return "static MESSAGE_CONTRACTS: &[MessageContract] = &[];".to_string();
+    }
+    let entries = collect(messages.iter(), |msg| {
+        let attribute = match &msg.id.attribute {
+            Some(a) => format!("Some(\"{a}\")"),
+            None => "None".to_string(),
+        };
+        let vars = msg
+            .variables
+            .iter()
+            .map(|v| format!("\"{}\"", v.id))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let elements = msg
+            .elements
+            .iter()
+            .map(|e| {
+                format!(
+                    "ElementContract {{ name: \"{}\", is_term: {} }}",
+                    e.name,
+                    e.kind == ElementKind::Term
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "    MessageContract {{ message: \"{}\", attribute: {attribute}, \
+             vars: &[{vars}], elements: &[{elements}] }},",
+            msg.id.message
+        )
+    });
+    format!("static MESSAGE_CONTRACTS: &[MessageContract] = &[\n{entries}\n];")
 }
 
 fn collect<T, F: Fn(T) -> String>(vals: impl Iterator<Item = T>, f: F) -> String {
