@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::build::LangBundle;
 use crate::build::typed::{ElementKind, Id, Message, RefKind};
+use crate::ftl_refs::check_refs;
 
 /// The result of comparing every locale against the default-locale contract.
 #[derive(Debug)]
@@ -123,50 +124,20 @@ fn orphan_warnings(
 ///
 /// The check is comment-independent: it uses `pattern_refs`, the raw
 /// `$variable`/`-term` references, never the per-locale comment annotations.
+/// It delegates to [`check_refs`], the same check `validate_ftl` applies to
+/// external translations at runtime, so the two can never drift apart.
 fn compatible(contract: &Message, other: &Message) -> bool {
-    let args: HashSet<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
-
-    if contract.elements.is_empty() {
-        // Plain message: every variable the other locale references must be a
-        // known contract argument. Extra args would be unfilled at runtime.
-        other
-            .pattern_refs
-            .iter()
-            .filter(|r| r.kind == RefKind::Variable)
-            .all(|r| args.contains(r.name.as_str()))
-    } else {
-        // Element message: the element markers must line up exactly so that
-        // `msg_segments` splits the other locale's pattern into the same slots.
-        let element_names: HashSet<&str> =
-            contract.elements.iter().map(|e| e.name.as_str()).collect();
-
-        let contract_elems: Vec<(&str, ElementKind)> = contract
-            .elements
-            .iter()
-            .map(|e| (e.name.as_str(), e.kind))
-            .collect();
-        let other_elems: Vec<(&str, ElementKind)> = other
-            .pattern_refs
-            .iter()
-            .filter(|r| element_names.contains(r.name.as_str()))
-            .map(|r| (r.name.as_str(), element_kind(r.kind)))
-            .collect();
-        if contract_elems != other_elems {
-            return false;
-        }
-
-        // Non-element variables must still be known contract arguments.
-        other
-            .pattern_refs
-            .iter()
-            .filter(|r| r.kind == RefKind::Variable && !element_names.contains(r.name.as_str()))
-            .all(|r| args.contains(r.name.as_str()))
-    }
-}
-
-fn element_kind(kind: RefKind) -> ElementKind {
-    match kind {
-        RefKind::Variable => ElementKind::Variable,
-        RefKind::Term => ElementKind::Term,
-    }
+    let vars: Vec<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
+    let elements: Vec<(&str, RefKind)> = contract
+        .elements
+        .iter()
+        .map(|e| {
+            let kind = match e.kind {
+                ElementKind::Variable => RefKind::Variable,
+                ElementKind::Term => RefKind::Term,
+            };
+            (e.name.as_str(), kind)
+        })
+        .collect();
+    check_refs(&vars, &elements, &other.pattern_refs).is_ok()
 }
