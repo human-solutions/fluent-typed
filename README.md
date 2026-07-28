@@ -44,6 +44,11 @@ strs.msg_helo("Sam");    // ✗ misspelled key — caught at compile time
   `Strict` levels.
 - **Embed or load on demand.** Bake every locale into the binary for server-side use, or
   load one language at a time on the client.
+- **Validated runtime loading.** `L10nLanguage::new_external` loads an `.ftl` that was
+  never part of the build — a language added after release, or a hot-reloaded
+  translation — checked at load time against the compiled message contract, so a typo
+  can't panic an accessor later. See
+  [Loading translations at runtime](#loading-translations-at-runtime).
 - **Automatic language negotiation.** With the `langneg` feature, `L10n::langneg("en-US")`
   resolves a user's preferred language to the closest available locale, falling back to
   your configured default.
@@ -116,10 +121,10 @@ L10n::En.language_name();       // language name, for a language menu
 ```toml
 # in Cargo.toml
 [dependencies]
-fluent-typed = "0.6"
+fluent-typed = "0.8"
 
 [build-dependencies]
-fluent-typed = { version = "0.6", features = ["build"] }
+fluent-typed = { version = "0.8", features = ["build"] }
 ```
 
 ```rust
@@ -182,6 +187,66 @@ let languages = L10n::load_all();
 // `get` returns the lower-level `L10nBundle`; access messages by id:
 let greeting = languages.get(L10n::En).msg("greeting", None).unwrap();
 ```
+
+## Loading translations at runtime
+
+The build step bakes the *known* translations in, but the typed accessors resolve
+messages at runtime — so a translation the build never saw can be loaded too. The
+generated `L10nLanguage::new_external` takes raw `.ftl` bytes and validates them
+against the *message contract* compiled into the generated file: every generated
+message and attribute must be defined, no message may reference a variable the
+accessor doesn't fill, structured messages must keep their `(Element)` markers, and
+every referenced term must exist. These are exactly the rules each build-time locale
+is held to — the same check, shared code.
+
+```rust
+// A Polish translation shipped as a file next to the binary,
+// added after release — never seen at build time.
+let bytes = std::fs::read("locales/pl.ftl")?;
+let pl: L10nLanguage = L10nLanguage::new_external("pl", &bytes)?;
+pl.msg_hello("Ala");   // every generated accessor is safe to call
+
+// A broken translation — a misspelled id, an unknown $variable — is
+// rejected at load with L10nError::Validation listing every problem,
+// instead of panicking later in an accessor:
+let err = L10nLanguage::new_external("pl", b"helo = oops").unwrap_err();
+```
+
+The validation cannot check argument *types* at runtime — it doesn't need to: the
+accessor signatures fixed what your code passes at compile time, so matching
+variable *names* is exactly the guarantee the build gives every locale.
+
+For the server-side `load_all()` style, `L10nLanguageVec::insert` adds a
+runtime-loaded language (or replaces one, which is the hot-reload path), and
+`L10nLanguageVec::langneg` negotiates over the languages *actually loaded* —
+runtime-added ones included, which the generated `L10n::langneg` (compiled from the
+build-time language set) can never return:
+
+```rust
+let mut languages = L10n::load_all();
+languages.insert(L10nBundle::new("pl", &bytes)?);
+// `langneg` returns Option — you pick the fallback:
+let bundle = languages
+    .langneg(accept_language_header)
+    .unwrap_or_else(|| languages.get(L10n::default()));
+```
+
+Hot-reloading — watching a file and swapping the translation while the app runs, for
+example to live-proofread — stays in your app: re-load on change and swap the value
+(the runtime types are `Send + Sync`, so an
+[`arc-swap`](https://crates.io/crates/arc-swap) or a lock works):
+
+```rust
+// on file change (e.g. via the `notify` crate):
+match L10nLanguage::new_external("en", &std::fs::read(&path)?) {
+    Ok(fresh) => current.store(Arc::new(fresh)),   // e.g. an ArcSwap<L10nLanguage>
+    Err(e) => eprintln!("translation rejected: {e}"),  // keep the last good one
+}
+```
+
+If you need the check without the constructor — say, validating a translator's file
+in CI — `fluent_typed::validate_ftl(&bytes, MESSAGE_CONTRACTS)` is the same function
+the generated code calls (`MESSAGE_CONTRACTS` is a static in the generated file).
 
 ## Type deduction
 
@@ -317,5 +382,5 @@ let-chains). Raising the MSRV is treated as a minor-version change.
 fluent-typed is pre-1.0 and its API is still settling — minor releases may contain
 breaking changes, each called out in the [CHANGELOG](./CHANGELOG.md). The runtime
 re-exports of `fluent-bundle` types (`FluentArgs`, `FluentValue`, `FluentNumber`)
-track that crate's own (pre-1.0) releases. Pin a minor version (`fluent-typed = "0.6"`)
+track that crate's own (pre-1.0) releases. Pin a minor version (`fluent-typed = "0.8"`)
 and read the changelog before upgrading.

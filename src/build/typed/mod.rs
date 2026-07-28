@@ -5,6 +5,7 @@ use std::fmt::Display;
 
 use crate::build::r#gen::StrExt;
 
+pub use crate::ftl_refs::{Ref, RefKind, find_refs};
 pub use type_in_comment::{Annotation, annotation};
 
 #[derive(Debug)]
@@ -41,19 +42,6 @@ impl PartialEq for Message {
             && self.elements == other.elements
             && self.pattern_refs == other.pattern_refs
     }
-}
-
-/// A `$variable` or `-term` reference in a message pattern.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct Ref {
-    pub name: String,
-    pub kind: RefKind,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum RefKind {
-    Variable,
-    Term,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

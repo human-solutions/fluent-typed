@@ -8,6 +8,12 @@ use std::{
 };
 
 static LANG_DATA: &[u8] = include_bytes!("msg_number_fn_gen.ftl");
+static MESSAGE_CONTRACTS: &[MessageContract] = &[MessageContract {
+    message: "dpi-ratio",
+    attribute: None,
+    vars: &["ratio"],
+    elements: &[],
+}];
 
 static ALL_LANGS: [L10n; 1] = [
     // languages as an array
@@ -116,6 +122,23 @@ impl L10nLanguage {
     /// The bytes are expected to be the contents of a .ftl file
     pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
         Ok(Self(L10nBundle::new(lang, bytes)?))
+    }
+
+    /// Load external `.ftl` bytes — read from disk, downloaded, etc. — after
+    /// validating them against the message contract compiled into this API.
+    ///
+    /// On success, every accessor on the returned [`L10nLanguage`] is safe to
+    /// call: the external translation defines every generated message and
+    /// references no unknown variables. A translation that does not — because
+    /// a message is missing, misspelled, or references a variable this API
+    /// never fills — is rejected here with `L10nError::Validation` (listing
+    /// every violation) instead of panicking later in an accessor.
+    ///
+    /// Use this to load a language that was not compiled in, or to hot-reload
+    /// a translation under revision.
+    pub fn new_external(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
+        validate_ftl(bytes, MESSAGE_CONTRACTS)?;
+        Self::new(lang, bytes)
     }
 
     pub fn msg_dpi_ratio<F0: Into<FluentNumber>>(&self, ratio: F0) -> String {
