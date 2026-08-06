@@ -112,6 +112,10 @@ fn typed() {
                     kind: RefKind::Variable,
                 },
             ],
+            selectors: vec![Selector {
+                variable: "num".to_string(),
+                keys: vec!["0".to_string(), "other".to_string()],
+            }],
             file: String::new(),
             line: 0,
             comment_line: 0,

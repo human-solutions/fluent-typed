@@ -44,6 +44,7 @@ pub fn check(langs: &[LangBundle], default: &LangBundle, common: &HashSet<Id>) -
     let mut mistakes = Vec::new();
     for msg in &default.messages {
         mistakes.extend(comment_mistakes(msg, &refs_by_message));
+        mistakes.extend(bool_selector_mistakes(msg));
     }
     mistakes.extend(detached_comments(default));
     mistakes.sort();
@@ -86,6 +87,37 @@ pub fn check(langs: &[LangBundle], default: &LangBundle, common: &HashSet<Id>) -
     }
 }
 
+/// A `(Bool)` variable is encoded as the strings `"true"` and `"false"`.
+/// Every selector it drives must therefore expose exactly those two keys.
+fn bool_selector_mistakes(msg: &Message) -> Vec<String> {
+    let bool_vars: HashSet<&str> = msg
+        .variables
+        .iter()
+        .filter(|v| v.typ == VarType::Bool)
+        .map(|v| v.id.as_str())
+        .collect();
+
+    msg.selectors
+        .iter()
+        .filter(|selector| bool_vars.contains(selector.variable.as_str()))
+        .filter_map(|selector| {
+            let mut keys = selector.keys.clone();
+            keys.sort();
+            (keys != ["false", "true"]).then(|| {
+                format!(
+                    "{}:{}: Boolean selector ${} in {} has keys [{}] — expected \
+                     [true] and [false]",
+                    msg.file,
+                    msg.line,
+                    selector.variable,
+                    msg.id,
+                    selector.keys.join(", "),
+                )
+            })
+        })
+        .collect()
+}
+
 /// L1 (typo'd keyword) and L2 (annotation of a non-existent variable/term),
 /// scanning one message's comment. `refs_by_message` maps each message name to
 /// every pattern reference of its value *and* its attributes, so an annotation
@@ -117,7 +149,7 @@ fn comment_mistakes(msg: &Message, refs_by_message: &HashMap<&str, Vec<&Ref>>) -
             // Shaped like a type annotation, keyword is a near-miss typo.
             out.push(format!(
                 "{at}: unrecognized type annotation '({})' for {}{} — expected \
-                 (String), (Number) or (Element)",
+                 (String), (Number), (Bool) or (Element)",
                 a.keyword,
                 a.sigil(),
                 a.name,
@@ -202,8 +234,8 @@ fn untyped_variables(msg: &Message, element_vars: &HashSet<(&str, &str)>) -> Vec
         .map(|v| {
             format!(
                 "{}:{}: variable ${} in {} has no type — add a \
-                 '# ${} (String)' or '# ${} (Number)' comment",
-                msg.file, msg.line, v.id, msg.id, v.id, v.id,
+                 '# ${} (String)', '# ${} (Number)' or '# ${} (Bool)' comment",
+                msg.file, msg.line, v.id, msg.id, v.id, v.id, v.id,
             )
         })
         .collect()

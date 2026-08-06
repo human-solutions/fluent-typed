@@ -13,7 +13,7 @@ use std::fmt;
 use fluent_syntax::{ast, parser};
 
 use crate::error::L10nError;
-use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs};
+use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs, find_selectors};
 
 /// The compiled contract of one generated message accessor: which message (or
 /// attribute) it resolves, which arguments it fills, and — for structured
@@ -29,6 +29,8 @@ pub struct MessageContract {
     pub attribute: Option<&'static str>,
     /// The argument names the accessor fills (`$variable` names).
     pub vars: &'static [&'static str],
+    /// Variables encoded from Rust `bool` as Fluent `"true"` / `"false"`.
+    pub bool_vars: &'static [&'static str],
     /// The `(Element)` markers, in pattern order. Empty for plain messages.
     pub elements: &'static [ElementContract],
 }
@@ -89,6 +91,18 @@ pub enum ContractViolation {
         /// The sequence found in the `.ftl`.
         found: Vec<String>,
     },
+    /// A Boolean variable's selector does not contain exactly `[true]` and
+    /// `[false]` branches.
+    BoolSelectorMismatch {
+        /// The message id.
+        message: String,
+        /// The attribute, for an attribute accessor.
+        attribute: Option<String>,
+        /// The Boolean variable driving the selector.
+        variable: String,
+        /// Variant keys found in the translation.
+        found: Vec<String>,
+    },
     /// A referenced term is not defined in the `.ftl`. Resolving it would
     /// fail to format at runtime.
     UnknownTerm {
@@ -133,6 +147,22 @@ impl fmt::Display for ContractViolation {
                 found.join(", "),
                 expected.join(", "),
             ),
+            Self::BoolSelectorMismatch {
+                message,
+                attribute,
+                variable,
+                found,
+            } => {
+                match attribute {
+                    Some(a) => write!(f, "attribute '{a}' of message '{message}'")?,
+                    None => write!(f, "message '{message}'")?,
+                }
+                write!(
+                    f,
+                    " has Boolean selector ${variable} with keys [{}]; expected [true, false]",
+                    found.join(", "),
+                )
+            }
             Self::UnknownTerm {
                 term,
                 referenced_from,
@@ -154,6 +184,8 @@ impl fmt::Display for ContractViolation {
 /// - every contract message (and attribute) is defined;
 /// - no validated pattern references a variable outside its contract
 ///   arguments;
+/// - selectors driven by Boolean arguments keep exactly `[true]` and `[false]`
+///   variants;
 /// - structured messages keep the exact `(Element)` marker sequence;
 /// - every term referenced from a validated pattern (transitively, through
 ///   other terms) is defined in the file.
@@ -235,7 +267,14 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
                 (e.name, kind)
             })
             .collect();
-        if let Err(incompat) = check_refs(contract.vars, &elements, &refs) {
+        let selectors = find_selectors(pattern);
+        if let Err(incompat) = check_refs(
+            contract.vars,
+            contract.bool_vars,
+            &elements,
+            &refs,
+            &selectors,
+        ) {
             violations.push(match incompat {
                 RefsIncompat::UnknownVariable { variable } => ContractViolation::UnknownVariable {
                     message: contract.message.to_string(),
@@ -247,6 +286,14 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
                         message: contract.message.to_string(),
                         expected: render_elements(&expected),
                         found: render_elements(&found),
+                    }
+                }
+                RefsIncompat::BoolSelectorMismatch { variable, found } => {
+                    ContractViolation::BoolSelectorMismatch {
+                        message: contract.message.to_string(),
+                        attribute: contract.attribute.map(str::to_string),
+                        variable,
+                        found,
                     }
                 }
             });
@@ -317,18 +364,21 @@ mod tests {
             message: "hello",
             attribute: None,
             vars: &["name"],
+            bool_vars: &[],
             elements: &[],
         },
         MessageContract {
             message: "login",
             attribute: Some("placeholder"),
             vars: &[],
+            bool_vars: &[],
             elements: &[],
         },
         MessageContract {
             message: "notice",
             attribute: None,
             vars: &["count"],
+            bool_vars: &[],
             elements: &[
                 ElementContract {
                     name: "icon",
@@ -436,6 +486,33 @@ notice = { $icon } Du har { $count } olästa, se { -privacy-link }.
                 variable: "other".to_string(),
             }]
         );
+    }
+
+    #[test]
+    fn boolean_selector_keys_are_validated() {
+        const BOOL_CONTRACT: &[MessageContract] = &[MessageContract {
+            message: "feature",
+            attribute: None,
+            vars: &["enabled"],
+            bool_vars: &["enabled"],
+            elements: &[],
+        }];
+        let valid = "feature = { $enabled ->\n    [true] On\n   *[false] Off\n}\n";
+        validate_ftl(valid.as_bytes(), BOOL_CONTRACT).unwrap();
+
+        let invalid = "feature = { $enabled ->\n    [yes] On\n   *[no] Off\n}\n";
+        match validate_ftl(invalid.as_bytes(), BOOL_CONTRACT) {
+            Err(L10nError::Validation { violations }) => assert_eq!(
+                violations,
+                vec![ContractViolation::BoolSelectorMismatch {
+                    message: "feature".to_string(),
+                    attribute: None,
+                    variable: "enabled".to_string(),
+                    found: vec!["yes".to_string(), "no".to_string()],
+                }]
+            ),
+            other => panic!("expected Validation error, got {other:?}"),
+        }
     }
 
     #[test]

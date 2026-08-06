@@ -22,6 +22,13 @@ pub enum RefKind {
     Term,
 }
 
+/// A select expression driven directly by a `$variable`.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Selector {
+    pub variable: String,
+    pub keys: Vec<String>,
+}
+
 /// Collect every `$variable` and `-term` reference in a pattern, in document
 /// order, **independent of comments**. Walks selects (selector and every
 /// variant body), call arguments and nested placeables. The result is
@@ -31,6 +38,89 @@ pub fn find_refs(pattern: &ast::Pattern<&str>) -> Vec<Ref> {
     let mut refs = Vec::new();
     collect_refs_pattern(pattern, &mut refs);
     refs
+}
+
+/// Collect select expressions whose selector is a direct `$variable`.
+/// Nested selects and selects inside variant bodies are included.
+pub fn find_selectors(pattern: &ast::Pattern<&str>) -> Vec<Selector> {
+    let mut selectors = Vec::new();
+    collect_selectors_pattern(pattern, &mut selectors);
+    selectors
+}
+
+fn collect_selectors_pattern(pattern: &ast::Pattern<&str>, selectors: &mut Vec<Selector>) {
+    for element in &pattern.elements {
+        if let ast::PatternElement::Placeable { expression } = element {
+            collect_selectors_expr(expression, selectors);
+        }
+    }
+}
+
+fn collect_selectors_expr(expression: &ast::Expression<&str>, selectors: &mut Vec<Selector>) {
+    match expression {
+        ast::Expression::Inline(inline) => collect_selectors_inline(inline, selectors),
+        ast::Expression::Select { selector, variants } => {
+            if let Some(variable) = selector_variable(selector) {
+                selectors.push(Selector {
+                    variable: variable.to_owned(),
+                    keys: variants
+                        .iter()
+                        .map(|variant| match variant.key {
+                            ast::VariantKey::Identifier { name } => name.to_owned(),
+                            ast::VariantKey::NumberLiteral { value } => value.to_owned(),
+                        })
+                        .collect(),
+                });
+            }
+            collect_selectors_inline(selector, selectors);
+            for variant in variants {
+                collect_selectors_pattern(&variant.value, selectors);
+            }
+        }
+    }
+}
+
+fn collect_selectors_inline(inline: &ast::InlineExpression<&str>, selectors: &mut Vec<Selector>) {
+    match inline {
+        ast::InlineExpression::TermReference { arguments, .. } => {
+            if let Some(arguments) = arguments {
+                collect_selectors_call_arguments(arguments, selectors);
+            }
+        }
+        ast::InlineExpression::FunctionReference { arguments, .. } => {
+            collect_selectors_call_arguments(arguments, selectors);
+        }
+        ast::InlineExpression::Placeable { expression } => {
+            collect_selectors_expr(expression, selectors);
+        }
+        ast::InlineExpression::VariableReference { .. }
+        | ast::InlineExpression::StringLiteral { .. }
+        | ast::InlineExpression::NumberLiteral { .. }
+        | ast::InlineExpression::MessageReference { .. } => {}
+    }
+}
+
+fn collect_selectors_call_arguments(
+    arguments: &ast::CallArguments<&str>,
+    selectors: &mut Vec<Selector>,
+) {
+    for positional in &arguments.positional {
+        collect_selectors_inline(positional, selectors);
+    }
+    for named in &arguments.named {
+        collect_selectors_inline(&named.value, selectors);
+    }
+}
+
+fn selector_variable<'a>(inline: &'a ast::InlineExpression<&'a str>) -> Option<&'a str> {
+    match inline {
+        ast::InlineExpression::VariableReference { id } => Some(id.name),
+        ast::InlineExpression::Placeable { expression } => match expression.as_ref() {
+            ast::Expression::Inline(inline) => selector_variable(inline),
+            ast::Expression::Select { .. } => None,
+        },
+        _ => None,
+    }
 }
 
 fn collect_refs_pattern(pattern: &ast::Pattern<&str>, refs: &mut Vec<Ref>) {
@@ -99,6 +189,12 @@ pub enum RefsIncompat {
         expected: Vec<(String, RefKind)>,
         found: Vec<(String, RefKind)>,
     },
+    /// A Boolean variable drives a selector without exactly the `true` and
+    /// `false` keys expected by its string encoding.
+    BoolSelectorMismatch {
+        variable: String,
+        found: Vec<String>,
+    },
 }
 
 /// Check a candidate pattern's references against a message contract.
@@ -114,9 +210,25 @@ pub enum RefsIncompat {
 /// that the runtime segment split produces the same slots.
 pub fn check_refs(
     vars: &[&str],
+    bool_vars: &[&str],
     elements: &[(&str, RefKind)],
     refs: &[Ref],
+    selectors: &[Selector],
 ) -> Result<(), RefsIncompat> {
+    for selector in selectors
+        .iter()
+        .filter(|selector| bool_vars.contains(&selector.variable.as_str()))
+    {
+        let mut keys = selector.keys.clone();
+        keys.sort();
+        if keys != ["false", "true"] {
+            return Err(RefsIncompat::BoolSelectorMismatch {
+                variable: selector.variable.clone(),
+                found: selector.keys.clone(),
+            });
+        }
+    }
+
     if !elements.is_empty() {
         let element_names: Vec<&str> = elements.iter().map(|(n, _)| *n).collect();
         let found: Vec<(String, RefKind)> = refs

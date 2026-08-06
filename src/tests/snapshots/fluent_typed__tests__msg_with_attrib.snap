@@ -17,12 +17,14 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[
         message: "hello",
         attribute: None,
         vars: &[],
+        bool_vars: &[],
         elements: &[],
     },
     MessageContract {
         message: "hello",
         attribute: Some("tooltip"),
         vars: &["userName"],
+        bool_vars: &[],
         elements: &[],
     },
 ];

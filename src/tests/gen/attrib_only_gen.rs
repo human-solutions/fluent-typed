@@ -12,6 +12,7 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[MessageContract {
     message: "hello",
     attribute: Some("tooltip"),
     vars: &["userName"],
+    bool_vars: &[],
     elements: &[],
 }];
 

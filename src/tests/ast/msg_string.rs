@@ -10,6 +10,12 @@ const FTL: &str = r#"
 # $name (String) - The name.
 greeting = Hi { $name }
 
+# $enabled (Bool) - Whether the feature is enabled.
+feature-status = { $enabled ->
+    [true] Enabled
+   *[false] Disabled
+}
+
 "#;
 
 /// From: https://docs.rs/fluent-syntax/0.11.1/fluent_syntax/
@@ -77,6 +83,7 @@ fn typed() {
                 name: "name".to_string(),
                 kind: RefKind::Variable,
             }],
+            selectors: vec![],
             file: String::new(),
             line: 0,
             comment_line: 0,
@@ -87,4 +94,13 @@ fn typed() {
 #[test]
 fn typed_gen() {
     assert_gen(module_path!(), "test", FTL);
+}
+
+#[test]
+fn generated_bool_accessor_selects_both_branches() {
+    use crate::tests::r#gen::msg_string_gen::L10n;
+
+    let strings = L10n::En.load();
+    assert_eq!(strings.msg_feature_status(true), "Enabled");
+    assert_eq!(strings.msg_feature_status(false), "Disabled");
 }

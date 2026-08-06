@@ -12,6 +12,7 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[MessageContract {
     message: "dpi-ratio",
     attribute: None,
     vars: &["ratio"],
+    bool_vars: &[],
     elements: &[],
 }];
 

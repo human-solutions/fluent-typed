@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::build::LangBundle;
-use crate::build::typed::{ElementKind, Id, Message, RefKind};
+use crate::build::typed::{ElementKind, Id, Message, RefKind, VarType};
 use crate::ftl_refs::check_refs;
 
 /// The result of comparing every locale against the default-locale contract.
@@ -67,8 +67,8 @@ impl Analyzed {
                 ));
             } else if !incompatible_in.is_empty() {
                 warnings.push(format!(
-                    "{}:{}: {id} is not generated — incompatible variables or \
-                     elements in locale(s): {}",
+                    "{}:{}: {id} is not generated — incompatible variables, \
+                     Boolean selectors or elements in locale(s): {}",
                     contract.file,
                     contract.line,
                     incompatible_in.join(", "),
@@ -128,6 +128,12 @@ fn orphan_warnings(
 /// external translations at runtime, so the two can never drift apart.
 fn compatible(contract: &Message, other: &Message) -> bool {
     let vars: Vec<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
+    let bool_vars: Vec<&str> = contract
+        .variables
+        .iter()
+        .filter(|v| v.typ == VarType::Bool)
+        .map(|v| v.id.as_str())
+        .collect();
     let elements: Vec<(&str, RefKind)> = contract
         .elements
         .iter()
@@ -139,5 +145,12 @@ fn compatible(contract: &Message, other: &Message) -> bool {
             (e.name.as_str(), kind)
         })
         .collect();
-    check_refs(&vars, &elements, &other.pattern_refs).is_ok()
+    check_refs(
+        &vars,
+        &bool_vars,
+        &elements,
+        &other.pattern_refs,
+        &other.selectors,
+    )
+    .is_ok()
 }
