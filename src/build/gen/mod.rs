@@ -253,6 +253,13 @@ fn message_contracts(messages: &[&Message]) -> String {
             .map(|v| format!("\"{}\"", v.id))
             .collect::<Vec<_>>()
             .join(", ");
+        let bool_vars = msg
+            .variables
+            .iter()
+            .filter(|v| v.typ == crate::build::typed::VarType::Bool)
+            .map(|v| format!("\"{}\"", v.id))
+            .collect::<Vec<_>>()
+            .join(", ");
         let elements = msg
             .elements
             .iter()
@@ -267,7 +274,7 @@ fn message_contracts(messages: &[&Message]) -> String {
             .join(", ");
         format!(
             "    MessageContract {{ message: \"{}\", attribute: {attribute}, \
-             vars: &[{vars}], elements: &[{elements}] }},",
+             vars: &[{vars}], bool_vars: &[{bool_vars}], elements: &[{elements}] }},",
             msg.id.message
         )
     });

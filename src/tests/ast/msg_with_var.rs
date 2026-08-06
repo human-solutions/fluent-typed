@@ -73,6 +73,7 @@ fn typed() {
                 name: "first-name".to_string(),
                 kind: RefKind::Variable,
             }],
+            selectors: vec![],
             file: String::new(),
             line: 0,
             comment_line: 0,

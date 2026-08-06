@@ -72,6 +72,10 @@ fn typed() {
                     kind: RefKind::Term,
                 },
             ],
+            selectors: vec![Selector {
+                variable: "provider".to_string(),
+                keys: vec!["google".to_string(), "other".to_string()],
+            }],
             file: String::new(),
             line: 0,
             comment_line: 0,

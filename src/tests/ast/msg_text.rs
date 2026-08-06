@@ -61,6 +61,7 @@ fn typed() {
             variables: vec![],
             elements: vec![],
             pattern_refs: vec![],
+            selectors: vec![],
             file: String::new(),
             line: 0,
             comment_line: 0,
