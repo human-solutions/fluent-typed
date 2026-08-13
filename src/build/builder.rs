@@ -1,6 +1,6 @@
 use super::{
     Analyzed, BuildError, BuildOptions, LangBundle, LintLevel, Message, r#gen::generate, lint,
-    typed::Id, utils::write_if_changed,
+    typed::Id, utils::write_if_changed, validations::default_contract_errors,
 };
 use std::{
     collections::HashSet,
@@ -64,6 +64,13 @@ impl Builder {
         let analyzed = Analyzed::from(&self.langbundles, default);
         for warn in &analyzed.warnings {
             println!("cargo::warning={warn}");
+        }
+
+        let contract_errors = default_contract_errors(default);
+        if !contract_errors.is_empty() {
+            return Err(BuildError::InvalidContract {
+                messages: contract_errors,
+            });
         }
 
         self.run_lints(default, &analyzed.common)?;

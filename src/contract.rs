@@ -103,6 +103,16 @@ pub enum ContractViolation {
         /// Variant keys found in the translation.
         found: Vec<String>,
     },
+    /// A Boolean variable is referenced outside its selector, which would
+    /// render its encoded `true` / `false` string directly.
+    BoolReferenceOutsideSelector {
+        /// The message id.
+        message: String,
+        /// The attribute, for an attribute accessor.
+        attribute: Option<String>,
+        /// The Boolean variable referenced directly.
+        variable: String,
+    },
     /// A referenced term is not defined in the `.ftl`. Resolving it would
     /// fail to format at runtime.
     UnknownTerm {
@@ -161,6 +171,20 @@ impl fmt::Display for ContractViolation {
                     f,
                     " has Boolean selector ${variable} with keys [{}]; expected [true, false]",
                     found.join(", "),
+                )
+            }
+            Self::BoolReferenceOutsideSelector {
+                message,
+                attribute,
+                variable,
+            } => {
+                match attribute {
+                    Some(a) => write!(f, "attribute '{a}' of message '{message}'")?,
+                    None => write!(f, "message '{message}'")?,
+                }
+                write!(
+                    f,
+                    " references Boolean variable '${variable}' outside a [true]/[false] selector",
                 )
             }
             Self::UnknownTerm {
@@ -268,35 +292,48 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
             })
             .collect();
         let selectors = find_selectors(pattern);
-        if let Err(incompat) = check_refs(
+        if let Err(incompatibilities) = check_refs(
             contract.vars,
             contract.bool_vars,
             &elements,
             &refs,
             &selectors,
         ) {
-            violations.push(match incompat {
-                RefsIncompat::UnknownVariable { variable } => ContractViolation::UnknownVariable {
-                    message: contract.message.to_string(),
-                    attribute: contract.attribute.map(str::to_string),
-                    variable,
-                },
-                RefsIncompat::ElementMismatch { expected, found } => {
-                    ContractViolation::ElementMismatch {
-                        message: contract.message.to_string(),
-                        expected: render_elements(&expected),
-                        found: render_elements(&found),
-                    }
-                }
-                RefsIncompat::BoolSelectorMismatch { variable, found } => {
-                    ContractViolation::BoolSelectorMismatch {
-                        message: contract.message.to_string(),
-                        attribute: contract.attribute.map(str::to_string),
-                        variable,
-                        found,
-                    }
-                }
-            });
+            violations.extend(
+                incompatibilities
+                    .into_iter()
+                    .map(|incompat| match incompat {
+                        RefsIncompat::UnknownVariable { variable } => {
+                            ContractViolation::UnknownVariable {
+                                message: contract.message.to_string(),
+                                attribute: contract.attribute.map(str::to_string),
+                                variable,
+                            }
+                        }
+                        RefsIncompat::ElementMismatch { expected, found } => {
+                            ContractViolation::ElementMismatch {
+                                message: contract.message.to_string(),
+                                expected: render_elements(&expected),
+                                found: render_elements(&found),
+                            }
+                        }
+                        RefsIncompat::BoolSelectorMismatch { variable, found } => {
+                            ContractViolation::BoolSelectorMismatch {
+                                message: contract.message.to_string(),
+                                attribute: contract.attribute.map(str::to_string),
+                                variable,
+                                found,
+                            }
+                        }
+                        RefsIncompat::BoolReferenceOutsideSelector { variable } => {
+                            ContractViolation::BoolReferenceOutsideSelector {
+                                message: contract.message.to_string(),
+                                attribute: contract.attribute.map(str::to_string),
+                                variable,
+                            }
+                        }
+                    }),
+            );
         }
 
         let origin = match contract.attribute {
@@ -516,6 +553,62 @@ notice = { $icon } Du har { $count } olästa, se { -privacy-link }.
     }
 
     #[test]
+    fn boolean_variable_must_not_be_interpolated_directly() {
+        const BOOL_CONTRACT: &[MessageContract] = &[MessageContract {
+            message: "feature",
+            attribute: None,
+            vars: &["enabled"],
+            bool_vars: &["enabled"],
+            elements: &[],
+        }];
+        let invalid = "feature = Feature: { $enabled }\n";
+
+        match validate_ftl(invalid.as_bytes(), BOOL_CONTRACT) {
+            Err(L10nError::Validation { violations }) => assert_eq!(
+                violations,
+                vec![ContractViolation::BoolReferenceOutsideSelector {
+                    message: "feature".to_string(),
+                    attribute: None,
+                    variable: "enabled".to_string(),
+                }]
+            ),
+            other => panic!("expected Validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn independent_reference_violations_are_collected() {
+        const BOOL_CONTRACT: &[MessageContract] = &[MessageContract {
+            message: "feature",
+            attribute: None,
+            vars: &["enabled"],
+            bool_vars: &["enabled"],
+            elements: &[],
+        }];
+        let invalid = "feature = { $enabled ->\n    [yes] { $extra }\n   *[no] Off\n}\n";
+
+        match validate_ftl(invalid.as_bytes(), BOOL_CONTRACT) {
+            Err(L10nError::Validation { violations }) => assert_eq!(
+                violations,
+                vec![
+                    ContractViolation::UnknownVariable {
+                        message: "feature".to_string(),
+                        attribute: None,
+                        variable: "extra".to_string(),
+                    },
+                    ContractViolation::BoolSelectorMismatch {
+                        message: "feature".to_string(),
+                        attribute: None,
+                        variable: "enabled".to_string(),
+                        found: vec!["yes".to_string(), "no".to_string()],
+                    },
+                ]
+            ),
+            other => panic!("expected Validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn a_reordered_element_sequence_is_a_violation() {
         let ftl = VALID.replace(
             "{ $icon } Du har { $count } olästa, se { -privacy-link }.",
@@ -575,14 +668,17 @@ notice = { $icon } Du har { $count } olästa, se { -privacy-link }.
     fn all_violations_are_collected() {
         let ftl = "notice = Bara { $typo } kvar\n";
         let found = violations(ftl);
-        // Violations are collected across messages (one per message): hello
-        // and login are missing, and notice dropped its element markers.
-        assert_eq!(found.len(), 3, "got: {found:?}");
+        // Violations are collected both across and within messages: hello and
+        // login are missing; notice dropped its markers and added `$typo`.
+        assert_eq!(found.len(), 4, "got: {found:?}");
         assert!(found.iter().any(
             |v| matches!(v, ContractViolation::MissingMessage { message } if message == "hello")
         ));
         assert!(found.iter().any(
             |v| matches!(v, ContractViolation::ElementMismatch { message, .. } if message == "notice")
+        ));
+        assert!(found.iter().any(
+            |v| matches!(v, ContractViolation::UnknownVariable { variable, .. } if variable == "typo")
         ));
     }
 

@@ -7,6 +7,8 @@
 //! guarantees the two checks cannot drift apart: an external translation is
 //! held to exactly the rules a build-time locale is held to.
 
+use std::collections::HashSet;
+
 use fluent_syntax::ast;
 
 /// A `$variable` or `-term` reference in a message pattern.
@@ -195,6 +197,9 @@ pub enum RefsIncompat {
         variable: String,
         found: Vec<String>,
     },
+    /// A Boolean variable is referenced outside a select expression. Its
+    /// string encoding would otherwise render as an untranslated literal.
+    BoolReferenceOutsideSelector { variable: String },
 }
 
 /// Check a candidate pattern's references against a message contract.
@@ -214,20 +219,8 @@ pub fn check_refs(
     elements: &[(&str, RefKind)],
     refs: &[Ref],
     selectors: &[Selector],
-) -> Result<(), RefsIncompat> {
-    for selector in selectors
-        .iter()
-        .filter(|selector| bool_vars.contains(&selector.variable.as_str()))
-    {
-        let mut keys = selector.keys.clone();
-        keys.sort();
-        if keys != ["false", "true"] {
-            return Err(RefsIncompat::BoolSelectorMismatch {
-                variable: selector.variable.clone(),
-                found: selector.keys.clone(),
-            });
-        }
-    }
+) -> Result<(), Vec<RefsIncompat>> {
+    let mut incompatibilities = Vec::new();
 
     if !elements.is_empty() {
         let element_names: Vec<&str> = elements.iter().map(|(n, _)| *n).collect();
@@ -239,28 +232,68 @@ pub fn check_refs(
         let expected: Vec<(String, RefKind)> =
             elements.iter().map(|(n, k)| (n.to_string(), *k)).collect();
         if expected != found {
-            return Err(RefsIncompat::ElementMismatch { expected, found });
+            incompatibilities.push(RefsIncompat::ElementMismatch { expected, found });
         }
         // Non-element variables fall through to the argument check below.
+        let mut unknown = HashSet::new();
         for r in refs {
             if r.kind == RefKind::Variable
                 && !element_names.contains(&r.name.as_str())
                 && !vars.contains(&r.name.as_str())
+                && unknown.insert(r.name.as_str())
             {
-                return Err(RefsIncompat::UnknownVariable {
+                incompatibilities.push(RefsIncompat::UnknownVariable {
                     variable: r.name.clone(),
                 });
             }
         }
-        return Ok(());
+    } else {
+        let mut unknown = HashSet::new();
+        for r in refs {
+            if r.kind == RefKind::Variable
+                && !vars.contains(&r.name.as_str())
+                && unknown.insert(r.name.as_str())
+            {
+                incompatibilities.push(RefsIncompat::UnknownVariable {
+                    variable: r.name.clone(),
+                });
+            }
+        }
     }
 
-    for r in refs {
-        if r.kind == RefKind::Variable && !vars.contains(&r.name.as_str()) {
-            return Err(RefsIncompat::UnknownVariable {
-                variable: r.name.clone(),
+    for variable in bool_vars {
+        let reference_count = refs
+            .iter()
+            .filter(|r| r.kind == RefKind::Variable && r.name == *variable)
+            .count();
+        let selector_count = selectors
+            .iter()
+            .filter(|selector| selector.variable == *variable)
+            .count();
+        if reference_count != selector_count {
+            incompatibilities.push(RefsIncompat::BoolReferenceOutsideSelector {
+                variable: (*variable).to_owned(),
             });
         }
     }
-    Ok(())
+
+    for selector in selectors
+        .iter()
+        .filter(|selector| bool_vars.contains(&selector.variable.as_str()))
+    {
+        let mut keys = selector.keys.clone();
+        keys.sort();
+        if keys != ["false", "true"] {
+            incompatibilities.push(RefsIncompat::BoolSelectorMismatch {
+                variable: selector.variable.clone(),
+                found: selector.keys.clone(),
+            });
+        }
+    }
+
+    if incompatibilities.is_empty() {
+        Ok(())
+    } else {
+        Err(incompatibilities)
+    }
 }

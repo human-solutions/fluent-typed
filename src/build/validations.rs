@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::build::LangBundle;
 use crate::build::typed::{ElementKind, Id, Message, RefKind, VarType};
-use crate::ftl_refs::check_refs;
+use crate::ftl_refs::{RefsIncompat, check_refs};
 
 /// The result of comparing every locale against the default-locale contract.
 #[derive(Debug)]
@@ -153,4 +153,64 @@ fn compatible(contract: &Message, other: &Message) -> bool {
         &other.selectors,
     )
     .is_ok()
+}
+
+/// Structural errors in default-locale Boolean contracts. These must fail the
+/// build at every lint level: generated accessors would otherwise return
+/// silently wrong output.
+pub(crate) fn default_contract_errors(default: &LangBundle) -> Vec<String> {
+    let mut errors = Vec::new();
+
+    for msg in &default.messages {
+        let vars: Vec<&str> = msg.variables.iter().map(|v| v.id.as_str()).collect();
+        let bool_vars: Vec<&str> = msg
+            .variables
+            .iter()
+            .filter(|v| v.typ == VarType::Bool)
+            .map(|v| v.id.as_str())
+            .collect();
+        let elements: Vec<(&str, RefKind)> = msg
+            .elements
+            .iter()
+            .map(|e| {
+                let kind = match e.kind {
+                    ElementKind::Variable => RefKind::Variable,
+                    ElementKind::Term => RefKind::Term,
+                };
+                (e.name.as_str(), kind)
+            })
+            .collect();
+
+        let Err(incompatibilities) = check_refs(
+            &vars,
+            &bool_vars,
+            &elements,
+            &msg.pattern_refs,
+            &msg.selectors,
+        ) else {
+            continue;
+        };
+
+        for incompatibility in incompatibilities {
+            match incompatibility {
+                RefsIncompat::BoolSelectorMismatch { variable, found } => errors.push(format!(
+                    "{}:{}: Boolean selector ${variable} in {} has keys [{}] — expected [true] and [false]",
+                    msg.file,
+                    msg.line,
+                    msg.id,
+                    found.join(", "),
+                )),
+                RefsIncompat::BoolReferenceOutsideSelector { variable } => errors.push(format!(
+                    "{}:{}: Boolean variable ${variable} in {} is referenced outside a [true]/[false] selector",
+                    msg.file, msg.line, msg.id,
+                )),
+                // A message checked against its own parsed contract cannot
+                // have unknown variables or mismatched element markers.
+                RefsIncompat::UnknownVariable { .. } | RefsIncompat::ElementMismatch { .. } => {}
+            }
+        }
+    }
+
+    errors.sort();
+    errors
 }
