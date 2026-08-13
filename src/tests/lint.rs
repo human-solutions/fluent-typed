@@ -160,6 +160,36 @@ fn bool_selector_requires_true_and_false_keys() {
 }
 
 #[test]
+fn invalid_default_bool_selector_fails_at_warn_level() {
+    let err = build_at(
+        "bool-keys-warn",
+        LintLevel::Warn,
+        "# $enabled (Bool) - feature state\nfeature = { $enabled ->\n    [yes] On\n   *[no] Off\n}\n",
+    )
+    .expect_err("invalid Boolean contract must fail independently of lint level");
+    match err {
+        BuildError::InvalidContract { messages } => assert_eq!(
+            messages,
+            [
+                "test:2: Boolean selector $enabled in message 'feature' has keys [yes, no] — expected [true] and [false]"
+            ],
+        ),
+        other => panic!("expected BuildError::InvalidContract, got {other:?}"),
+    }
+}
+
+#[test]
+fn directly_interpolated_default_bool_fails_the_build() {
+    let err = build_at(
+        "bool-direct",
+        LintLevel::Off,
+        "# $enabled (Bool) - feature state\nfeature = Feature: { $enabled }\n",
+    )
+    .expect_err("direct Boolean interpolation must fail even with linting off");
+    assert!(matches!(err, BuildError::InvalidContract { .. }), "{err:?}");
+}
+
+#[test]
 fn strict_promotes_comment_mistakes_to_errors() {
     let err = build_at("typo", LintLevel::Strict, "# $x (Strng)\nhi = Hi { $x }\n")
         .expect_err("a typo'd keyword must fail strict mode");
@@ -364,6 +394,21 @@ fn invalid_bool_selector_in_another_locale_drops_the_message() {
 }
 
 #[test]
+fn directly_interpolated_bool_in_another_locale_drops_the_message() {
+    let langs = vec![
+        bundle(
+            "# $enabled (Bool) - state\nfeature = { $enabled ->\n    [true] On\n   *[false] Off\n}\n",
+            "en.ftl",
+            "en",
+        ),
+        bundle("feature = Fonction : { $enabled }\n", "fr.ftl", "fr"),
+    ];
+    let analyzed = Analyzed::from(&langs, &langs[0]);
+    assert!(!analyzed.common.contains(&Id::new_msg("feature")));
+    assert_eq!(analyzed.warnings.len(), 1, "{:?}", analyzed.warnings);
+}
+
+#[test]
 fn a_message_missing_from_another_locale_is_reported() {
     let langs = vec![
         bundle("hello = Hello\nbye = Bye\n", "en.ftl", "en"),
@@ -452,6 +497,30 @@ fn a_prose_parenthetical_is_not_flagged_as_a_typo() {
     // linter must leave it alone (it would otherwise fail Deny/Strict builds).
     let lints = lints_of("# $name (required) - the user's name\nhello = Hi { $name }\n");
     assert!(lints.mistakes.is_empty(), "{:?}", lints.mistakes);
+}
+
+#[test]
+fn lowercase_bool_prose_remains_backward_compatible() {
+    build_at(
+        "lowercase-bool-prose",
+        LintLevel::Deny,
+        "# $flag (bool) - whether the banner is shown\nbanner = { $flag }\n",
+    )
+    .expect("pre-existing lowercase bool prose must remain inert under Deny");
+}
+
+#[test]
+fn boolean_and_bol_are_reported_as_bool_annotation_typos() {
+    for keyword in ["Boolean", "Bol"] {
+        let ftl = format!("# $enabled ({keyword})\nfeature = {{ $enabled }}\n");
+        let lints = lints_of(&ftl);
+        assert_eq!(lints.mistakes.len(), 1, "{keyword}: {:?}", lints.mistakes);
+        assert!(
+            lints.mistakes[0].contains(&format!("unrecognized type annotation '({keyword})'")),
+            "{keyword}: {:?}",
+            lints.mistakes,
+        );
+    }
 }
 
 #[test]

@@ -100,14 +100,18 @@ impl Annotation<'_> {
 /// `Number`, `Bool`, `Element`) to be a typo of it rather than ordinary prose.
 /// Case-insensitive, Levenshtein distance up to 2.
 fn looks_like_keyword(keyword: &str) -> bool {
-    let kw = keyword.trim().to_ascii_lowercase();
+    let keyword = keyword.trim();
+    let kw = keyword.to_ascii_lowercase();
 
     // Fuzzy matching is too broad for a four-letter keyword: ordinary prose
     // such as `(bold)`, `(cool)` and `(tool)` is within two edits of `Bool`.
-    // Match it case-insensitively instead. This still catches `(bool)`/`(BOOL)`,
-    // but spelling mistakes such as `(Bol)` remain unrecognized; `Strict`
-    // linting still reports their variable as untyped.
+    // Keep lowercase `(bool)` inert for backward compatibility: before Bool
+    // annotations existed, it was ordinary prose. Catch only narrow, likely
+    // annotation spellings without pulling nearby English words into linting.
     if kw == "bool" {
+        return false;
+    }
+    if kw == "boolean" || kw == "bol" {
         return true;
     }
 
@@ -278,9 +282,16 @@ fn test_annotation_shape_and_recognition() {
         assert!(!a.is_type_annotation(), "{prose}");
     }
 
-    // Case-only mistakes are caught; spelling mistakes are intentionally not.
-    assert!(annotation("$enabled (bool)").unwrap().is_type_annotation());
-    assert!(!annotation("$enabled (Bol)").unwrap().is_type_annotation());
+    // Lowercase `(bool)` predates Bool annotations and remains inert prose.
+    assert!(!annotation("$enabled (bool)").unwrap().is_type_annotation());
+
+    // Natural long-form and narrow near-miss spellings are caught.
+    assert!(
+        annotation("$enabled (Boolean)")
+            .unwrap()
+            .is_type_annotation()
+    );
+    assert!(annotation("$enabled (Bol)").unwrap().is_type_annotation());
 
     // Plain prose is not annotation-shaped at all.
     assert!(annotation("$name - the user's name").is_none());

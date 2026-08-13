@@ -47,6 +47,11 @@ pub enum BuildError {
     Lint {
         messages: Vec<String>,
     },
+    /// Invalid default-locale message contracts that would generate accessors
+    /// with silently wrong runtime output.
+    InvalidContract {
+        messages: Vec<String>,
+    },
     WriteOutput {
         path: String,
         source: io::Error,
@@ -143,6 +148,17 @@ impl fmt::Display for BuildError {
             }
             Self::Lint { messages } => {
                 write!(f, "fluent-typed found {} lint error(s):", messages.len())?;
+                for m in messages {
+                    write!(f, "\n  {m}")?;
+                }
+                Ok(())
+            }
+            Self::InvalidContract { messages } => {
+                write!(
+                    f,
+                    "fluent-typed found {} invalid message contract(s):",
+                    messages.len()
+                )?;
                 for m in messages {
                     write!(f, "\n  {m}")?;
                 }
