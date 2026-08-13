@@ -13,7 +13,7 @@ use std::fmt;
 use fluent_syntax::{ast, parser};
 
 use crate::error::L10nError;
-use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs, find_selectors};
+use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs, find_refs_and_selectors};
 
 /// The compiled contract of one generated message accessor: which message (or
 /// attribute) it resolves, which arguments it fills, and — for structured
@@ -278,7 +278,7 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
             }
         };
 
-        let refs = find_refs(pattern);
+        let (refs, selectors) = find_refs_and_selectors(pattern);
         let elements: Vec<(&str, RefKind)> = contract
             .elements
             .iter()
@@ -291,7 +291,6 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
                 (e.name, kind)
             })
             .collect();
-        let selectors = find_selectors(pattern);
         if let Err(incompatibilities) = check_refs(
             contract.vars,
             contract.bool_vars,

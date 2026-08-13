@@ -24,6 +24,7 @@ impl Message {
         let tic = TypeInComment::parse(&comment);
 
         if let Some(value) = message.value.as_ref() {
+            let (pattern_refs, selectors) = find_refs_and_selectors(value);
             let mut variables = find_variable_references(value);
             tic.update_types(&mut variables);
             let elements = find_elements(value, tic.element_vars(), tic.element_terms());
@@ -46,14 +47,15 @@ impl Message {
                 comment: comment.clone(),
                 variables,
                 elements,
-                pattern_refs: find_refs(value),
-                selectors: find_selectors(value),
+                pattern_refs,
+                selectors,
                 file: file.to_owned(),
                 line: lines.line_of(message.id.name),
                 comment_line,
             });
         }
         for (idx, attribute) in message.attributes.iter().enumerate() {
+            let (pattern_refs, selectors) = find_refs_and_selectors(&attribute.value);
             // The message comment also types the attributes' variables — a
             // fluent attribute cannot carry a comment of its own.
             let mut variables = find_variable_references(&attribute.value);
@@ -74,8 +76,8 @@ impl Message {
                 },
                 variables,
                 elements: vec![],
-                pattern_refs: find_refs(&attribute.value),
-                selectors: find_selectors(&attribute.value),
+                pattern_refs,
+                selectors,
                 file: file.to_owned(),
                 line: lines.line_of(attribute.id.name),
                 comment_line: if carries_comment { comment_line } else { 0 },
