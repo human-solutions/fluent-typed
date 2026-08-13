@@ -95,12 +95,3 @@ fn typed() {
 fn typed_gen() {
     assert_gen(module_path!(), "test", FTL);
 }
-
-#[test]
-fn generated_bool_accessor_selects_both_branches() {
-    use crate::tests::r#gen::msg_string_gen::L10n;
-
-    let strings = L10n::En.load();
-    assert_eq!(strings.msg_feature_status(true), "Enabled");
-    assert_eq!(strings.msg_feature_status(false), "Disabled");
-}

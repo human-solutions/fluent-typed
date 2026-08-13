@@ -31,86 +31,104 @@ pub struct Selector {
     pub keys: Vec<String>,
 }
 
+impl Selector {
+    /// Whether this selector exposes exactly the two keys accepted by a
+    /// Boolean argument's `"true"` / `"false"` string encoding.
+    pub fn has_bool_keys(&self) -> bool {
+        self.keys.len() == 2
+            && self.keys.iter().any(|key| key == "true")
+            && self.keys.iter().any(|key| key == "false")
+    }
+}
+
 /// Collect every `$variable` and `-term` reference in a pattern, in document
 /// order, **independent of comments**. Walks selects (selector and every
 /// variant body), call arguments and nested placeables. The result is
 /// intentionally not deduplicated, so a repeated reference (e.g. the same
 /// `(Element)` used twice) is preserved.
 pub fn find_refs(pattern: &ast::Pattern<&str>) -> Vec<Ref> {
-    let mut refs = Vec::new();
-    collect_refs_pattern(pattern, &mut refs);
-    refs
+    find_refs_and_selectors(pattern).0
 }
 
-/// Collect select expressions whose selector is a direct `$variable`.
-/// Nested selects and selects inside variant bodies are included.
-pub fn find_selectors(pattern: &ast::Pattern<&str>) -> Vec<Selector> {
-    let mut selectors = Vec::new();
-    collect_selectors_pattern(pattern, &mut selectors);
-    selectors
+/// Collect references and selectors in one AST traversal. Callers needing
+/// both should use this instead of walking the same pattern twice.
+pub fn find_refs_and_selectors(pattern: &ast::Pattern<&str>) -> (Vec<Ref>, Vec<Selector>) {
+    let mut collector = Collector::default();
+    collector.pattern(pattern);
+    (collector.refs, collector.selectors)
 }
 
-fn collect_selectors_pattern(pattern: &ast::Pattern<&str>, selectors: &mut Vec<Selector>) {
-    for element in &pattern.elements {
-        if let ast::PatternElement::Placeable { expression } = element {
-            collect_selectors_expr(expression, selectors);
+#[derive(Default)]
+struct Collector {
+    refs: Vec<Ref>,
+    selectors: Vec<Selector>,
+}
+
+impl Collector {
+    fn pattern(&mut self, pattern: &ast::Pattern<&str>) {
+        for element in &pattern.elements {
+            if let ast::PatternElement::Placeable { expression } = element {
+                self.expression(expression);
+            }
         }
     }
-}
 
-fn collect_selectors_expr(expression: &ast::Expression<&str>, selectors: &mut Vec<Selector>) {
-    match expression {
-        ast::Expression::Inline(inline) => collect_selectors_inline(inline, selectors),
-        ast::Expression::Select { selector, variants } => {
-            if let Some(variable) = selector_variable(selector) {
-                selectors.push(Selector {
-                    variable: variable.to_owned(),
-                    keys: variants
-                        .iter()
-                        .map(|variant| match variant.key {
-                            ast::VariantKey::Identifier { name } => name.to_owned(),
-                            ast::VariantKey::NumberLiteral { value } => value.to_owned(),
-                        })
-                        .collect(),
+    fn expression(&mut self, expression: &ast::Expression<&str>) {
+        match expression {
+            ast::Expression::Inline(inline) => self.inline(inline),
+            ast::Expression::Select { selector, variants } => {
+                if let Some(variable) = selector_variable(selector) {
+                    self.selectors.push(Selector {
+                        variable: variable.to_owned(),
+                        keys: variants
+                            .iter()
+                            .map(|variant| match variant.key {
+                                ast::VariantKey::Identifier { name } => name.to_owned(),
+                                ast::VariantKey::NumberLiteral { value } => value.to_owned(),
+                            })
+                            .collect(),
+                    });
+                }
+                self.inline(selector);
+                for variant in variants {
+                    self.pattern(&variant.value);
+                }
+            }
+        }
+    }
+
+    fn inline(&mut self, inline: &ast::InlineExpression<&str>) {
+        match inline {
+            ast::InlineExpression::VariableReference { id } => self.refs.push(Ref {
+                name: id.name.to_owned(),
+                kind: RefKind::Variable,
+            }),
+            ast::InlineExpression::TermReference { id, arguments, .. } => {
+                self.refs.push(Ref {
+                    name: id.name.to_owned(),
+                    kind: RefKind::Term,
                 });
+                if let Some(arguments) = arguments {
+                    self.call_arguments(arguments);
+                }
             }
-            collect_selectors_inline(selector, selectors);
-            for variant in variants {
-                collect_selectors_pattern(&variant.value, selectors);
+            ast::InlineExpression::FunctionReference { arguments, .. } => {
+                self.call_arguments(arguments)
             }
+            ast::InlineExpression::Placeable { expression } => self.expression(expression),
+            ast::InlineExpression::StringLiteral { .. }
+            | ast::InlineExpression::NumberLiteral { .. }
+            | ast::InlineExpression::MessageReference { .. } => {}
         }
     }
-}
 
-fn collect_selectors_inline(inline: &ast::InlineExpression<&str>, selectors: &mut Vec<Selector>) {
-    match inline {
-        ast::InlineExpression::TermReference { arguments, .. } => {
-            if let Some(arguments) = arguments {
-                collect_selectors_call_arguments(arguments, selectors);
-            }
+    fn call_arguments(&mut self, arguments: &ast::CallArguments<&str>) {
+        for positional in &arguments.positional {
+            self.inline(positional);
         }
-        ast::InlineExpression::FunctionReference { arguments, .. } => {
-            collect_selectors_call_arguments(arguments, selectors);
+        for named in &arguments.named {
+            self.inline(&named.value);
         }
-        ast::InlineExpression::Placeable { expression } => {
-            collect_selectors_expr(expression, selectors);
-        }
-        ast::InlineExpression::VariableReference { .. }
-        | ast::InlineExpression::StringLiteral { .. }
-        | ast::InlineExpression::NumberLiteral { .. }
-        | ast::InlineExpression::MessageReference { .. } => {}
-    }
-}
-
-fn collect_selectors_call_arguments(
-    arguments: &ast::CallArguments<&str>,
-    selectors: &mut Vec<Selector>,
-) {
-    for positional in &arguments.positional {
-        collect_selectors_inline(positional, selectors);
-    }
-    for named in &arguments.named {
-        collect_selectors_inline(&named.value, selectors);
     }
 }
 
@@ -122,60 +140,6 @@ fn selector_variable<'a>(inline: &'a ast::InlineExpression<&'a str>) -> Option<&
             ast::Expression::Select { .. } => None,
         },
         _ => None,
-    }
-}
-
-fn collect_refs_pattern(pattern: &ast::Pattern<&str>, refs: &mut Vec<Ref>) {
-    for element in &pattern.elements {
-        if let ast::PatternElement::Placeable { expression } = element {
-            collect_refs_expr(expression, refs);
-        }
-    }
-}
-
-fn collect_refs_expr(expression: &ast::Expression<&str>, refs: &mut Vec<Ref>) {
-    match expression {
-        ast::Expression::Inline(inline) => collect_refs_inline(inline, refs),
-        ast::Expression::Select { selector, variants } => {
-            collect_refs_inline(selector, refs);
-            for variant in variants {
-                collect_refs_pattern(&variant.value, refs);
-            }
-        }
-    }
-}
-
-fn collect_refs_inline(inline: &ast::InlineExpression<&str>, refs: &mut Vec<Ref>) {
-    match inline {
-        ast::InlineExpression::VariableReference { id } => refs.push(Ref {
-            name: id.name.to_owned(),
-            kind: RefKind::Variable,
-        }),
-        ast::InlineExpression::TermReference { id, arguments, .. } => {
-            refs.push(Ref {
-                name: id.name.to_owned(),
-                kind: RefKind::Term,
-            });
-            if let Some(arguments) = arguments {
-                collect_refs_call_arguments(arguments, refs);
-            }
-        }
-        ast::InlineExpression::FunctionReference { arguments, .. } => {
-            collect_refs_call_arguments(arguments, refs)
-        }
-        ast::InlineExpression::Placeable { expression } => collect_refs_expr(expression, refs),
-        ast::InlineExpression::StringLiteral { .. }
-        | ast::InlineExpression::NumberLiteral { .. }
-        | ast::InlineExpression::MessageReference { .. } => {}
-    }
-}
-
-fn collect_refs_call_arguments(arguments: &ast::CallArguments<&str>, refs: &mut Vec<Ref>) {
-    for arg in &arguments.positional {
-        collect_refs_inline(arg, refs);
-    }
-    for named in &arguments.named {
-        collect_refs_inline(&named.value, refs);
     }
 }
 
@@ -281,9 +245,7 @@ pub fn check_refs(
         .iter()
         .filter(|selector| bool_vars.contains(&selector.variable.as_str()))
     {
-        let mut keys = selector.keys.clone();
-        keys.sort();
-        if keys != ["false", "true"] {
+        if !selector.has_bool_keys() {
             incompatibilities.push(RefsIncompat::BoolSelectorMismatch {
                 variable: selector.variable.clone(),
                 found: selector.keys.clone(),

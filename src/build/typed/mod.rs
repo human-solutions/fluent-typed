@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use crate::build::r#gen::StrExt;
 
-pub use crate::ftl_refs::{Ref, RefKind, Selector, find_refs, find_selectors};
+pub use crate::ftl_refs::{Ref, RefKind, Selector, find_refs_and_selectors};
 pub use type_in_comment::{Annotation, annotation};
 
 #[derive(Debug)]

@@ -100,20 +100,17 @@ fn bool_selector_mistakes(msg: &Message) -> Vec<String> {
     msg.selectors
         .iter()
         .filter(|selector| bool_vars.contains(selector.variable.as_str()))
-        .filter_map(|selector| {
-            let mut keys = selector.keys.clone();
-            keys.sort();
-            (keys != ["false", "true"]).then(|| {
-                format!(
-                    "{}:{}: Boolean selector ${} in {} has keys [{}] — expected \
-                     [true] and [false]",
-                    msg.file,
-                    msg.line,
-                    selector.variable,
-                    msg.id,
-                    selector.keys.join(", "),
-                )
-            })
+        .filter(|selector| !selector.has_bool_keys())
+        .map(|selector| {
+            format!(
+                "{}:{}: Boolean selector ${} in {} has keys [{}] — expected \
+                 [true] and [false]",
+                msg.file,
+                msg.line,
+                selector.variable,
+                msg.id,
+                selector.keys.join(", "),
+            )
         })
         .collect()
 }
