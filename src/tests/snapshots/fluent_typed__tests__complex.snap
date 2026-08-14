@@ -16,6 +16,7 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[MessageContract {
     message: "key",
     attribute: None,
     vars: &["var"],
+    bool_vars: &[],
     elements: &[],
 }];
 

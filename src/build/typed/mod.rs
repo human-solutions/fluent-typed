@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use crate::build::r#gen::StrExt;
 
-pub use crate::ftl_refs::{Ref, RefKind, find_refs};
+pub use crate::ftl_refs::{Ref, RefKind, Selector, find_refs_and_selectors};
 pub use type_in_comment::{Annotation, annotation};
 
 #[derive(Debug)]
@@ -20,6 +20,9 @@ pub struct Message {
     /// document order, derived purely from the AST (independent of comments).
     /// Used for comment-independent cross-locale compatibility checks.
     pub pattern_refs: Vec<Ref>,
+    /// Direct variable selectors and their variant keys, used to validate
+    /// Boolean selector contracts across locales.
+    pub selectors: Vec<Selector>,
     /// The `.ftl` file this message was parsed from (for diagnostics).
     pub file: String,
     /// The 1-based line of the message (or attribute) id.
@@ -41,6 +44,7 @@ impl PartialEq for Message {
             && self.variables == other.variables
             && self.elements == other.elements
             && self.pattern_refs == other.pattern_refs
+            && self.selectors == other.selectors
     }
 }
 
@@ -98,6 +102,7 @@ pub enum VarType {
     Any,
     String,
     Number,
+    Bool,
 }
 
 /// An `(Element)`-annotated split point in a message pattern.

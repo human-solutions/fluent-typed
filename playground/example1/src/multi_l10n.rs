@@ -12,18 +12,21 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[
         message: "language-name",
         attribute: None,
         vars: &[],
+        bool_vars: &[],
         elements: &[],
     },
     MessageContract {
         message: "greeting",
         attribute: None,
         vars: &["gender"],
+        bool_vars: &[],
         elements: &[],
     },
     MessageContract {
         message: "enter-details",
         attribute: None,
         vars: &[],
+        bool_vars: &[],
         elements: &[],
     },
 ];

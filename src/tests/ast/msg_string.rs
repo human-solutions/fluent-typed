@@ -10,6 +10,12 @@ const FTL: &str = r#"
 # $name (String) - The name.
 greeting = Hi { $name }
 
+# $enabled (Bool) - Whether the feature is enabled.
+feature-status = { $enabled ->
+    [true] Enabled
+   *[false] Disabled
+}
+
 "#;
 
 /// From: https://docs.rs/fluent-syntax/0.11.1/fluent_syntax/
@@ -77,6 +83,7 @@ fn typed() {
                 name: "name".to_string(),
                 kind: RefKind::Variable,
             }],
+            selectors: vec![],
             file: String::new(),
             line: 0,
             comment_line: 0,

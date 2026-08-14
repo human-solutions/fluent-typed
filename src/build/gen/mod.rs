@@ -10,7 +10,7 @@ mod message;
 #[allow(dead_code, unused_mut, unused_imports, clippy::derivable_impls)]
 mod template;
 
-use super::typed::ElementKind;
+use super::typed::{ElementKind, VarType};
 use super::{BuildOptions, LangBundle, Message};
 pub use ext::StrExt;
 pub use generated_ftl::GeneratedFtl;
@@ -247,12 +247,13 @@ fn message_contracts(messages: &[&Message]) -> String {
             Some(a) => format!("Some(\"{a}\")"),
             None => "None".to_string(),
         };
-        let vars = msg
-            .variables
-            .iter()
-            .map(|v| format!("\"{}\"", v.id))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let vars = quoted_list(msg.variables.iter().map(|v| v.id.as_str()));
+        let bool_vars = quoted_list(
+            msg.variables
+                .iter()
+                .filter(|v| v.typ == VarType::Bool)
+                .map(|v| v.id.as_str()),
+        );
         let elements = msg
             .elements
             .iter()
@@ -267,11 +268,19 @@ fn message_contracts(messages: &[&Message]) -> String {
             .join(", ");
         format!(
             "    MessageContract {{ message: \"{}\", attribute: {attribute}, \
-             vars: &[{vars}], elements: &[{elements}] }},",
+             vars: &[{vars}], bool_vars: &[{bool_vars}], elements: &[{elements}] }},",
             msg.id.message
         )
     });
     format!("static MESSAGE_CONTRACTS: &[MessageContract] = &[\n{entries}\n];")
+}
+
+fn quoted_list<'a>(items: impl IntoIterator<Item = &'a str>) -> String {
+    items
+        .into_iter()
+        .map(|item| format!("\"{item}\""))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn collect<T, F: Fn(T) -> String>(vals: impl Iterator<Item = T>, f: F) -> String {

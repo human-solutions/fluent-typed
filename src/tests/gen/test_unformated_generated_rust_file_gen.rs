@@ -9,8 +9,8 @@ use std::{
 
 static LANG_DATA: &[u8] = include_bytes!("test_unformated_generated_rust_file.ftl");
 static MESSAGE_CONTRACTS: &[MessageContract] = &[
-    MessageContract { message: "short-key", attribute: None, vars: &[], elements: &[] },
-    MessageContract { message: "some-really-long-long-long-long-long-long-long-long-long-long-key", attribute: None, vars: &[], elements: &[] },
+    MessageContract { message: "short-key", attribute: None, vars: &[], bool_vars: &[], elements: &[] },
+    MessageContract { message: "some-really-long-long-long-long-long-long-long-long-long-long-key", attribute: None, vars: &[], bool_vars: &[], elements: &[] },
 ];
 
 static ALL_LANGS: [L10n; 2] = [
