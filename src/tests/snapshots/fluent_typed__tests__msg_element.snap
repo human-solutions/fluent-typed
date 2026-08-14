@@ -16,6 +16,7 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[MessageContract {
     message: "calendar-sync-description",
     attribute: None,
     vars: &["num", "provider"],
+    bool_vars: &[],
     elements: &[
         ElementContract {
             name: "icon",

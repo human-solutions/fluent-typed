@@ -93,6 +93,10 @@ fn typed() {
                 name: "var".to_string(),
                 kind: RefKind::Variable,
             }],
+            selectors: vec![Selector {
+                variable: "var".to_string(),
+                keys: vec!["key1".to_string(), "other".to_string()],
+            }],
             file: String::new(),
             line: 0,
             comment_line: 0,

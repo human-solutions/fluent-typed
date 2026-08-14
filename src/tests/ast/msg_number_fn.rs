@@ -67,6 +67,7 @@ fn typed() {
                 name: "ratio".to_string(),
                 kind: RefKind::Variable,
             }],
+            selectors: vec![],
             file: String::new(),
             line: 0,
             comment_line: 0,
@@ -113,6 +114,7 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
             elements: vec![],
             // `$pos` in the selector and in each of the four variant bodies.
             pattern_refs: vec![pos_ref(), pos_ref(), pos_ref(), pos_ref(), pos_ref(),],
+            selectors: vec![],
             file: String::new(),
             line: 0,
             comment_line: 0,
@@ -160,6 +162,10 @@ status = { $state ->
                     kind: RefKind::Variable,
                 },
             ],
+            selectors: vec![Selector {
+                variable: "state".to_string(),
+                keys: vec!["active".to_string(), "inactive".to_string()],
+            }],
             file: String::new(),
             line: 0,
             comment_line: 0,

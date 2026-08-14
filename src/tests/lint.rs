@@ -42,7 +42,7 @@ fn l1_unrecognized_keyword() {
         lints.mistakes,
         [
             "main.ftl:1: unrecognized type annotation '(Numbr)' for $count — \
-          expected (String), (Number) or (Element)"
+          expected (String), (Number), (Bool) or (Element)"
         ],
     );
 }
@@ -118,7 +118,7 @@ fn strict_rejects_an_untyped_variable() {
             messages,
             [
                 "test:1: variable $name in message 'hello' has no type — add a \
-              '# $name (String)' or '# $name (Number)' comment"
+              '# $name (String)', '# $name (Number)' or '# $name (Bool)' comment"
             ],
         ),
         other => panic!("expected BuildError::Lint, got {other:?}"),
@@ -133,6 +133,60 @@ fn strict_accepts_a_fully_typed_message() {
         "# $name (String) - the name\nhello = Hello { $name }\n",
     )
     .expect("a fully typed message must pass strict mode");
+}
+
+#[test]
+fn strict_accepts_a_bool_variable() {
+    build_at(
+        "bool",
+        LintLevel::Strict,
+        "# $enabled (Bool) - feature state\nfeature = { $enabled ->\n    [true] On\n   *[false] Off\n}\n",
+    )
+    .expect("a Boolean variable must count as typed");
+}
+
+#[test]
+fn bool_selector_requires_true_and_false_keys() {
+    let lints = lints_of(
+        "# $enabled (Bool) - feature state\nfeature = { $enabled ->\n    [yes] On\n   *[no] Off\n}\n",
+    );
+    assert_eq!(
+        lints.mistakes,
+        [
+            "main.ftl:2: Boolean selector $enabled in message 'feature' has keys \
+             [yes, no] — expected [true] and [false]"
+        ],
+    );
+}
+
+#[test]
+fn invalid_default_bool_selector_fails_at_warn_level() {
+    let err = build_at(
+        "bool-keys-warn",
+        LintLevel::Warn,
+        "# $enabled (Bool) - feature state\nfeature = { $enabled ->\n    [yes] On\n   *[no] Off\n}\n",
+    )
+    .expect_err("invalid Boolean contract must fail independently of lint level");
+    match err {
+        BuildError::InvalidContract { messages } => assert_eq!(
+            messages,
+            [
+                "test:2: Boolean selector $enabled in message 'feature' has keys [yes, no] — expected [true] and [false]"
+            ],
+        ),
+        other => panic!("expected BuildError::InvalidContract, got {other:?}"),
+    }
+}
+
+#[test]
+fn directly_interpolated_default_bool_fails_the_build() {
+    let err = build_at(
+        "bool-direct",
+        LintLevel::Off,
+        "# $enabled (Bool) - feature state\nfeature = Feature: { $enabled }\n",
+    )
+    .expect_err("direct Boolean interpolation must fail even with linting off");
+    assert!(matches!(err, BuildError::InvalidContract { .. }), "{err:?}");
 }
 
 #[test]
@@ -214,7 +268,7 @@ fn the_untyped_error_points_at_the_message_line() {
             messages,
             [
                 "test:4: variable $name in message 'hello' has no type — add a \
-              '# $name (String)' or '# $name (Number)' comment"
+              '# $name (String)', '# $name (Number)' or '# $name (Bool)' comment"
             ],
         ),
         other => panic!("expected BuildError::Lint, got {other:?}"),
@@ -292,8 +346,8 @@ fn an_extra_variable_in_another_locale_drops_the_message() {
     assert_eq!(
         analyzed.warnings,
         [
-            "en.ftl:1: message 'hello' is not generated — incompatible variables or \
-          elements in locale(s): fr (fr.ftl:1)"
+            "en.ftl:1: message 'hello' is not generated — incompatible variables, \
+          Boolean selectors or elements in locale(s): fr (fr.ftl:1)"
         ],
     );
 }
@@ -313,6 +367,45 @@ fn a_message_missing_from_the_default_locale_is_reported() {
           from the default locale 'en'"
         ],
     );
+}
+
+#[test]
+fn invalid_bool_selector_in_another_locale_drops_the_message() {
+    let langs = vec![
+        bundle(
+            "# $enabled (Bool) - state\nfeature = { $enabled ->\n    [true] On\n   *[false] Off\n}\n",
+            "en.ftl",
+            "en",
+        ),
+        bundle(
+            "feature = { $enabled ->\n    [yes] Oui\n   *[no] Non\n}\n",
+            "fr.ftl",
+            "fr",
+        ),
+    ];
+    let analyzed = Analyzed::from(&langs, &langs[0]);
+    assert!(!analyzed.common.contains(&Id::new_msg("feature")));
+    assert_eq!(analyzed.warnings.len(), 1, "{:?}", analyzed.warnings);
+    assert!(
+        analyzed.warnings[0].contains("Boolean selectors"),
+        "{:?}",
+        analyzed.warnings
+    );
+}
+
+#[test]
+fn directly_interpolated_bool_in_another_locale_drops_the_message() {
+    let langs = vec![
+        bundle(
+            "# $enabled (Bool) - state\nfeature = { $enabled ->\n    [true] On\n   *[false] Off\n}\n",
+            "en.ftl",
+            "en",
+        ),
+        bundle("feature = Fonction : { $enabled }\n", "fr.ftl", "fr"),
+    ];
+    let analyzed = Analyzed::from(&langs, &langs[0]);
+    assert!(!analyzed.common.contains(&Id::new_msg("feature")));
+    assert_eq!(analyzed.warnings.len(), 1, "{:?}", analyzed.warnings);
 }
 
 #[test]
@@ -404,6 +497,30 @@ fn a_prose_parenthetical_is_not_flagged_as_a_typo() {
     // linter must leave it alone (it would otherwise fail Deny/Strict builds).
     let lints = lints_of("# $name (required) - the user's name\nhello = Hi { $name }\n");
     assert!(lints.mistakes.is_empty(), "{:?}", lints.mistakes);
+}
+
+#[test]
+fn lowercase_bool_prose_remains_backward_compatible() {
+    build_at(
+        "lowercase-bool-prose",
+        LintLevel::Deny,
+        "# $flag (bool) - whether the banner is shown\nbanner = { $flag }\n",
+    )
+    .expect("pre-existing lowercase bool prose must remain inert under Deny");
+}
+
+#[test]
+fn boolean_and_bol_are_reported_as_bool_annotation_typos() {
+    for keyword in ["Boolean", "Bol"] {
+        let ftl = format!("# $enabled ({keyword})\nfeature = {{ $enabled }}\n");
+        let lints = lints_of(&ftl);
+        assert_eq!(lints.mistakes.len(), 1, "{keyword}: {:?}", lints.mistakes);
+        assert!(
+            lints.mistakes[0].contains(&format!("unrecognized type annotation '({keyword})'")),
+            "{keyword}: {:?}",
+            lints.mistakes,
+        );
+    }
 }
 
 #[test]

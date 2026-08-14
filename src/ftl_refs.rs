@@ -7,6 +7,8 @@
 //! guarantees the two checks cannot drift apart: an external translation is
 //! held to exactly the rules a build-time locale is held to.
 
+use std::collections::HashSet;
+
 use fluent_syntax::ast;
 
 /// A `$variable` or `-term` reference in a message pattern.
@@ -22,68 +24,122 @@ pub enum RefKind {
     Term,
 }
 
+/// A select expression driven directly by a `$variable`.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Selector {
+    pub variable: String,
+    pub keys: Vec<String>,
+}
+
+impl Selector {
+    /// Whether this selector exposes exactly the two keys accepted by a
+    /// Boolean argument's `"true"` / `"false"` string encoding.
+    pub fn has_bool_keys(&self) -> bool {
+        self.keys.len() == 2
+            && self.keys.iter().any(|key| key == "true")
+            && self.keys.iter().any(|key| key == "false")
+    }
+}
+
 /// Collect every `$variable` and `-term` reference in a pattern, in document
 /// order, **independent of comments**. Walks selects (selector and every
 /// variant body), call arguments and nested placeables. The result is
 /// intentionally not deduplicated, so a repeated reference (e.g. the same
 /// `(Element)` used twice) is preserved.
 pub fn find_refs(pattern: &ast::Pattern<&str>) -> Vec<Ref> {
-    let mut refs = Vec::new();
-    collect_refs_pattern(pattern, &mut refs);
-    refs
+    find_refs_and_selectors(pattern).0
 }
 
-fn collect_refs_pattern(pattern: &ast::Pattern<&str>, refs: &mut Vec<Ref>) {
-    for element in &pattern.elements {
-        if let ast::PatternElement::Placeable { expression } = element {
-            collect_refs_expr(expression, refs);
-        }
-    }
+/// Collect references and selectors in one AST traversal. Callers needing
+/// both should use this instead of walking the same pattern twice.
+pub fn find_refs_and_selectors(pattern: &ast::Pattern<&str>) -> (Vec<Ref>, Vec<Selector>) {
+    let mut collector = Collector::default();
+    collector.pattern(pattern);
+    (collector.refs, collector.selectors)
 }
 
-fn collect_refs_expr(expression: &ast::Expression<&str>, refs: &mut Vec<Ref>) {
-    match expression {
-        ast::Expression::Inline(inline) => collect_refs_inline(inline, refs),
-        ast::Expression::Select { selector, variants } => {
-            collect_refs_inline(selector, refs);
-            for variant in variants {
-                collect_refs_pattern(&variant.value, refs);
+#[derive(Default)]
+struct Collector {
+    refs: Vec<Ref>,
+    selectors: Vec<Selector>,
+}
+
+impl Collector {
+    fn pattern(&mut self, pattern: &ast::Pattern<&str>) {
+        for element in &pattern.elements {
+            if let ast::PatternElement::Placeable { expression } = element {
+                self.expression(expression);
             }
         }
     }
-}
 
-fn collect_refs_inline(inline: &ast::InlineExpression<&str>, refs: &mut Vec<Ref>) {
-    match inline {
-        ast::InlineExpression::VariableReference { id } => refs.push(Ref {
-            name: id.name.to_owned(),
-            kind: RefKind::Variable,
-        }),
-        ast::InlineExpression::TermReference { id, arguments, .. } => {
-            refs.push(Ref {
+    fn expression(&mut self, expression: &ast::Expression<&str>) {
+        match expression {
+            ast::Expression::Inline(inline) => self.inline(inline),
+            ast::Expression::Select { selector, variants } => {
+                if let Some(variable) = selector_variable(selector) {
+                    self.selectors.push(Selector {
+                        variable: variable.to_owned(),
+                        keys: variants
+                            .iter()
+                            .map(|variant| match variant.key {
+                                ast::VariantKey::Identifier { name } => name.to_owned(),
+                                ast::VariantKey::NumberLiteral { value } => value.to_owned(),
+                            })
+                            .collect(),
+                    });
+                }
+                self.inline(selector);
+                for variant in variants {
+                    self.pattern(&variant.value);
+                }
+            }
+        }
+    }
+
+    fn inline(&mut self, inline: &ast::InlineExpression<&str>) {
+        match inline {
+            ast::InlineExpression::VariableReference { id } => self.refs.push(Ref {
                 name: id.name.to_owned(),
-                kind: RefKind::Term,
-            });
-            if let Some(arguments) = arguments {
-                collect_refs_call_arguments(arguments, refs);
+                kind: RefKind::Variable,
+            }),
+            ast::InlineExpression::TermReference { id, arguments, .. } => {
+                self.refs.push(Ref {
+                    name: id.name.to_owned(),
+                    kind: RefKind::Term,
+                });
+                if let Some(arguments) = arguments {
+                    self.call_arguments(arguments);
+                }
             }
+            ast::InlineExpression::FunctionReference { arguments, .. } => {
+                self.call_arguments(arguments)
+            }
+            ast::InlineExpression::Placeable { expression } => self.expression(expression),
+            ast::InlineExpression::StringLiteral { .. }
+            | ast::InlineExpression::NumberLiteral { .. }
+            | ast::InlineExpression::MessageReference { .. } => {}
         }
-        ast::InlineExpression::FunctionReference { arguments, .. } => {
-            collect_refs_call_arguments(arguments, refs)
+    }
+
+    fn call_arguments(&mut self, arguments: &ast::CallArguments<&str>) {
+        for positional in &arguments.positional {
+            self.inline(positional);
         }
-        ast::InlineExpression::Placeable { expression } => collect_refs_expr(expression, refs),
-        ast::InlineExpression::StringLiteral { .. }
-        | ast::InlineExpression::NumberLiteral { .. }
-        | ast::InlineExpression::MessageReference { .. } => {}
+        for named in &arguments.named {
+            self.inline(&named.value);
+        }
     }
 }
 
-fn collect_refs_call_arguments(arguments: &ast::CallArguments<&str>, refs: &mut Vec<Ref>) {
-    for arg in &arguments.positional {
-        collect_refs_inline(arg, refs);
-    }
-    for named in &arguments.named {
-        collect_refs_inline(&named.value, refs);
+fn selector_variable<'a>(inline: &'a ast::InlineExpression<&'a str>) -> Option<&'a str> {
+    match inline {
+        ast::InlineExpression::VariableReference { id } => Some(id.name),
+        ast::InlineExpression::Placeable { expression } => match expression.as_ref() {
+            ast::Expression::Inline(inline) => selector_variable(inline),
+            ast::Expression::Select { .. } => None,
+        },
+        _ => None,
     }
 }
 
@@ -99,6 +155,15 @@ pub enum RefsIncompat {
         expected: Vec<(String, RefKind)>,
         found: Vec<(String, RefKind)>,
     },
+    /// A Boolean variable drives a selector without exactly the `true` and
+    /// `false` keys expected by its string encoding.
+    BoolSelectorMismatch {
+        variable: String,
+        found: Vec<String>,
+    },
+    /// A Boolean variable is referenced outside a select expression. Its
+    /// string encoding would otherwise render as an untranslated literal.
+    BoolReferenceOutsideSelector { variable: String },
 }
 
 /// Check a candidate pattern's references against a message contract.
@@ -114,9 +179,13 @@ pub enum RefsIncompat {
 /// that the runtime segment split produces the same slots.
 pub fn check_refs(
     vars: &[&str],
+    bool_vars: &[&str],
     elements: &[(&str, RefKind)],
     refs: &[Ref],
-) -> Result<(), RefsIncompat> {
+    selectors: &[Selector],
+) -> Result<(), Vec<RefsIncompat>> {
+    let mut incompatibilities = Vec::new();
+
     if !elements.is_empty() {
         let element_names: Vec<&str> = elements.iter().map(|(n, _)| *n).collect();
         let found: Vec<(String, RefKind)> = refs
@@ -127,28 +196,66 @@ pub fn check_refs(
         let expected: Vec<(String, RefKind)> =
             elements.iter().map(|(n, k)| (n.to_string(), *k)).collect();
         if expected != found {
-            return Err(RefsIncompat::ElementMismatch { expected, found });
+            incompatibilities.push(RefsIncompat::ElementMismatch { expected, found });
         }
         // Non-element variables fall through to the argument check below.
+        let mut unknown = HashSet::new();
         for r in refs {
             if r.kind == RefKind::Variable
                 && !element_names.contains(&r.name.as_str())
                 && !vars.contains(&r.name.as_str())
+                && unknown.insert(r.name.as_str())
             {
-                return Err(RefsIncompat::UnknownVariable {
+                incompatibilities.push(RefsIncompat::UnknownVariable {
                     variable: r.name.clone(),
                 });
             }
         }
-        return Ok(());
+    } else {
+        let mut unknown = HashSet::new();
+        for r in refs {
+            if r.kind == RefKind::Variable
+                && !vars.contains(&r.name.as_str())
+                && unknown.insert(r.name.as_str())
+            {
+                incompatibilities.push(RefsIncompat::UnknownVariable {
+                    variable: r.name.clone(),
+                });
+            }
+        }
     }
 
-    for r in refs {
-        if r.kind == RefKind::Variable && !vars.contains(&r.name.as_str()) {
-            return Err(RefsIncompat::UnknownVariable {
-                variable: r.name.clone(),
+    for variable in bool_vars {
+        let reference_count = refs
+            .iter()
+            .filter(|r| r.kind == RefKind::Variable && r.name == *variable)
+            .count();
+        let selector_count = selectors
+            .iter()
+            .filter(|selector| selector.variable == *variable)
+            .count();
+        if reference_count != selector_count {
+            incompatibilities.push(RefsIncompat::BoolReferenceOutsideSelector {
+                variable: (*variable).to_owned(),
             });
         }
     }
-    Ok(())
+
+    for selector in selectors
+        .iter()
+        .filter(|selector| bool_vars.contains(&selector.variable.as_str()))
+    {
+        if !selector.has_bool_keys() {
+            incompatibilities.push(RefsIncompat::BoolSelectorMismatch {
+                variable: selector.variable.clone(),
+                found: selector.keys.clone(),
+            });
+        }
+    }
+
+    if incompatibilities.is_empty() {
+        Ok(())
+    } else {
+        Err(incompatibilities)
+    }
 }

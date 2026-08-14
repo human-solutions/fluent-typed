@@ -278,6 +278,24 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
 }
 ```
 
+- Bool:
+  - If a variable's comment contains `(Bool)`, as in
+    `# $enabled (Bool) - Whether the feature is enabled.`
+  - Generated accessors accept Rust `bool`. Values are encoded for Fluent as
+    the strings `true` and `false`, so Boolean selectors must contain exactly
+    `[true]` and `[false]` variants:
+
+```text
+# $enabled (Bool) - Whether the feature is enabled.
+feature-status = { $enabled ->
+    [true] Enabled
+   *[false] Disabled
+}
+```
+
+Boolean types are explicit only. A selector with `true` and `false` keys but
+no `(Bool)` comment remains an untyped string selector.
+
 ## Linting
 
 Because argument types come from message comments, a mistake in a comment would
@@ -297,7 +315,7 @@ and reports the `.ftl` file and line of each:
 - `LintLevel::Deny` — comment mistakes in the default locale become hard build
   errors. An untyped variable is still allowed.
 - `LintLevel::Strict` — like `Deny`, and additionally every variable of every
-  generated message must resolve to a concrete type (via a `(String)`/`(Number)`
+  generated message must resolve to a concrete type (via a `(String)`/`(Number)`/`(Bool)`
   comment, a `NUMBER()` call or a plural selector). An untyped variable fails
   the build.
 

@@ -2,12 +2,13 @@ use super::{VarType, Variable};
 
 /// Type and `(Element)` annotations extracted from a message comment.
 ///
-/// `(String)` / `(Number)` apply to `$variable`s; `(Element)` applies to either
+/// `(String)` / `(Number)` / `(Bool)` apply to `$variable`s; `(Element)` applies to either
 /// a `$variable` (a positional gap) or a `-term` (translatable wrapped text).
 #[derive(Debug, PartialEq, Default)]
 pub struct TypeInComment {
     string: Vec<String>,
     number: Vec<String>,
+    bool_: Vec<String>,
     element_vars: Vec<String>,
     element_terms: Vec<String>,
 }
@@ -20,6 +21,7 @@ impl TypeInComment {
             match parse_line(line) {
                 Found::String(s) => tic.string.push(s.to_owned()),
                 Found::Number(n) => tic.number.push(n.to_owned()),
+                Found::Bool(b) => tic.bool_.push(b.to_owned()),
                 Found::ElementVar(v) => tic.element_vars.push(v.to_owned()),
                 Found::ElementTerm(t) => tic.element_terms.push(t.to_owned()),
                 Found::Nothing => {}
@@ -34,6 +36,8 @@ impl TypeInComment {
                 variable.typ = VarType::String;
             } else if self.number.contains(&variable.id) {
                 variable.typ = VarType::Number;
+            } else if self.bool_.contains(&variable.id) {
+                variable.typ = VarType::Bool;
             }
         }
     }
@@ -66,12 +70,12 @@ pub struct Annotation<'a> {
 
 impl Annotation<'_> {
     /// `true` when this annotation is one fluent-typed actually acts on:
-    /// `(Element)` on a variable or term, or `(String)`/`(Number)` on a
+    /// `(Element)` on a variable or term, or `(String)`/`(Number)`/`(Bool)` on a
     /// variable. Anything else (a typo, `(String)` on a term, …) is inert.
     pub fn is_recognized(&self) -> bool {
         match self.keyword {
             "Element" => true,
-            "String" | "Number" => !self.is_term,
+            "String" | "Number" | "Bool" => !self.is_term,
             _ => false,
         }
     }
@@ -93,10 +97,24 @@ impl Annotation<'_> {
 }
 
 /// Whether `keyword` is close enough to a real type keyword (`String`,
-/// `Number`, `Element`) to be a typo of it rather than ordinary prose.
+/// `Number`, `Bool`, `Element`) to be a typo of it rather than ordinary prose.
 /// Case-insensitive, Levenshtein distance up to 2.
 fn looks_like_keyword(keyword: &str) -> bool {
-    let kw = keyword.trim().to_ascii_lowercase();
+    let keyword = keyword.trim();
+    let kw = keyword.to_ascii_lowercase();
+
+    // Fuzzy matching is too broad for a four-letter keyword: ordinary prose
+    // such as `(bold)`, `(cool)` and `(tool)` is within two edits of `Bool`.
+    // Keep lowercase `(bool)` inert for backward compatibility: before Bool
+    // annotations existed, it was ordinary prose. Catch only narrow, likely
+    // annotation spellings without pulling nearby English words into linting.
+    if kw == "bool" {
+        return false;
+    }
+    if kw == "boolean" || kw == "bol" {
+        return true;
+    }
+
     ["string", "number", "element"]
         .iter()
         .any(|target| edit_distance_within(&kw, target, 2))
@@ -159,6 +177,7 @@ pub fn annotation(line: &str) -> Option<Annotation<'_>> {
 enum Found<'a> {
     String(&'a str),
     Number(&'a str),
+    Bool(&'a str),
     ElementVar(&'a str),
     ElementTerm(&'a str),
     Nothing,
@@ -173,6 +192,7 @@ fn parse_line(line: &str) -> Found<'_> {
         "Element" => Found::ElementVar(a.name),
         "Number" if !a.is_term => Found::Number(a.name),
         "String" if !a.is_term => Found::String(a.name),
+        "Bool" if !a.is_term => Found::Bool(a.name),
         _ => Found::Nothing,
     }
 }
@@ -187,6 +207,23 @@ fn test_number() {
         TypeInComment {
             string: vec![],
             number: vec!["duration".to_string()],
+            bool_: vec![],
+            element_vars: vec![],
+            element_terms: vec![],
+        }
+    );
+}
+
+#[test]
+fn test_bool() {
+    let tic = TypeInComment::parse(&["$enabled (Bool) - Whether enabled.".to_owned()]);
+
+    assert_eq!(
+        tic,
+        TypeInComment {
+            string: vec![],
+            number: vec![],
+            bool_: vec!["enabled".to_string()],
             element_vars: vec![],
             element_terms: vec![],
         }
@@ -237,6 +274,24 @@ fn test_annotation_shape_and_recognition() {
         assert!(!a.is_recognized(), "{prose}");
         assert!(!a.is_type_annotation(), "{prose}");
     }
+
+    // Short ordinary words must not become Bool typos. Fuzzy matching four
+    // letters produces too many false positives.
+    for prose in ["$label (bold)", "$state (cool)", "$tool (tool)"] {
+        let a = annotation(prose).unwrap();
+        assert!(!a.is_type_annotation(), "{prose}");
+    }
+
+    // Lowercase `(bool)` predates Bool annotations and remains inert prose.
+    assert!(!annotation("$enabled (bool)").unwrap().is_type_annotation());
+
+    // Natural long-form and narrow near-miss spellings are caught.
+    assert!(
+        annotation("$enabled (Boolean)")
+            .unwrap()
+            .is_type_annotation()
+    );
+    assert!(annotation("$enabled (Bol)").unwrap().is_type_annotation());
 
     // Plain prose is not annotation-shaped at all.
     assert!(annotation("$name - the user's name").is_none());

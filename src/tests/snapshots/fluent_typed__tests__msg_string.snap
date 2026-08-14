@@ -12,12 +12,22 @@ use std::{
 };
 
 static LANG_DATA: &[u8] = include_bytes!("msg_string_gen.ftl");
-static MESSAGE_CONTRACTS: &[MessageContract] = &[MessageContract {
-    message: "greeting",
-    attribute: None,
-    vars: &["name"],
-    elements: &[],
-}];
+static MESSAGE_CONTRACTS: &[MessageContract] = &[
+    MessageContract {
+        message: "greeting",
+        attribute: None,
+        vars: &["name"],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "feature-status",
+        attribute: None,
+        vars: &["enabled"],
+        bool_vars: &["enabled"],
+        elements: &[],
+    },
+];
 
 static ALL_LANGS: [L10n; 1] = [
     // languages as an array
@@ -92,7 +102,7 @@ impl L10n {
 
     fn byte_range(&self) -> Range<usize> {
         match self {
-            Self::En => 0..56,
+            Self::En => 0..182,
         }
     }
     /// Load a L10nLanguage from the embedded data.
@@ -150,5 +160,11 @@ impl L10nLanguage {
         let mut args = FluentArgs::new();
         args.set("name", name.as_ref());
         self.0.msg("greeting", Some(args)).unwrap()
+    }
+    /// $enabled (Bool) - Whether the feature is enabled.
+    pub fn msg_feature_status(&self, enabled: bool) -> String {
+        let mut args = FluentArgs::new();
+        args.set("enabled", if enabled { "true" } else { "false" });
+        self.0.msg("feature-status", Some(args)).unwrap()
     }
 }

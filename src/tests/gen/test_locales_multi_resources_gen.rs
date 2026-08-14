@@ -13,12 +13,14 @@ static MESSAGE_CONTRACTS: &[MessageContract] = &[
         message: "greeting",
         attribute: None,
         vars: &[],
+        bool_vars: &[],
         elements: &[],
     },
     MessageContract {
         message: "twenty-four-hour",
         attribute: None,
         vars: &[],
+        bool_vars: &[],
         elements: &[],
     },
 ];

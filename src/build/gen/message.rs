@@ -8,7 +8,8 @@ impl Message {
         } else {
             let ArgInfo { generic, arg } = args_declaration(variables);
             let lt = lifetime(variables);
-            format!(r"    pub fn {func_name}<{lt}{generic}>(&self, {arg}) -> String")
+            let generics = generic_params(lt, &generic);
+            format!(r"    pub fn {func_name}{generics}(&self, {arg}) -> String")
         }
     }
 
@@ -184,7 +185,8 @@ impl ::core::fmt::Display for {struct_name} {{
         } else {
             let ArgInfo { generic, arg } = args_declaration(&self.variables);
             let lt = lifetime(&self.variables);
-            format!("    pub fn {func_name}<{lt}{generic}>(&self, {arg}) -> {struct_name}")
+            let generics = generic_params(lt, &generic);
+            format!("    pub fn {func_name}{generics}(&self, {arg}) -> {struct_name}")
         };
 
         let args_setup = if self.variables.is_empty() {
@@ -251,6 +253,17 @@ fn lifetime(vars: &[Variable]) -> &'static str {
     }
 }
 
+fn generic_params(lifetime: &str, generics: &str) -> String {
+    let params = format!("{lifetime}{generics}")
+        .trim_end_matches(", ")
+        .to_string();
+    if params.is_empty() {
+        String::new()
+    } else {
+        format!("<{params}>")
+    }
+}
+
 fn args_declaration(vars: &[Variable]) -> ArgInfo {
     let mut generics = vec![];
     let mut args = vec![];
@@ -259,7 +272,9 @@ fn args_declaration(vars: &[Variable]) -> ArgInfo {
         let Some(ArgInfo { generic, arg }) = ArgInfo::new(num, var) else {
             continue;
         };
-        generics.push(generic);
+        if !generic.is_empty() {
+            generics.push(generic);
+        }
         args.push(arg);
     }
     if args.is_empty() {
@@ -283,6 +298,9 @@ fn args_impl(vars: &[Variable]) -> String {
             VarType::Any => format!(r#"        args.set("{name}", {id});"#),
             VarType::String => format!(r#"        args.set("{name}", {id}.as_ref());"#),
             VarType::Number => format!(r#"        args.set("{name}", {id}.into());"#),
+            VarType::Bool => {
+                format!(r#"        args.set("{name}", if {id} {{ "true" }} else {{ "false" }});"#)
+            }
         };
         impls.push(impl_);
     }
@@ -301,8 +319,12 @@ impl ArgInfo {
             VarType::Any => format!("F{num}: Into<FluentValue<'a>>"),
             VarType::String => format!("F{num}: AsRef<str>"),
             VarType::Number => format!("F{num}: Into<FluentNumber>"),
+            VarType::Bool => String::new(),
         };
-        let arg = format!("{}: F{num}", var.id.rust_id());
+        let arg = match var.typ {
+            VarType::Bool => format!("{}: bool", var.id.rust_id()),
+            _ => format!("{}: F{num}", var.id.rust_id()),
+        };
         Some(Self { generic, arg })
     }
 }
@@ -348,4 +370,63 @@ fn quoted_element_names(elements: &[ElementMarker], kind: ElementKind) -> String
         .map(|m| format!("\"{}\"", m.name))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::build::typed::Id;
+
+    fn message(variables: Vec<Variable>) -> Message {
+        Message {
+            id: Id::new_msg("feature-status"),
+            comment: vec!["$enabled (Bool) - feature state".to_string()],
+            variables,
+            elements: vec![],
+            pattern_refs: vec![],
+            selectors: vec![],
+            file: String::new(),
+            line: 0,
+            comment_line: 0,
+        }
+    }
+
+    #[test]
+    fn bool_argument_has_exact_type_and_string_encoding() {
+        let source = message(vec![Variable {
+            id: "enabled".to_string(),
+            typ: VarType::Bool,
+        }])
+        .implementations("");
+
+        assert!(
+            source.contains("pub fn feature_status(&self, enabled: bool) -> String"),
+            "{source}"
+        );
+        assert!(
+            source.contains("args.set(\"enabled\", if enabled { \"true\" } else { \"false\" });"),
+            "{source}"
+        );
+    }
+
+    #[test]
+    fn bool_and_generic_arguments_share_a_valid_signature() {
+        let source = message(vec![
+            Variable {
+                id: "enabled".to_string(),
+                typ: VarType::Bool,
+            },
+            Variable {
+                id: "name".to_string(),
+                typ: VarType::String,
+            },
+        ])
+        .implementations("");
+
+        assert!(
+            source
+                .contains("pub fn feature_status<F1: AsRef<str>>(&self, enabled: bool, name: F1)"),
+            "{source}"
+        );
+    }
 }
