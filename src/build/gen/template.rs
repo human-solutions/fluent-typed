@@ -83,6 +83,12 @@ impl L10nLanguage {
         Ok(Self(L10nBundle::new(lang, bytes)?)) // <<placeholder l10n bundle new>>
     }
 
+    /// Like [`Self::new`], but takes ownership of the `.ftl` bytes, so a
+    /// buffer that was just read or decompressed is reused instead of copied.
+    pub fn new_owned(lang: impl AsRef<str>, bytes: Vec<u8>) -> Result<Self, L10nError> {
+        Ok(Self(L10nBundle::new_owned(lang, bytes)?)) // <<placeholder l10n bundle new owned>>
+    }
+
     /// Load external `.ftl` bytes — read from disk, downloaded, etc. — after
     /// validating them against the message contract compiled into this API.
     ///
@@ -98,6 +104,13 @@ impl L10nLanguage {
     pub fn new_external(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
         validate_ftl(bytes, MESSAGE_CONTRACTS)?;
         Self::new(lang, bytes)
+    }
+
+    /// Like [`Self::new_external`], but takes ownership of the `.ftl` bytes,
+    /// e.g. straight from `std::fs::read`, instead of copying them.
+    pub fn new_external_owned(lang: impl AsRef<str>, bytes: Vec<u8>) -> Result<Self, L10nError> {
+        validate_ftl(&bytes, MESSAGE_CONTRACTS)?;
+        Self::new_owned(lang, bytes)
     }
 
     // <<message implementations>>
