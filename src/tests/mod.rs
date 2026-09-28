@@ -338,6 +338,10 @@ fn without_bidi_isolation_generates_non_isolating_calls() {
         "expected the non-isolating bundle constructor"
     );
     assert!(
+        generated.contains("L10nBundle::new_owned_without_isolation(lang, bytes)"),
+        "expected the non-isolating owned bundle constructor"
+    );
+    assert!(
         generated.contains("L10nLanguageVec::load_without_isolation("),
         "expected the non-isolating vec loader"
     );

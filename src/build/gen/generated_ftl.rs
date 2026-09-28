@@ -64,15 +64,14 @@ impl GeneratedFtl {
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
-        L10nLanguage::new(self, &bytes)
+        L10nLanguage::new_owned(self, bytes)
     }
 "#
         } else {
             r#"
     /// Load a L10nLanguage from the embedded data.
     pub fn load(&self) -> L10nLanguage {
-        let bytes = LANG_DATA[self.byte_range()].to_vec();
-        L10nLanguage::new(self, &bytes)
+        L10nLanguage::new(self, &LANG_DATA[self.byte_range()])
             .expect("fluent-typed: the embedded .ftl could not be loaded. This is a build-time bug; please report it.")
     }
 "#

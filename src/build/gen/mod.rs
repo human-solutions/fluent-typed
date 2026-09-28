@@ -207,6 +207,16 @@ static ALL_LANGS: [L10n; {}] = [
     };
     replacements.push(("<<placeholder l10n bundle new>>", l10n_bundle_new));
 
+    let l10n_bundle_new_owned = if options.use_isolating {
+        "        Ok(Self(L10nBundle::new_owned(lang, bytes)?))".to_string()
+    } else {
+        "        Ok(Self(L10nBundle::new_owned_without_isolation(lang, bytes)?))".to_string()
+    };
+    replacements.push((
+        "<<placeholder l10n bundle new owned>>",
+        l10n_bundle_new_owned,
+    ));
+
     // ///////////////////////////
     let impls = collect(messages.iter(), |msg| msg.implementations(&options.prefix));
     replacements.push(("<<message implementations>>", impls));

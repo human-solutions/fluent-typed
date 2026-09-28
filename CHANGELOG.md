@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Owned-input constructors that take the `.ftl` buffer by value instead of
+  copying it (#43): `L10nBundle::new_owned` /
+  `L10nBundle::new_owned_without_isolation`, and the generated
+  `L10nLanguage::new_owned` / `L10nLanguage::new_external_owned`. The existing
+  `&[u8]` constructors are unchanged.
+
+### Changed
+- Fewer copies of the `.ftl` text when loading: the generated compressed
+  `load(decompressor)` hands the decompressed buffer over instead of copying
+  it, the uncompressed `load()` no longer makes a throwaway copy of the
+  embedded bytes, and `validate_ftl` borrows its input instead of copying it.
+  Validation behavior is unchanged; regenerate the generated file to pick up
+  the new constructors.
+
 ## 0.9.0
 
 ### Added

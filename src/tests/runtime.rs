@@ -50,6 +50,35 @@ fn msg_with_variable_without_isolation() {
 }
 
 #[test]
+fn owned_constructors_match_borrowed() {
+    let args = || {
+        let mut args = FluentArgs::new();
+        args.set("name", "world");
+        Some(args)
+    };
+    let isolated = L10nBundle::new_owned("en", FTL.as_bytes().to_vec()).unwrap();
+    assert_eq!(
+        isolated.msg("hello", args()).unwrap(),
+        "Hi \u{2068}world\u{2069}!"
+    );
+    let plain = L10nBundle::new_owned_without_isolation("en", FTL.as_bytes().to_vec()).unwrap();
+    assert_eq!(plain.msg("hello", args()).unwrap(), "Hi world!");
+}
+
+#[test]
+fn invalid_utf8_is_rejected() {
+    let bytes = b"hello = \xff\n";
+    assert!(matches!(
+        L10nBundle::new_owned("en", bytes.to_vec()),
+        Err(L10nError::InvalidUtf8(_))
+    ));
+    assert!(matches!(
+        crate::validate_ftl(bytes, &[]),
+        Err(L10nError::InvalidUtf8(_))
+    ));
+}
+
+#[test]
 fn attribute_message() {
     let bundle = L10nBundle::new_without_isolation("en", FTL.as_bytes()).unwrap();
     let mut args = FluentArgs::new();
