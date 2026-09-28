@@ -16,6 +16,10 @@
   embedded bytes, and `validate_ftl` borrows its input instead of copying it.
   Validation behavior is unchanged; regenerate the generated file to pick up
   the new constructors.
+- `validate_ftl` is ~20% faster on large files: its lookup maps are
+  pre-sized and use the FxHash hasher (`rustc-hash`, already a dependency of
+  `fluent-bundle`), and the per-contract term-reference label is only built
+  when the pattern references a term. Behavior is unchanged.
 
 ## 0.9.0
 
