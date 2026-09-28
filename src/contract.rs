@@ -218,8 +218,11 @@ impl fmt::Display for ContractViolation {
 /// [`L10nError::Validation`] lists every problem, not just the first — so a
 /// translator can fix a rejected file in one pass.
 pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L10nError> {
-    let ftl = String::from_utf8(bytes.to_vec()).map_err(L10nError::InvalidUtf8)?;
-    let resource = match parser::parse(ftl.as_str()) {
+    // Borrow the bytes as `&str` without copying; only on invalid UTF-8 is a
+    // copy made, because `L10nError::InvalidUtf8` carries a `FromUtf8Error`.
+    let ftl = std::str::from_utf8(bytes)
+        .map_err(|_| L10nError::InvalidUtf8(String::from_utf8(bytes.to_vec()).unwrap_err()))?;
+    let resource = match parser::parse(ftl) {
         Ok(resource) => resource,
         Err((_, errors)) => {
             return Err(L10nError::ResourceParse(

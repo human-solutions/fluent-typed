@@ -19,6 +19,12 @@ impl L10nBundle {
     /// rendered in a bidi-aware context such as a web UI. Use
     /// [`Self::new_without_isolation`] to disable this.
     pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
+        Self::build(lang, bytes.to_vec(), true)
+    }
+
+    /// Like [`Self::new`], but takes ownership of the `.ftl` bytes, so a
+    /// buffer that was just read or decompressed is reused instead of copied.
+    pub fn new_owned(lang: impl AsRef<str>, bytes: Vec<u8>) -> Result<Self, L10nError> {
         Self::build(lang, bytes, true)
     }
 
@@ -27,11 +33,24 @@ impl L10nBundle {
     /// rendered in a bidi-aware context, or you never use right-to-left
     /// locales or interpolate user-provided text.
     pub fn new_without_isolation(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
+        Self::build(lang, bytes.to_vec(), false)
+    }
+
+    /// Like [`Self::new_without_isolation`], but takes ownership of the
+    /// `.ftl` bytes instead of copying them.
+    pub fn new_owned_without_isolation(
+        lang: impl AsRef<str>,
+        bytes: Vec<u8>,
+    ) -> Result<Self, L10nError> {
         Self::build(lang, bytes, false)
     }
 
-    fn build(lang: impl AsRef<str>, bytes: &[u8], use_isolating: bool) -> Result<Self, L10nError> {
-        let ftl = String::from_utf8(bytes.to_vec()).map_err(L10nError::InvalidUtf8)?;
+    fn build(
+        lang: impl AsRef<str>,
+        bytes: Vec<u8>,
+        use_isolating: bool,
+    ) -> Result<Self, L10nError> {
+        let ftl = String::from_utf8(bytes).map_err(L10nError::InvalidUtf8)?;
         let lang_id: LanguageIdentifier =
             lang.as_ref()
                 .parse()

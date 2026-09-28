@@ -212,6 +212,11 @@ pl.msg_hello("Ala");   // every generated accessor is safe to call
 let err = L10nLanguage::new_external("pl", b"helo = oops").unwrap_err();
 ```
 
+When you already own the buffer (as with `std::fs::read` above), the `_owned`
+variants take it by value instead of copying it:
+`L10nLanguage::new_external_owned("pl", bytes)` and `L10nLanguage::new_owned`
+(`L10nBundle::new_owned` / `new_owned_without_isolation` at the runtime level).
+
 The validation cannot check argument *types* at runtime — it doesn't need to: the
 accessor signatures fixed what your code passes at compile time, so matching
 variable *names* is exactly the guarantee the build gives every locale.
