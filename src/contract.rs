@@ -7,10 +7,10 @@
 //! the build applies to every locale. On success, every generated accessor is
 //! safe to call on a bundle loaded from those bytes.
 
-use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use fluent_syntax::{ast, parser};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::error::L10nError;
 use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs, find_refs_and_selectors};
@@ -231,8 +231,13 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
         }
     };
 
-    let mut messages: HashMap<&str, &ast::Message<&str>> = HashMap::new();
-    let mut terms: HashMap<&str, &ast::Term<&str>> = HashMap::new();
+    // Pre-sized so the maps never rehash while they fill (entries is an upper
+    // bound for both).
+    let capacity = resource.body.len();
+    let mut messages: FxHashMap<&str, &ast::Message<&str>> =
+        FxHashMap::with_capacity_and_hasher(capacity, Default::default());
+    let mut terms: FxHashMap<&str, &ast::Term<&str>> =
+        FxHashMap::with_capacity_and_hasher(capacity, Default::default());
     for entry in &resource.body {
         match entry {
             ast::Entry::Message(m) => {
@@ -248,7 +253,7 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
     let mut violations = Vec::new();
     // Terms already walked for undefined references, shared across contracts
     // so a term reached from several messages is reported once.
-    let mut walked_terms: HashSet<String> = HashSet::new();
+    let mut walked_terms: FxHashSet<String> = FxHashSet::default();
 
     for contract in contracts {
         let Some(message) = messages.get(contract.message) else {
@@ -338,11 +343,14 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
             );
         }
 
-        let origin = match contract.attribute {
-            Some(a) => format!("{}.{a}", contract.message),
-            None => contract.message.to_string(),
-        };
-        check_term_refs(&refs, &origin, &terms, &mut walked_terms, &mut violations);
+        // Only patterns that reference a term need the origin label.
+        if refs.iter().any(|r| r.kind == RefKind::Term) {
+            let origin = match contract.attribute {
+                Some(a) => format!("{}.{a}", contract.message),
+                None => contract.message.to_string(),
+            };
+            check_term_refs(&refs, &origin, &terms, &mut walked_terms, &mut violations);
+        }
     }
 
     if violations.is_empty() {
@@ -359,8 +367,8 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
 fn check_term_refs(
     refs: &[Ref],
     origin: &str,
-    terms: &HashMap<&str, &ast::Term<&str>>,
-    walked: &mut HashSet<String>,
+    terms: &FxHashMap<&str, &ast::Term<&str>>,
+    walked: &mut FxHashSet<String>,
     violations: &mut Vec<ContractViolation>,
 ) {
     for r in refs {
