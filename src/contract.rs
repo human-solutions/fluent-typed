@@ -6,20 +6,22 @@
 //! at runtime — against those contracts: every generated message and attribute
 //! is defined, uses only variables its accessor passes (the same rule the
 //! build applies to every locale), keeps its `(Element)` markers, and
-//! references only terms that exist.
-//!
-//! Not checked: references to other messages (`{ other-message }`) and
-//! function calls other than `NUMBER()` (the only function the runtime
-//! registers). A translation with either mistake passes, and the accessor
-//! panics when it formats that message.
+//! references only messages and terms that exist (transitively, without
+//! cycles), and calls no function but `NUMBER()`, the only one the runtime
+//! registers. The build runs the same reference check on every locale.
 
+use std::borrow::Cow;
 use std::fmt;
 
 use fluent_syntax::{ast, parser};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::error::L10nError;
-use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs, find_refs_and_selectors};
+use crate::ftl_refs::{Ref, RefKind, RefsIncompat, check_refs, find_refs_and_selectors};
+
+/// The functions the runtime registers: fluent-bundle's builtins. Calling any
+/// other function fails to format.
+const KNOWN_FUNCTIONS: &[&str] = &["NUMBER"];
 
 /// The compiled contract of one generated message accessor: which message (or
 /// attribute) it resolves, which arguments it fills, and — for structured
@@ -128,6 +130,43 @@ pub enum ContractViolation {
         /// or another term rendered as `-term`.
         referenced_from: String,
     },
+    /// A referenced message (`{ other }`) or attribute (`{ other.title }`) is
+    /// not defined, or the message has no value of its own. Resolving it would
+    /// fail to format at runtime.
+    UnknownMessageReference {
+        /// The reference, rendered as `message` or `message.attribute`.
+        reference: String,
+        /// Where the reference was found, rendered like
+        /// [`ContractViolation::UnknownTerm::referenced_from`].
+        referenced_from: String,
+    },
+    /// A function other than `NUMBER()` is called. The runtime registers only
+    /// `NUMBER`, so any other function fails to format.
+    UnknownFunction {
+        /// The function name, such as `DATETIME`.
+        function: String,
+        /// Where the call was found.
+        referenced_from: String,
+    },
+    /// Messages or terms reference each other in a loop, which fails to
+    /// format at runtime.
+    CyclicReference {
+        /// The loop, starting and ending with the same entry, such as
+        /// `["a", "b", "a"]`. Terms are rendered as `-term`.
+        cycle: Vec<String>,
+    },
+    /// A referenced message uses a variable the accessor doesn't pass. A
+    /// referenced message sees the caller's arguments, so it would be unfilled
+    /// and fail to format.
+    UnknownVariableInReference {
+        /// The accessor's message, rendered as `message` or
+        /// `message.attribute`.
+        message: String,
+        /// The referenced message that uses the variable.
+        reference: String,
+        /// The `$variable` name.
+        variable: String,
+    },
 }
 
 impl fmt::Display for ContractViolation {
@@ -200,6 +239,33 @@ impl fmt::Display for ContractViolation {
                 f,
                 "'{referenced_from}' references term '-{term}', which is not defined",
             ),
+            Self::UnknownMessageReference {
+                reference,
+                referenced_from,
+            } => write!(
+                f,
+                "'{referenced_from}' references message '{reference}', which is not defined",
+            ),
+            Self::UnknownFunction {
+                function,
+                referenced_from,
+            } => write!(
+                f,
+                "'{referenced_from}' calls function {function}(), which is not available \
+                 (only NUMBER() is)",
+            ),
+            Self::CyclicReference { cycle } => {
+                write!(f, "references form a cycle: {}", cycle.join(" -> "))
+            }
+            Self::UnknownVariableInReference {
+                message,
+                reference,
+                variable,
+            } => write!(
+                f,
+                "'{message}' references message '{reference}', which uses variable \
+                 '${variable}' that '{message}' doesn't pass",
+            ),
         }
     }
 }
@@ -217,8 +283,11 @@ impl fmt::Display for ContractViolation {
 /// - selectors driven by Boolean arguments keep exactly `[true]` and `[false]`
 ///   variants;
 /// - structured messages keep the exact `(Element)` marker sequence;
-/// - every term referenced from a validated pattern (transitively, through
-///   other terms) is defined in the file.
+/// - every message and term referenced from a validated pattern
+///   (transitively) is defined, with no reference cycles;
+/// - every function called is `NUMBER()`, the only one the runtime registers;
+/// - a referenced message uses only variables the accessor passes (it sees the
+///   caller's arguments).
 ///
 /// Contract violations are *collected* — the returned
 /// [`L10nError::Validation`] lists every problem, not just the first — so a
@@ -237,32 +306,16 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
         }
     };
 
-    // Pre-sized so the maps never rehash while they fill (entries is an upper
-    // bound for both).
-    let capacity = resource.body.len();
-    let mut messages: FxHashMap<&str, &ast::Message<&str>> =
-        FxHashMap::with_capacity_and_hasher(capacity, Default::default());
-    let mut terms: FxHashMap<&str, &ast::Term<&str>> =
-        FxHashMap::with_capacity_and_hasher(capacity, Default::default());
-    for entry in &resource.body {
-        match entry {
-            ast::Entry::Message(m) => {
-                messages.entry(m.id.name).or_insert(m);
-            }
-            ast::Entry::Term(t) => {
-                terms.entry(t.id.name).or_insert(t);
-            }
-            _ => {}
-        }
-    }
+    let (messages, terms) = index_entries(&resource);
 
     let mut violations = Vec::new();
-    // Terms already walked for undefined references, shared across contracts
-    // so a term reached from several messages is reported once.
-    let mut walked_terms: FxHashSet<String> = FxHashSet::default();
+    // Shared across contracts, so a broken term reached from several messages
+    // is reported once.
+    let graph = AstGraph { messages, terms };
+    let mut resolver = Resolver::new(&graph);
 
     for contract in contracts {
-        let Some(message) = messages.get(contract.message) else {
+        let Some(message) = graph.messages.get(contract.message) else {
             violations.push(ContractViolation::MissingMessage {
                 message: contract.message.to_string(),
             });
@@ -349,15 +402,21 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
             );
         }
 
-        // Only patterns that reference a term need the origin label.
-        if refs.iter().any(|r| r.kind == RefKind::Term) {
-            let origin = match contract.attribute {
-                Some(a) => format!("{}.{a}", contract.message),
-                None => contract.message.to_string(),
-            };
-            check_term_refs(&refs, &origin, &terms, &mut walked_terms, &mut violations);
-        }
+        let allowed: Vec<&str> = contract
+            .vars
+            .iter()
+            .copied()
+            .chain(
+                contract
+                    .elements
+                    .iter()
+                    .filter(|e| !e.is_term)
+                    .map(|e| e.name),
+            )
+            .collect();
+        resolver.check(contract.message, contract.attribute, &refs, &allowed);
     }
+    violations.extend(resolver.into_violations());
 
     if violations.is_empty() {
         Ok(())
@@ -366,34 +425,254 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
     }
 }
 
-/// Flag references to undefined terms, walking transitively into the terms a
-/// pattern references (a term's own pattern may reference further terms).
-/// Only terms reachable from validated patterns are walked, so an unused,
-/// broken term does not reject the file.
-fn check_term_refs(
-    refs: &[Ref],
-    origin: &str,
-    terms: &FxHashMap<&str, &ast::Term<&str>>,
-    walked: &mut FxHashSet<String>,
-    violations: &mut Vec<ContractViolation>,
-) {
-    for r in refs {
-        if r.kind != RefKind::Term {
-            continue;
+/// The messages and terms of a parsed resource, by id. The first definition
+/// wins, as in fluent-bundle.
+pub(crate) type Messages<'a> = FxHashMap<&'a str, &'a ast::Message<&'a str>>;
+/// See [`Messages`].
+pub(crate) type Terms<'a> = FxHashMap<&'a str, &'a ast::Term<&'a str>>;
+
+/// Index a parsed resource's messages and terms by id.
+pub(crate) fn index_entries<'a>(resource: &'a ast::Resource<&'a str>) -> (Messages<'a>, Terms<'a>) {
+    // Pre-sized so the maps never rehash while they fill (entries is an upper
+    // bound for both).
+    let capacity = resource.body.len();
+    let mut messages: Messages = FxHashMap::with_capacity_and_hasher(capacity, Default::default());
+    let mut terms: Terms = FxHashMap::with_capacity_and_hasher(capacity, Default::default());
+    for entry in &resource.body {
+        match entry {
+            ast::Entry::Message(m) => {
+                messages.entry(m.id.name).or_insert(m);
+            }
+            ast::Entry::Term(t) => {
+                terms.entry(t.id.name).or_insert(t);
+            }
+            _ => {}
         }
-        match terms.get(r.name.as_str()) {
-            None => violations.push(ContractViolation::UnknownTerm {
-                term: r.name.clone(),
-                referenced_from: origin.to_string(),
-            }),
-            Some(term) => {
-                if walked.insert(r.name.clone()) {
-                    let term_refs = find_refs(&term.value);
-                    let term_origin = format!("-{}", r.name);
-                    check_term_refs(&term_refs, &term_origin, terms, walked, violations);
+    }
+    (messages, terms)
+}
+
+/// The pattern of `message`, or of its `attribute`, if defined.
+pub(crate) fn find_pattern<'a>(
+    messages: &Messages<'a>,
+    message: &str,
+    attribute: Option<&str>,
+) -> Option<&'a ast::Pattern<&'a str>> {
+    let m = messages.get(message)?;
+    match attribute {
+        Some(a) => m
+            .attributes
+            .iter()
+            .find(|x| x.id.name == a)
+            .map(|x| &x.value),
+        None => m.value.as_ref(),
+    }
+}
+
+/// What the [`Resolver`] needs to know about a translation: the references of
+/// each message pattern and term, and whether they exist.
+pub(crate) trait RefGraph {
+    /// The references of `message`'s value, or of its `attribute`; `None`
+    /// when that pattern isn't defined.
+    fn message_refs(&self, message: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>>;
+    /// The references of the term `name` (without `-`); `None` when it isn't
+    /// defined.
+    fn term_refs(&self, name: &str) -> Option<Cow<'_, [Ref]>>;
+}
+
+/// A [`RefGraph`] over a parsed resource, as [`validate_ftl`] has. References
+/// are collected when a pattern is first walked.
+pub(crate) struct AstGraph<'a> {
+    messages: Messages<'a>,
+    terms: Terms<'a>,
+}
+
+impl RefGraph for AstGraph<'_> {
+    fn message_refs(&self, message: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>> {
+        let pattern = find_pattern(&self.messages, message, attribute)?;
+        Some(Cow::Owned(find_refs_and_selectors(pattern).0))
+    }
+
+    fn term_refs(&self, name: &str) -> Option<Cow<'_, [Ref]>> {
+        let term = self.terms.get(name)?;
+        Some(Cow::Owned(find_refs_and_selectors(&term.value).0))
+    }
+}
+
+/// Checks that everything a generated accessor's pattern references resolves:
+/// messages, attributes and terms exist (transitively, without cycles), every
+/// function is one the runtime registers, and messages it references use only
+/// variables the accessor passes.
+///
+/// Used by [`validate_ftl`] and by the build, for every locale, so both hold
+/// translations to the same rules. Only entries reachable from the checked
+/// patterns are walked, so an unused, broken message or term doesn't count.
+pub(crate) struct Resolver<'g, G: RefGraph> {
+    graph: &'g G,
+    /// Terms already walked. A term has its own scope, so the result doesn't
+    /// depend on the accessor and each term is walked once.
+    walked_terms: FxHashSet<String>,
+    violations: Vec<ContractViolation>,
+}
+
+/// Where a walk is: the entries on the current reference path (for cycle
+/// detection), the referenced messages already walked for this accessor, and
+/// the accessor's own name and arguments.
+struct Walk<'s> {
+    stack: Vec<String>,
+    visited: FxHashSet<String>,
+    accessor: String,
+    allowed: &'s [&'s str],
+}
+
+impl<'g, G: RefGraph> Resolver<'g, G> {
+    pub(crate) fn new(graph: &'g G) -> Self {
+        Self {
+            graph,
+            walked_terms: FxHashSet::default(),
+            violations: Vec::new(),
+        }
+    }
+
+    /// Check the pattern of `message` (or its `attribute`), whose references
+    /// are `refs` and whose accessor passes the variables in `allowed`. The
+    /// pattern's own variables are not checked here; that's [`check_refs`].
+    pub(crate) fn check(
+        &mut self,
+        message: &str,
+        attribute: Option<&str>,
+        refs: &[Ref],
+        allowed: &[&str],
+    ) {
+        // Nothing to resolve: the common case, kept cheap.
+        if refs.iter().all(|r| r.kind == RefKind::Variable) {
+            return;
+        }
+        let accessor = render_reference(message, attribute);
+        let mut walk = Walk {
+            stack: vec![accessor.clone()],
+            visited: FxHashSet::default(),
+            accessor: accessor.clone(),
+            allowed,
+        };
+        self.walk(refs, &accessor, Scope::Accessor, &mut walk);
+    }
+
+    pub(crate) fn into_violations(self) -> Vec<ContractViolation> {
+        self.violations
+    }
+
+    fn report(&mut self, violation: ContractViolation) {
+        if !self.violations.contains(&violation) {
+            self.violations.push(violation);
+        }
+    }
+
+    fn walk(&mut self, refs: &[Ref], origin: &str, scope: Scope, walk: &mut Walk<'_>) {
+        for r in refs {
+            match r.kind {
+                RefKind::Function => {
+                    if !KNOWN_FUNCTIONS.contains(&r.name.as_str()) {
+                        self.report(ContractViolation::UnknownFunction {
+                            function: r.name.clone(),
+                            referenced_from: origin.to_string(),
+                        });
+                    }
+                }
+                // The accessor's own variables are `check_refs`' job, and a
+                // term's variables are its own arguments. Only a referenced
+                // message sees the accessor's arguments.
+                RefKind::Variable => {
+                    if scope == Scope::ReferencedMessage && !walk.allowed.contains(&r.name.as_str())
+                    {
+                        self.report(ContractViolation::UnknownVariableInReference {
+                            message: walk.accessor.clone(),
+                            reference: origin.to_string(),
+                            variable: r.name.clone(),
+                        });
+                    }
+                }
+                RefKind::Term => {
+                    let graph = self.graph;
+                    let Some(term_refs) = graph.term_refs(&r.name) else {
+                        self.report(ContractViolation::UnknownTerm {
+                            term: r.name.clone(),
+                            referenced_from: origin.to_string(),
+                        });
+                        continue;
+                    };
+                    let key = format!("-{}", r.name);
+                    if self.enter_cycle(&key, walk) {
+                        continue;
+                    }
+                    if self.walked_terms.insert(r.name.clone()) {
+                        walk.stack.push(key.clone());
+                        self.walk(&term_refs, &key, Scope::Term, walk);
+                        walk.stack.pop();
+                    }
+                }
+                RefKind::Message => {
+                    let (id, attribute) = match r.name.split_once('.') {
+                        Some((id, a)) => (id, Some(a)),
+                        None => (r.name.as_str(), None),
+                    };
+                    let graph = self.graph;
+                    let Some(target_refs) = graph.message_refs(id, attribute) else {
+                        self.report(ContractViolation::UnknownMessageReference {
+                            reference: r.name.clone(),
+                            referenced_from: origin.to_string(),
+                        });
+                        continue;
+                    };
+                    if self.enter_cycle(&r.name, walk) {
+                        continue;
+                    }
+                    // Inside a term, a message reference is resolved in the
+                    // term's scope, not the accessor's, so its variables
+                    // aren't checked.
+                    let inner = match scope {
+                        Scope::Term => Scope::Term,
+                        _ => Scope::ReferencedMessage,
+                    };
+                    if walk.visited.insert(format!("{inner:?}:{}", r.name)) {
+                        walk.stack.push(r.name.clone());
+                        self.walk(&target_refs, &r.name, inner, walk);
+                        walk.stack.pop();
+                    }
                 }
             }
         }
+    }
+
+    /// Report and return `true` if entering `key` closes a reference cycle.
+    fn enter_cycle(&mut self, key: &str, walk: &Walk<'_>) -> bool {
+        let Some(start) = walk.stack.iter().position(|k| k == key) else {
+            return false;
+        };
+        let mut cycle = walk.stack[start..].to_vec();
+        cycle.push(key.to_string());
+        self.report(ContractViolation::CyclicReference { cycle });
+        true
+    }
+}
+
+/// Whose arguments a pattern sees while walking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scope {
+    /// The accessor's own pattern.
+    Accessor,
+    /// A message referenced (directly or not) from the accessor's pattern:
+    /// it sees the accessor's arguments.
+    ReferencedMessage,
+    /// A term, or anything referenced from one: its own arguments only.
+    Term,
+}
+
+/// Render a reference as `message` or `message.attribute`.
+fn render_reference(message: &str, attribute: Option<&str>) -> String {
+    match attribute {
+        Some(a) => format!("{message}.{a}"),
+        None => message.to_string(),
     }
 }
 
@@ -404,6 +683,8 @@ fn render_elements(elements: &[(String, RefKind)]) -> Vec<String> {
         .map(|(name, kind)| match kind {
             RefKind::Variable => format!("${name}"),
             RefKind::Term => format!("-{name}"),
+            // Elements are only ever variables or terms.
+            RefKind::Message | RefKind::Function => name.clone(),
         })
         .collect()
 }
@@ -708,6 +989,117 @@ notice = { $icon } Du har { $count } olästa, se { -privacy-link }.
     fn invalid_utf8_is_an_utf8_error() {
         let err = validate_ftl(&[0xff, 0xfe], CONTRACTS).unwrap_err();
         assert!(matches!(err, L10nError::InvalidUtf8(_)), "got: {err:?}");
+    }
+
+    /// `VALID`, with `hello`'s value replaced and extra entries appended.
+    fn with_hello(value: &str, extra: &str) -> String {
+        VALID.replace("hello = Hej { $name }", &format!("hello = {value}")) + extra
+    }
+
+    #[test]
+    fn a_reference_to_a_missing_message_is_rejected() {
+        let ftl = with_hello("{ $name }, se { inbox-link }", "");
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::UnknownMessageReference {
+                reference: "inbox-link".into(),
+                referenced_from: "hello".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_reference_to_a_missing_attribute_or_value_is_rejected() {
+        let ftl = with_hello(
+            "{ $name } { other.title } { attrs-only }",
+            "other = Other\nattrs-only =\n    .a = A\n",
+        );
+        assert_eq!(
+            violations(&ftl),
+            [
+                ContractViolation::UnknownMessageReference {
+                    reference: "other.title".into(),
+                    referenced_from: "hello".into(),
+                },
+                ContractViolation::UnknownMessageReference {
+                    reference: "attrs-only".into(),
+                    referenced_from: "hello".into(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_missing_message_is_found_through_a_chain_of_references() {
+        let ftl = with_hello(
+            "{ $name } { a }",
+            "a = { b }\nb = { -t }\n-t = { missing }\n",
+        );
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::UnknownMessageReference {
+                reference: "missing".into(),
+                referenced_from: "-t".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_function_other_than_number_is_rejected() {
+        let ftl = with_hello("{ $name } { DATETIME($name) } { NUMBER(3) }", "");
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::UnknownFunction {
+                function: "DATETIME".into(),
+                referenced_from: "hello".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn reference_cycles_are_rejected() {
+        let ftl = with_hello("{ $name } { a }", "a = { b }\nb = { a }\n");
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::CyclicReference {
+                cycle: vec!["a".into(), "b".into(), "a".into()],
+            }]
+        );
+
+        let ftl = with_hello("{ $name } { -a }", "-a = { -b }\n-b = { -a }\n");
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::CyclicReference {
+                cycle: vec!["-a".into(), "-b".into(), "-a".into()],
+            }]
+        );
+    }
+
+    #[test]
+    fn a_referenced_message_may_only_use_the_accessors_variables() {
+        // `greeting` sees `hello`'s arguments: `$name` is passed, `$title` isn't.
+        let ftl = with_hello("{ greeting }", "greeting = Hi { $title } { $name }\n");
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::UnknownVariableInReference {
+                message: "hello".into(),
+                reference: "greeting".into(),
+                variable: "title".into(),
+            }]
+        );
+        // A term's variables are its own arguments, not the accessor's.
+        let ftl = with_hello("{ $name } { -t(x: 1) }", "-t = { $x }\n");
+        validate_ftl(ftl.as_bytes(), CONTRACTS).unwrap();
+    }
+
+    #[test]
+    fn working_references_and_unused_broken_entries_pass() {
+        let ftl = with_hello(
+            "{ greeting } { other.title } { NUMBER(2) }",
+            "greeting = Hi { $name }\nother = O\n    .title = T\n\
+             unused = { missing } { DATETIME(1) }\n",
+        );
+        validate_ftl(ftl.as_bytes(), CONTRACTS).unwrap();
     }
 
     #[test]

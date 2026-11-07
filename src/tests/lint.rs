@@ -707,3 +707,63 @@ fn a_parse_error_and_a_duplicate_key_are_reported_together() {
         other => panic!("expected BuildError::Multiple, got {other:?}"),
     }
 }
+
+// ----------------------------------------------------------------------------
+// A message whose pattern would fail to format in some locale is not
+// generated: the same reference check `validate_ftl` runs at runtime.
+// ----------------------------------------------------------------------------
+
+#[test]
+fn a_broken_reference_in_a_locale_skips_the_message() {
+    let langs = vec![
+        bundle(
+            "inbox = Inbox\nsee = See { inbox }\nok = Fine\n",
+            "en.ftl",
+            "en",
+        ),
+        bundle(
+            "inbox = Boîte\nsee = Voir { inbox-lien }\nok = Bien\n",
+            "fr.ftl",
+            "fr",
+        ),
+    ];
+    let analyzed = Analyzed::from(&langs, &langs[0]);
+    assert!(analyzed.common.contains(&Id::new_msg("ok")));
+    assert!(!analyzed.common.contains(&Id::new_msg("see")));
+    assert_eq!(
+        analyzed.warnings,
+        [
+            "en.ftl:2: message 'see' is not generated — it would fail to format: \
+          fr (fr.ftl:2): 'see' references message 'inbox-lien', which is not defined"
+        ],
+    );
+}
+
+#[test]
+fn unknown_functions_and_missing_terms_skip_the_message_in_any_locale() {
+    // The default locale is checked too.
+    let langs = vec![
+        bundle(
+            "# $d (String) - a date\non = On { DATETIME($d) }\nby = By { -brand }\n-brand = Acme\n",
+            "en.ftl",
+            "en",
+        ),
+        bundle(
+            "on = Le { $d }\nby = Par { -marque }\n-brand = Acme\n",
+            "fr.ftl",
+            "fr",
+        ),
+    ];
+    let analyzed = Analyzed::from(&langs, &langs[0]);
+    assert!(analyzed.common.is_empty(), "{:?}", analyzed.common);
+    assert_eq!(
+        analyzed.warnings,
+        [
+            "en.ftl:2: message 'on' is not generated — it would fail to format: \
+             en (en.ftl:2): 'on' calls function DATETIME(), which is not available \
+             (only NUMBER() is)",
+            "en.ftl:3: message 'by' is not generated — it would fail to format: \
+             fr (fr.ftl:2): 'by' references term '-marque', which is not defined",
+        ],
+    );
+}

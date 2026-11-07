@@ -63,10 +63,16 @@ fn typed() {
                 typ: VarType::Number,
             }],
             elements: vec![],
-            pattern_refs: vec![Ref {
-                name: "ratio".to_string(),
-                kind: RefKind::Variable,
-            }],
+            pattern_refs: vec![
+                Ref {
+                    name: "NUMBER".to_string(),
+                    kind: RefKind::Function,
+                },
+                Ref {
+                    name: "ratio".to_string(),
+                    kind: RefKind::Variable,
+                },
+            ],
             selectors: vec![],
             file: String::new(),
             line: 0,
@@ -113,7 +119,17 @@ your-rank = { NUMBER($pos, type: "ordinal") ->
             }],
             elements: vec![],
             // `$pos` in the selector and in each of the four variant bodies.
-            pattern_refs: vec![pos_ref(), pos_ref(), pos_ref(), pos_ref(), pos_ref(),],
+            pattern_refs: vec![
+                Ref {
+                    name: "NUMBER".to_string(),
+                    kind: RefKind::Function,
+                },
+                pos_ref(),
+                pos_ref(),
+                pos_ref(),
+                pos_ref(),
+                pos_ref(),
+            ],
             selectors: vec![],
             file: String::new(),
             line: 0,

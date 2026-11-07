@@ -167,12 +167,10 @@ impl L10nLanguage {
     /// validating them against the message contract compiled into this API.
     ///
     /// A translation where a message is missing or misspelled, uses a variable
-    /// this API never passes, drops an `(Element)` marker, or references a
-    /// term that doesn't exist is rejected here with `L10nError::Validation`
-    /// (listing every violation) instead of panicking later in an accessor.
-    ///
-    /// Not checked: references to other messages and function calls other
-    /// than `NUMBER()`. Those still make the accessor panic when formatting.
+    /// this API never passes, drops an `(Element)` marker, references a
+    /// message or term that doesn't exist, or calls a function other than
+    /// `NUMBER()` is rejected here with `L10nError::Validation` (listing every
+    /// violation) instead of panicking later in an accessor.
     ///
     /// Use this to load a language that was not compiled in, or to hot-reload
     /// a translation under revision. Pass the buffer by value (e.g. straight

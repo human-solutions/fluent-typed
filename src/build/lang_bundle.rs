@@ -2,6 +2,7 @@ use crate::build::LineIndex;
 use crate::build::utils::Traversable;
 
 use super::{BuildError, Message};
+use crate::ftl_refs::{Ref, find_refs_and_selectors};
 use fluent_syntax::ast::{Entry, Resource};
 use fluent_syntax::parser::{self, ParserError};
 use std::collections::HashMap;
@@ -25,6 +26,9 @@ pub struct LangBundle {
     pub messages: Vec<Message>,
     pub standalone_comments: Vec<CommentLine>,
     pub ftl: String,
+    /// Every term's references, by name (without `-`), for checking that a
+    /// message's references resolve. The first definition wins.
+    pub term_refs: HashMap<String, Vec<Ref>>,
 }
 
 impl LangBundle {
@@ -40,10 +44,12 @@ impl LangBundle {
         let lines = LineIndex::new(ftl);
         let mut seen = SeenIds::default();
         let mut errors = Vec::new();
+        let mut term_refs = HashMap::new();
         let messages = to_messages(
             &ast,
             deny_duplicate_keys,
             &mut seen,
+            &mut term_refs,
             &path,
             &lines,
             &mut errors,
@@ -57,6 +63,7 @@ impl LangBundle {
             messages,
             standalone_comments: standalone_comments(&ast, &lines, &path.display().to_string()),
             ftl: ftl.to_string(),
+            term_refs,
         })
     }
 
@@ -74,6 +81,7 @@ impl LangBundle {
             messages: Vec::new(),
             standalone_comments: Vec::new(),
             ftl: String::new(),
+            term_refs: HashMap::new(),
         };
         let mut errors: Vec<BuildError> = Vec::new();
 
@@ -134,6 +142,7 @@ impl LangBundle {
                 &ast,
                 deny_duplicate_keys,
                 &mut seen,
+                &mut bundle.term_refs,
                 &path,
                 &lines,
                 &mut errors,
@@ -200,6 +209,7 @@ fn to_messages(
     ast: &Resource<&str>,
     deny_duplicate_keys: bool,
     seen: &mut SeenIds,
+    term_refs: &mut HashMap<String, Vec<Ref>>,
     path: &Path,
     lines: &LineIndex,
     errors: &mut Vec<BuildError>,
@@ -222,6 +232,9 @@ fn to_messages(
                 seen.term_names
                     .entry(t.id.name.to_owned())
                     .or_insert_with(|| (path.to_path_buf(), line));
+                term_refs
+                    .entry(t.id.name.to_owned())
+                    .or_insert_with(|| find_refs_and_selectors(&t.value).0);
                 continue;
             }
             Entry::Message(m) => m,
