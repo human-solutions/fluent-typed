@@ -77,7 +77,7 @@ impl L10nLanguageVec {
     }
 
     /// Negotiate the best of the *loaded* languages for an `Accept-Language`
-    /// header — including any added at runtime with [`Self::insert`], which
+    /// header, matching like [`negotiate_languages`](crate::prelude::negotiate_languages) — including any added at runtime with [`Self::insert`], which
     /// the generated `L10n::langneg` (compiled from the build-time language
     /// set) can never return.
     ///
@@ -88,17 +88,10 @@ impl L10nLanguageVec {
     pub fn langneg(&self, accept_language: &str) -> Option<&L10nBundle> {
         use icu_locale_core::LanguageIdentifier;
 
-        let available: Vec<Option<LanguageIdentifier>> =
+        let parsed: Vec<Option<LanguageIdentifier>> =
             self.langs.iter().map(|b| b.lang().parse().ok()).collect();
-        for req in crate::prelude::requested_languages(accept_language) {
-            let found = available
-                .iter()
-                .position(|a| a.as_ref().is_some_and(|a| a.language == req.language));
-            if let Some(idx) = found {
-                return Some(&self.langs[idx]);
-            }
-        }
-        None
+        crate::prelude::best_match(accept_language, parsed.len(), |i| parsed[i].as_ref())
+            .map(|idx| &self.langs[idx])
     }
 
     /// Get the bundle for `lang`, or `None` if no such language was loaded.

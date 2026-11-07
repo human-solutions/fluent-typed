@@ -54,10 +54,29 @@ assert_eq!(lang, L10n::Fr);
 let strs = lang.load();
 ```
 
-Entries are tried in order of their `q` weight, and each is compared by its language
-subtag only: `fr-CA` matches a `fr` locale. Regions are ignored, so if you have both
-`en` and `en-gb`, a request for `en-GB` gets whichever comes first in `L10n::iter()`
-(here `en`), not the exact match.
+The header's entries are tried in order of their `q` weight (entries with `q=0` mean
+"not acceptable" and are skipped), and the first one that matches any locale wins. For
+an entry such as `en-GB`, the closest locale is, in order:
+
+1. the exact locale, `en-gb`;
+2. the same region with another script, such as `en-latn-gb`;
+3. the generic locale of the language, `en`;
+4. another region, such as `en-us`;
+5. last, a locale with a different script than the one asked for (`sr-cyrl` for a
+   request for `sr-Latn`).
+
+Scripts aren't inferred from regions: a request for `zh-TW` doesn't know it means
+Traditional Chinese. If you have both `zh-hans` and `zh-hant`, also add regional
+folders that name the script, such as `zh-hant-tw`.
+
+With `en`, `en-gb` and `fr`:
+
+```rust
+assert_eq!(L10n::langneg("en-GB"), L10n::EnGb); // exact
+assert_eq!(L10n::langneg("en-US"), L10n::En);   // no en-us: the generic en
+assert_eq!(L10n::langneg("fr-CA"), L10n::Fr);   // no fr-ca: fr
+assert_eq!(L10n::langneg("de"), L10n::En);      // no match: the default language
+```
 
 ## Serving every language from one server
 

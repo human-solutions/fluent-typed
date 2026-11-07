@@ -264,3 +264,83 @@ fn try_get_returns_none_for_unloaded_language() {
         "Hello"
     );
 }
+
+/// Negotiate `header` over `available` language ids; `None` if nothing matches.
+#[cfg(feature = "langneg")]
+fn negotiate<'a>(header: &str, available: &[&'a str]) -> Option<&'a str> {
+    let parsed: Vec<Option<crate::prelude::LanguageIdentifier>> =
+        available.iter().map(|a| a.parse().ok()).collect();
+    crate::prelude::best_match(header, parsed.len(), |i| parsed[i].as_ref())
+        .map(|idx| available[idx])
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_prefers_the_exact_locale() {
+    // The reported case: `en` came first, so `en-GB` got `en`.
+    assert_eq!(negotiate("en-GB", &["en", "en-gb", "fr"]), Some("en-gb"));
+    assert_eq!(negotiate("en", &["en", "en-gb", "fr"]), Some("en"));
+    // Case and order in the header don't matter for an exact match.
+    assert_eq!(
+        negotiate("fr;q=0.2, EN-gb", &["en", "en-gb", "fr"]),
+        Some("en-gb")
+    );
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_falls_back_to_the_generic_locale_then_any_region() {
+    // No `en-AU`: the generic `en` beats another region.
+    assert_eq!(negotiate("en-AU", &["en-gb", "en", "fr"]), Some("en"));
+    // No generic `en` either: the first `en-*`.
+    assert_eq!(negotiate("en-AU", &["en-gb", "en-us", "fr"]), Some("en-gb"));
+    // A plain `en` request takes a regional locale when that's all there is.
+    assert_eq!(negotiate("en", &["fr", "en-us"]), Some("en-us"));
+    // The same region with another script beats the generic locale.
+    assert_eq!(negotiate("sr-Latn-RS", &["sr", "sr-RS"]), Some("sr-RS"));
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_follows_header_quality_before_match_quality() {
+    // `de` is preferred by the header, so a mere language match on `de`
+    // beats an exact match on the lower-weighted `en-GB`.
+    assert_eq!(
+        negotiate("de-AT, en-GB;q=0.5", &["en-gb", "de"]),
+        Some("de")
+    );
+    assert_eq!(negotiate("pt, it", &["en", "fr"]), None);
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_respects_scripts() {
+    // A conflicting script only wins when nothing else of the language does.
+    assert_eq!(
+        negotiate("sr-Latn", &["sr-Cyrl", "sr-Latn-RS"]),
+        Some("sr-Latn-RS")
+    );
+    assert_eq!(
+        negotiate("zh-Hant-HK", &["zh-Hans", "zh-Hant-TW"]),
+        Some("zh-Hant-TW")
+    );
+    assert_eq!(negotiate("sr-Latn", &["en", "sr-Cyrl"]), Some("sr-Cyrl"));
+    // Without a requested script, the plain locale beats a script variant.
+    assert_eq!(negotiate("en", &["en-Latn", "en"]), Some("en"));
+    // Known limit: no script is inferred from a region, so `zh-TW` can't tell
+    // `zh-Hant` from `zh-Hans` and takes the first.
+    assert_eq!(negotiate("zh-TW", &["zh-Hans", "zh-Hant"]), Some("zh-Hans"));
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_skips_unacceptable_and_malformed_weights() {
+    assert_eq!(negotiate("de-CH, en;q=0", &["en", "fr"]), None);
+    assert_eq!(negotiate("en;q=abc, fr;q=0.5", &["en", "fr"]), Some("fr"));
+    assert_eq!(negotiate("fr;q=0.5, en;q=2", &["en", "fr"]), Some("en"));
+    // Other parameters next to q are fine.
+    assert_eq!(
+        negotiate("en;level=1;q=0.1, fr;q=0.5", &["en", "fr"]),
+        Some("fr")
+    );
+}
