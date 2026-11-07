@@ -26,6 +26,8 @@ where
     let out = Command::new("cargo")
         .args(args)
         .current_dir(dir)
+        // CI sets CARGO_TERM_COLOR=always; ANSI codes would break matching.
+        .env("CARGO_TERM_COLOR", "never")
         .output()
         .unwrap();
     let stderr = String::from_utf8(out.stderr).unwrap();
