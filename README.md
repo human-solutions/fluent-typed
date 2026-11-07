@@ -2,8 +2,8 @@
 
 [![crates.io](https://img.shields.io/crates/v/fluent-typed.svg)](https://crates.io/crates/fluent-typed)
 [![docs.rs](https://docs.rs/fluent-typed/badge.svg)](https://docs.rs/fluent-typed)
-[![CI](https://github.com/human-solutions/fluent-typed/actions/workflows/rust.yml/badge.svg)](https://github.com/human-solutions/fluent-typed/actions/workflows/rust.yml)
-[![msrv](https://img.shields.io/crates/msrv/fluent-typed.svg)](https://github.com/human-solutions/fluent-typed)
+[![CI](https://github.com/akesson/fluent-typed/actions/workflows/rust.yml/badge.svg)](https://github.com/akesson/fluent-typed/actions/workflows/rust.yml)
+[![msrv](https://img.shields.io/crates/msrv/fluent-typed.svg)](https://github.com/akesson/fluent-typed)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 **Your [Fluent](https://projectfluent.org) translations as typed Rust functions.** A

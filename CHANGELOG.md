@@ -307,4 +307,4 @@
 
 ## 0.2.9 and earlier
 
-See [git history](https://github.com/human-solutions/fluent-typed/commits/main).
+See [git history](https://github.com/akesson/fluent-typed/commits/main).
