@@ -8,10 +8,10 @@ use std::fmt;
 /// Returned by [`L10nBundle`](crate::prelude::L10nBundle),
 /// [`L10nLanguageVec`](crate::prelude::L10nLanguageVec) and the generated
 /// `L10nLanguage::new`. The generated message accessors `unwrap` this, so a
-/// formatting failure panics. That happens when a translation references a
-/// message that doesn't exist or calls a function other than `NUMBER()`:
-/// mistakes neither the build nor [`validate_ftl`](crate::validate_ftl)
-/// catches yet.
+/// formatting failure panics. The build and [`validate_ftl`](crate::validate_ftl)
+/// reject the translation mistakes that would cause one, so a translation
+/// loaded with `L10nLanguage::new` without validation is the usual way to get
+/// there.
 ///
 /// The variants carry owned strings rather than `fluent-bundle`'s own error
 /// types on purpose, so this enum does not change shape when that (pre-1.0)
