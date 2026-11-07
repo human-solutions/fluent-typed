@@ -77,6 +77,34 @@
   `fluent-bundle`), and the per-contract term-reference label is only built
   when the pattern references a term. Behavior is unchanged.
 
+### Fixed
+- **The compressed `load(decompressor)` loaded every language at once.** It passed
+  the whole decompressed file, which holds all languages, to one bundle, so any
+  project with more than one language failed with `AddResource([Overriding …])`
+  errors. It now loads only its own language. Broken since compressed output was
+  added.
+- A decompressor that returns too little data (one that doesn't match the
+  compressor in `build.rs`) now gives the new `L10nError::TruncatedData` from the
+  compressed `load` / `load_all` (and from `L10nLanguageVec::load`) instead of
+  panicking.
+- The generated file no longer imports `std::ops::Range` in multi-file mode, where
+  it's unused and caused an `unused import` warning.
+
+### Documentation
+- The README is now a pitch plus a step-by-step getting-started, and the rest moved
+  into guides in `docs/`, also published on docs.rs under `fluent_typed::guide`: output
+  modes (new), languages and negotiation, runtime loading, types and linting
+  (untyped variables are now documented), and structured messages and bidi.
+- Every Rust example in the README and the guides is compiled in CI
+  (`playground/docs-check`), and run unless it's a `build.rs` example. Doctests
+  are enabled for the API docs. This is how the compressed-load bug above was
+  found.
+- The docs no longer claim that a validated translation makes every accessor safe
+  to call. They now list what isn't checked: references to messages that don't
+  exist and functions other than `NUMBER()` (by both the build and
+  `new_external`), and references to terms that don't exist (by the build).
+- Doc comments for `BuildError`, `L10nBundle` and `L10nLanguageVec`.
+
 ## 0.9.0
 
 ### Added

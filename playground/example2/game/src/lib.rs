@@ -16,7 +16,7 @@ mod tests {
     /// Issue #38: an external `.ftl` — here a language that was never part of
     /// the build — loads at runtime, validated against the compiled contract.
     /// The validation is strict: every generated message must be defined
-    /// (`language-name` included), so every accessor is safe to call.
+    /// (`language-name` included).
     #[test]
     fn external_translation_loads_at_runtime() {
         let ftl = "language-name = Polski\nhello-world = Witaj świecie!\n";

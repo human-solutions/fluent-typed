@@ -1,0 +1,16 @@
+[workspace]
+
+# Must FAIL to build: build.rs asks for language negotiation, but the runtime
+# dependency lacks the `langneg` feature. `tests/playground.rs` checks that the
+# error tells the user what to add.
+[package]
+name = "langneg-missing"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+fluent-typed = { path = "../.." }
+
+[build-dependencies]
+fluent-typed = { path = "../..", features = ["build"] }

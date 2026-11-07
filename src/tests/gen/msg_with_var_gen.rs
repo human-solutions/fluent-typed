@@ -1,11 +1,6 @@
 // This file is generated. Do not edit it manually.
 use crate::prelude::*;
-use std::{
-    fmt::Display,
-    ops::{Deref, Range},
-    slice::Iter,
-    str::FromStr,
-};
+use std::{fmt::Display, ops::Deref, slice::Iter, str::FromStr};
 
 static LANG_DATA: &[u8] = include_bytes!("msg_with_var_gen.ftl");
 /// The message contract of every generated accessor: what an `.ftl` must
@@ -78,7 +73,7 @@ impl L10n {
         ALL_LANGS.iter()
     }
 
-    fn byte_range(&self) -> Range<usize> {
+    fn byte_range(&self) -> std::ops::Range<usize> {
         match self {
             Self::En => 0..31,
         }
@@ -122,12 +117,13 @@ impl L10nLanguage {
     /// Load external `.ftl` bytes — read from disk, downloaded, etc. — after
     /// validating them against the message contract compiled into this API.
     ///
-    /// On success, every accessor on the returned [`L10nLanguage`] is safe to
-    /// call: the external translation defines every generated message and
-    /// references no unknown variables. A translation that does not — because
-    /// a message is missing, misspelled, or references a variable this API
-    /// never fills — is rejected here with `L10nError::Validation` (listing
-    /// every violation) instead of panicking later in an accessor.
+    /// A translation where a message is missing or misspelled, uses a variable
+    /// this API never passes, drops an `(Element)` marker, or references a
+    /// term that doesn't exist is rejected here with `L10nError::Validation`
+    /// (listing every violation) instead of panicking later in an accessor.
+    ///
+    /// Not checked: references to other messages and function calls other
+    /// than `NUMBER()`. Those still make the accessor panic when formatting.
     ///
     /// Use this to load a language that was not compiled in, or to hot-reload
     /// a translation under revision. Pass the buffer by value (e.g. straight

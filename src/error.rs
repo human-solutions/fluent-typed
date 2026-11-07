@@ -7,9 +7,11 @@ use std::fmt;
 ///
 /// Returned by [`L10nBundle`](crate::prelude::L10nBundle),
 /// [`L10nLanguageVec`](crate::prelude::L10nLanguageVec) and the generated
-/// `L10nLanguage::new`. The generated message accessors `unwrap` this: a failure
-/// there means the generated code and the embedded `.ftl` have drifted apart,
-/// which is a build-time bug rather than something to handle at runtime.
+/// `L10nLanguage::new`. The generated message accessors `unwrap` this, so a
+/// formatting failure panics. That happens when a translation references a
+/// message that doesn't exist or calls a function other than `NUMBER()`:
+/// mistakes neither the build nor [`validate_ftl`](crate::validate_ftl)
+/// catches yet.
 ///
 /// The variants carry owned strings rather than `fluent-bundle`'s own error
 /// types on purpose, so this enum does not change shape when that (pre-1.0)
@@ -21,6 +23,18 @@ pub enum L10nError {
     /// The user-supplied decompressor (for a compressed single-file build)
     /// returned an error. Carries that error's message.
     Decompression(String),
+
+    /// The `.ftl` data is shorter than the byte range recorded for a language
+    /// at build time. Usually a decompressor that doesn't match the
+    /// compressor used in `build.rs`.
+    TruncatedData {
+        /// The language whose bytes are missing.
+        lang: String,
+        /// The length the language's byte range needs.
+        expected: usize,
+        /// The length of the data.
+        found: usize,
+    },
 
     /// The `.ftl` bytes were not valid UTF-8.
     InvalidUtf8(std::string::FromUtf8Error),
@@ -88,6 +102,15 @@ impl fmt::Display for L10nError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Decompression(e) => write!(f, "Could not decompress the .ftl data: {e}"),
+            Self::TruncatedData {
+                lang,
+                expected,
+                found,
+            } => write!(
+                f,
+                "The .ftl data is {found} bytes, but language '{lang}' needs {expected}; \
+                 does the decompressor match the compressor used in build.rs?"
+            ),
             Self::InvalidUtf8(e) => write!(f, "The .ftl content is not valid UTF-8: {e}"),
             Self::InvalidLanguage { lang, reason } => {
                 write!(f, "Invalid language identifier '{lang}': {reason}")

@@ -18,8 +18,6 @@ repository = "https://github.com/akesson/fluent-typed"
 # still resolve at publish time instead of warning that they're missing.
 exclude = ["/CLAUDE.md", "/src/tests"]
 
-[lib]
-doctest = false
 
 [features]
 # Empty on purpose: the runtime dependency stays lean, and each user opts in.

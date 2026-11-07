@@ -52,16 +52,19 @@ pub mod bench_internals {
 /// ```toml
 /// # in Cargo.toml
 /// [dependencies]
-/// fluent-typed = "0.6"
+/// fluent-typed = "0.10"
 ///
 /// [build-dependencies]
-/// fluent-typed = { version = "0.6", features = ["build"] }
+/// fluent-typed = { version = "0.10", features = ["build"] }
 /// ```
 /// During the generation, the build script will print warnings for all messages that are
 /// not present in all locales, as well as for messages with different signatures.
 ///
 /// It is recommended to generate the rust code to the output_file_path "src/l10n.rs" and include
 /// it in the project, so that you get warnings for unused translation messages.
+///
+/// On failure, the error is printed and the build script exits with a failure code;
+/// use [try_build_from_locales_folder] to handle the [BuildError] yourself.
 ///
 /// See [BuildOptions] for more configuration options.
 ///
