@@ -22,8 +22,11 @@ exclude = ["/CLAUDE.md", "/src/tests"]
 doctest = false
 
 [features]
-# When developing, make sure that the default is un-commented.
-default = ["build", "langneg"]
+# Empty on purpose: the runtime dependency stays lean, and each user opts in.
+# `build` is for `[build-dependencies]`; `langneg` is for `[dependencies]` (the
+# generated code's language negotiation; enable it in `build.rs` with
+# `BuildOptions::with_langneg`). CI checks that this stays empty.
+default = []
 build = []
 langneg = ["dep:icu_locale_core"]
 # Re-exports internal build-pipeline pieces (parse/analyze/lint/generate) for

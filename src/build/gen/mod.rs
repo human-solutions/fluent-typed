@@ -50,8 +50,7 @@ pub fn generate(
         format!("{indent}L10n::{},", lang.rust_var_name())
     });
     let all_langs = format!(
-        r#"
-static ALL_LANGS: [L10n; {}] = [
+        r#"static ALL_LANGS: [L10n; {}] = [
     // languages as an array
 {enum_entries}
 ];"#,
@@ -60,13 +59,15 @@ static ALL_LANGS: [L10n; {}] = [
     replacements.push(("<<placeholder all_langs>>", all_langs));
 
     // ///////////////////////////
-    let enum_lang_ids = if cfg!(feature = "langneg") {
-        collect(langs.iter(), |lang| {
-            format!(
-                "static {}: LanguageIdentifier = langid!(\"{lang}\");",
-                lang.rust_static_name()
-            )
-        })
+    let enum_lang_ids = if options.langneg {
+        let guard = "// Fails with a clear message if the runtime `langneg` feature is off.\nrequire_langneg!();\n".to_string();
+        guard
+            + &collect(langs.iter(), |lang| {
+                format!(
+                    "static {}: LanguageIdentifier = langid!(\"{lang}\");",
+                    lang.rust_static_name()
+                )
+            })
     } else {
         "".to_string()
     };
@@ -97,7 +98,7 @@ static ALL_LANGS: [L10n; {}] = [
 
     // ///////////////////////////
 
-    let as_ref_langid = if cfg!(feature = "langneg") {
+    let as_ref_langid = if options.langneg {
         let id_entries = collect(langs.iter(), |lang| {
             format!(
                 "{}Self::{} => &{},",
@@ -166,19 +167,7 @@ static ALL_LANGS: [L10n; {}] = [
 
     // ///////////////////////////
 
-    let enum_id = collect(langs.iter(), |lang| {
-        format!(
-            "{}Self::{} => &{},",
-            indent.repeat(3),
-            lang.rust_var_name(),
-            lang.rust_static_name(),
-        )
-    });
-    replacements.push(("<<placeholder enum id>>", enum_id));
-
-    // ///////////////////////////
-
-    let langneg_fn = if cfg!(feature = "langneg") {
+    let langneg_fn = if options.langneg {
         r#"
     /// Negotiate the best language to use based on the `Accept-Language` header.
     ///
@@ -236,11 +225,15 @@ static ALL_LANGS: [L10n; {}] = [
     Ok(base)
 }
 
+/// The template keeps the doc comment and `#[allow]` above the placeholder;
+/// this is only the item itself.
+const MESSAGE_CONTRACTS_DECL: &str = "pub static MESSAGE_CONTRACTS: &[MessageContract] =";
+
 /// The `MESSAGE_CONTRACTS` static: the message/argument/element contract of
 /// every generated accessor, in generation order.
 fn message_contracts(messages: &[&Message]) -> String {
     if messages.is_empty() {
-        return "static MESSAGE_CONTRACTS: &[MessageContract] = &[];".to_string();
+        return format!("{MESSAGE_CONTRACTS_DECL} &[];");
     }
     let entries = collect(messages.iter(), |msg| {
         let attribute = match &msg.id.attribute {
@@ -272,7 +265,7 @@ fn message_contracts(messages: &[&Message]) -> String {
             msg.id.message
         )
     });
-    format!("static MESSAGE_CONTRACTS: &[MessageContract] = &[\n{entries}\n];")
+    format!("{MESSAGE_CONTRACTS_DECL} &[\n{entries}\n];")
 }
 
 fn quoted_list<'a>(items: impl IntoIterator<Item = &'a str>) -> String {

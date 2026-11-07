@@ -49,7 +49,8 @@ strs.msg_helo("Sam");    // ✗ misspelled key — caught at compile time
   translation — checked at load time against the compiled message contract, so a typo
   can't panic an accessor later. See
   [Loading translations at runtime](#loading-translations-at-runtime).
-- **Automatic language negotiation.** With the `langneg` feature, `L10n::langneg("en-US")`
+- **Automatic language negotiation.** With `BuildOptions::with_langneg()` and the
+  `langneg` feature, `L10n::langneg("en-US")`
   resolves a user's preferred language to the closest available locale, falling back to
   your configured default.
 - **Bidi-safe by default.** Interpolated values are wrapped in Unicode isolation marks so
@@ -158,7 +159,8 @@ use l10n::{L10n, L10nLanguage};
 // It provides safe functions for accessing all messages.
 let strs: L10nLanguage = L10n::En.load();
 
-// With the feature "langneg" enabled you can do automatic language
+// With `BuildOptions::with_langneg()` in build.rs and the "langneg"
+// feature on the fluent-typed dependency, you get automatic language
 // negotiation, which falls back on the default language as
 // configured in the BuildOptions in build.rs when generating.
 // `langneg` returns the closest available `L10n`; call `.load()` on it.
@@ -362,7 +364,7 @@ pub struct Notice {
 }
 
 // $icon / -privacy-link are not parameters; only real arguments are:
-let n: Notice = strs.notice(3);
+let n: Notice = strs.msg_notice(3);
 // `Notice` also implements `Display`, joining the text for plain-text use.
 ```
 

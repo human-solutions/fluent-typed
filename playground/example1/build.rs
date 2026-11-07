@@ -21,7 +21,8 @@ fn try_main() -> Result<(), BuildError> {
 
     let single_opts = BuildOptions::default()
         .with_ftl_output(FtlOutputOptions::single_file("gen/translations.ftl"))
-        .with_output_file_path("src/single_l10n.rs");
+        .with_output_file_path("src/single_l10n.rs")
+        .with_langneg();
     try_build_from_locales_folder(single_opts)?;
 
     let ftl_opts = FtlOutputOptions::single_compressed_file("gen/translations.ftl.gzip", |buf| {
