@@ -78,6 +78,11 @@
   when the pattern references a term. Behavior is unchanged.
 
 ### Fixed
+- **Language negotiation ignored regions.** With both `en` and `en-gb`,
+  `L10n::langneg("en-GB")` returned `en`, because the first locale with the same
+  language won. Now the closest locale wins: the exact one, then the same language
+  and region with another script, then the generic locale (`en` for `en-AU`), then
+  any locale of the language. `L10nLanguageVec::langneg` matches the same way.
 - **Translations that passed validation could still make an accessor panic.**
   Neither the build nor `new_external` checked references to other messages
   (`{ inbox-link }`, `{ other.title }`) or function calls (`{ DATETIME($d) }`;

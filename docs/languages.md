@@ -54,10 +54,17 @@ assert_eq!(lang, L10n::Fr);
 let strs = lang.load();
 ```
 
-Entries are tried in order of their `q` weight, and each is compared by its language
-subtag only: `fr-CA` matches a `fr` locale. Regions are ignored, so if you have both
-`en` and `en-gb`, a request for `en-GB` gets whichever comes first in `L10n::iter()`
-(here `en`), not the exact match.
+The header's entries are tried in order of their `q` weight, and the first one that
+matches any locale wins. For each entry the closest locale is picked: the exact locale
+if there is one, then the generic locale of the same language, then any locale of
+that language. With `en`, `en-gb` and `fr`:
+
+```rust
+assert_eq!(L10n::langneg("en-GB"), L10n::EnGb); // exact
+assert_eq!(L10n::langneg("en-US"), L10n::En);   // no en-us: the generic en
+assert_eq!(L10n::langneg("fr-CA"), L10n::Fr);   // no fr-ca: fr
+assert_eq!(L10n::langneg("de"), L10n::En);      // no match: the default language
+```
 
 ## Serving every language from one server
 

@@ -129,24 +129,51 @@ pub mod prelude {
         requested.into_iter().map(|(lid, _)| lid).collect()
     }
 
-    /// Pick the first of `available` whose language subtag matches an entry of
-    /// the `Accept-Language` header (highest quality first), or
-    /// `A::default()` when none matches. Regions and scripts are ignored:
-    /// `en-GB` matches the first `en*` entry of `available`. The generated `L10n::langneg` calls
+    /// Pick the best of `available` for an `Accept-Language` header, or
+    /// `A::default()` when none matches. The generated `L10n::langneg` calls
     /// this with every built-in language.
+    ///
+    /// The header's entries are tried highest quality first, and the first
+    /// entry with any match wins. For one entry, such as `en-GB`, the best
+    /// match is, in order: `en-GB` itself; the same language and region with
+    /// another script; the generic `en`; then any other `en-*`, in the order of
+    /// `available`.
     #[cfg(feature = "langneg")]
     pub fn negotiate_languages<'a, A>(accept_language: &str, available: &'a [A]) -> A
     where
         A: 'a + AsRef<LanguageIdentifier> + PartialEq + Default + Copy,
     {
-        // Find the first available language whose language subtag matches a requested one
+        let ids: Vec<Option<&LanguageIdentifier>> =
+            available.iter().map(|a| Some(a.as_ref())).collect();
+        match best_match(accept_language, &ids) {
+            Some(idx) => available[idx],
+            None => A::default(),
+        }
+    }
+
+    /// The index of the best match in `available` for an `Accept-Language`
+    /// header, as described on [`negotiate_languages`]; `None` entries never
+    /// match. Shared by the generated `L10n::langneg` and
+    /// `L10nLanguageVec::langneg`.
+    #[cfg(feature = "langneg")]
+    pub(crate) fn best_match(
+        accept_language: &str,
+        available: &[Option<&LanguageIdentifier>],
+    ) -> Option<usize> {
         for req in requested_languages(accept_language) {
-            for avail in available {
-                if avail.as_ref().language == req.language {
-                    return *avail;
+            let same_language = |a: &LanguageIdentifier| a.language == req.language;
+            let tiers: [&dyn Fn(&LanguageIdentifier) -> bool; 4] = [
+                &|a| *a == req,
+                &|a| same_language(a) && a.region == req.region,
+                &|a| same_language(a) && a.region.is_none(),
+                &same_language,
+            ];
+            for tier in tiers {
+                if let Some(idx) = available.iter().position(|a| a.is_some_and(tier)) {
+                    return Some(idx);
                 }
             }
         }
-        A::default()
+        None
     }
 }
