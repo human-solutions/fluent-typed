@@ -83,12 +83,22 @@
   (`{ inbox-link }`, `{ other.title }`) or function calls (`{ DATETIME($d) }`;
   only `NUMBER` is registered), and the build didn't check term references.
   Each of these passed and then panicked when the message was formatted. Now the
-  build and `validate_ftl` run the same check: every message and term a generated
-  accessor reaches must exist, references must not form a cycle, every function
-  must be `NUMBER()`, and a referenced message may only use variables the accessor
-  passes (it sees the caller's arguments). `ContractViolation` has new variants
-  for these: `UnknownMessageReference`, `UnknownFunction`, `CyclicReference` and
-  `UnknownVariableInReference`.
+  build and `validate_ftl` run the same check on everything a generated accessor
+  reaches:
+  - every message, message attribute, term and term attribute exists, and a
+    referenced message has a value;
+  - references don't form a cycle;
+  - every function is `NUMBER()`;
+  - a referenced message uses only the accessor's arguments (it sees the caller's
+    arguments, and `(Element)` slots are never passed);
+  - a term doesn't use a variable after a nested term reference unless the
+    accessor passes it. fluent-bundle looks such a variable up in the accessor's
+    arguments, even when the term was called with it.
+
+  `ContractViolation` has new variants for these: `UnknownMessageReference`,
+  `ReferencedMessageHasNoValue`, `UnknownTermAttribute`, `UnknownFunction`,
+  `CyclicReference`, `UnknownVariableInReference` and
+  `TermVariableAfterNestedTerm`. It now also implements `Hash`.
 
   **This can remove accessors.** At build time, a message that fails the check in
   any locale is no longer generated, with a warning naming the file and line,

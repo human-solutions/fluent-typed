@@ -57,7 +57,7 @@ pub struct ElementContract {
 /// Carried by [`L10nError::Validation`]. Each variant describes a mistake
 /// that would otherwise surface later as a panic or formatting error in a
 /// generated accessor.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ContractViolation {
     /// A contract message is missing from the `.ftl` entirely.
@@ -131,14 +131,43 @@ pub enum ContractViolation {
         referenced_from: String,
     },
     /// A referenced message (`{ other }`) or attribute (`{ other.title }`) is
-    /// not defined, or the message has no value of its own. Resolving it would
-    /// fail to format at runtime.
+    /// not defined. Resolving it would fail to format at runtime.
     UnknownMessageReference {
         /// The reference, rendered as `message` or `message.attribute`.
         reference: String,
         /// Where the reference was found, rendered like
         /// [`ContractViolation::UnknownTerm::referenced_from`].
         referenced_from: String,
+    },
+    /// A referenced message (`{ other }`) exists but has only attributes, no
+    /// value of its own. Resolving it would fail to format at runtime.
+    ReferencedMessageHasNoValue {
+        /// The referenced message.
+        reference: String,
+        /// Where the reference was found.
+        referenced_from: String,
+    },
+    /// A referenced term attribute (`{ -brand.case -> … }`) is not defined.
+    /// Resolving it would fail to format at runtime.
+    UnknownTermAttribute {
+        /// The reference, rendered as `-term.attribute`.
+        reference: String,
+        /// Where the reference was found.
+        referenced_from: String,
+    },
+    /// A term uses a variable after referencing another term. fluent-bundle
+    /// then looks the variable up in the accessor's arguments instead of the
+    /// term's own, even ones passed explicitly (`{ -term(x: 1) }`); the
+    /// accessor doesn't pass it, so formatting fails at runtime. Moving the
+    /// variable before the nested term avoids it.
+    TermVariableAfterNestedTerm {
+        /// The term, rendered as `-term` or `-term.attribute`.
+        term: String,
+        /// The `$variable` name.
+        variable: String,
+        /// The accessor's message, rendered as `message` or
+        /// `message.attribute`.
+        message: String,
     },
     /// A function other than `NUMBER()` is called. The runtime registers only
     /// `NUMBER`, so any other function fails to format.
@@ -246,6 +275,32 @@ impl fmt::Display for ContractViolation {
                 f,
                 "'{referenced_from}' references message '{reference}', which is not defined",
             ),
+            Self::ReferencedMessageHasNoValue {
+                reference,
+                referenced_from,
+            } => write!(
+                f,
+                "'{referenced_from}' references message '{reference}', which has only \
+                 attributes and no value of its own",
+            ),
+            Self::UnknownTermAttribute {
+                reference,
+                referenced_from,
+            } => write!(
+                f,
+                "'{referenced_from}' references term attribute '{reference}', which is not \
+                 defined",
+            ),
+            Self::TermVariableAfterNestedTerm {
+                term,
+                variable,
+                message,
+            } => write!(
+                f,
+                "term '{term}' uses '${variable}' after referencing another term, where \
+                 '${variable}' is looked up in the arguments of '{message}', which doesn't \
+                 pass it; move '${variable}' before the nested term",
+            ),
             Self::UnknownFunction {
                 function,
                 referenced_from,
@@ -309,8 +364,8 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
     let (messages, terms) = index_entries(&resource);
 
     let mut violations = Vec::new();
-    // Shared across contracts, so a broken term reached from several messages
-    // is reported once.
+    // One resolver for all contracts, so a broken entry reached from several
+    // messages is reported once.
     let graph = AstGraph { messages, terms };
     let mut resolver = Resolver::new(&graph);
 
@@ -402,19 +457,7 @@ pub fn validate_ftl(bytes: &[u8], contracts: &[MessageContract]) -> Result<(), L
             );
         }
 
-        let allowed: Vec<&str> = contract
-            .vars
-            .iter()
-            .copied()
-            .chain(
-                contract
-                    .elements
-                    .iter()
-                    .filter(|e| !e.is_term)
-                    .map(|e| e.name),
-            )
-            .collect();
-        resolver.check(contract.message, contract.attribute, &refs, &allowed);
+        resolver.check(contract.message, contract.attribute, &refs, contract.vars);
     }
     violations.extend(resolver.into_violations());
 
@@ -475,13 +518,15 @@ pub(crate) trait RefGraph {
     /// The references of `message`'s value, or of its `attribute`; `None`
     /// when that pattern isn't defined.
     fn message_refs(&self, message: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>>;
-    /// The references of the term `name` (without `-`); `None` when it isn't
-    /// defined.
-    fn term_refs(&self, name: &str) -> Option<Cow<'_, [Ref]>>;
+    /// Whether `message` is defined at all (with or without a value).
+    fn message_exists(&self, message: &str) -> bool;
+    /// The references of the term `name` (without `-`), or of its `attribute`;
+    /// `None` when that pattern isn't defined.
+    fn term_refs(&self, name: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>>;
 }
 
 /// A [`RefGraph`] over a parsed resource, as [`validate_ftl`] has. References
-/// are collected when a pattern is first walked.
+/// are collected when a pattern is walked.
 pub(crate) struct AstGraph<'a> {
     messages: Messages<'a>,
     terms: Terms<'a>,
@@ -493,31 +538,37 @@ impl RefGraph for AstGraph<'_> {
         Some(Cow::Owned(find_refs_and_selectors(pattern).0))
     }
 
-    fn term_refs(&self, name: &str) -> Option<Cow<'_, [Ref]>> {
+    fn message_exists(&self, message: &str) -> bool {
+        self.messages.contains_key(message)
+    }
+
+    fn term_refs(&self, name: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>> {
         let term = self.terms.get(name)?;
-        Some(Cow::Owned(find_refs_and_selectors(&term.value).0))
+        let pattern = match attribute {
+            Some(a) => &term.attributes.iter().find(|x| x.id.name == a)?.value,
+            None => &term.value,
+        };
+        Some(Cow::Owned(find_refs_and_selectors(pattern).0))
     }
 }
 
 /// Checks that everything a generated accessor's pattern references resolves:
 /// messages, attributes and terms exist (transitively, without cycles), every
-/// function is one the runtime registers, and messages it references use only
-/// variables the accessor passes.
+/// function is one the runtime registers, and variables that end up looked up
+/// in the accessor's arguments are ones it passes.
 ///
 /// Used by [`validate_ftl`] and by the build, for every locale, so both hold
 /// translations to the same rules. Only entries reachable from the checked
 /// patterns are walked, so an unused, broken message or term doesn't count.
 pub(crate) struct Resolver<'g, G: RefGraph> {
     graph: &'g G,
-    /// Terms already walked. A term has its own scope, so the result doesn't
-    /// depend on the accessor and each term is walked once.
-    walked_terms: FxHashSet<String>,
     violations: Vec<ContractViolation>,
+    reported: FxHashSet<ContractViolation>,
 }
 
 /// Where a walk is: the entries on the current reference path (for cycle
-/// detection), the referenced messages already walked for this accessor, and
-/// the accessor's own name and arguments.
+/// detection), the entries already walked for this accessor, and the
+/// accessor's own name and arguments.
 struct Walk<'s> {
     stack: Vec<String>,
     visited: FxHashSet<String>,
@@ -529,14 +580,17 @@ impl<'g, G: RefGraph> Resolver<'g, G> {
     pub(crate) fn new(graph: &'g G) -> Self {
         Self {
             graph,
-            walked_terms: FxHashSet::default(),
             violations: Vec::new(),
+            reported: FxHashSet::default(),
         }
     }
 
     /// Check the pattern of `message` (or its `attribute`), whose references
-    /// are `refs` and whose accessor passes the variables in `allowed`. The
-    /// pattern's own variables are not checked here; that's [`check_refs`].
+    /// are `refs` and whose accessor passes the variables in `allowed`, its
+    /// arguments. `(Element)` variables are not arguments: they're never
+    /// passed, so a referenced message can't use them.
+    ///
+    /// The pattern's own variables are not checked here; that's [`check_refs`].
     pub(crate) fn check(
         &mut self,
         message: &str,
@@ -563,12 +617,17 @@ impl<'g, G: RefGraph> Resolver<'g, G> {
     }
 
     fn report(&mut self, violation: ContractViolation) {
-        if !self.violations.contains(&violation) {
+        if self.reported.insert(violation.clone()) {
             self.violations.push(violation);
         }
     }
 
     fn walk(&mut self, refs: &[Ref], origin: &str, scope: Scope, walk: &mut Walk<'_>) {
+        // Inside a term, fluent-bundle forgets the term's own arguments once a
+        // nested term has been resolved, and looks later variables up in the
+        // accessor's arguments. Refs are in document order, so this tracks
+        // "after a nested term" (conservatively across select variants).
+        let mut after_nested_term = false;
         for r in refs {
             match r.kind {
                 RefKind::Function => {
@@ -579,68 +638,101 @@ impl<'g, G: RefGraph> Resolver<'g, G> {
                         });
                     }
                 }
-                // The accessor's own variables are `check_refs`' job, and a
-                // term's variables are its own arguments. Only a referenced
-                // message sees the accessor's arguments.
+                // The accessor's own variables are `check_refs`' job.
                 RefKind::Variable => {
-                    if scope == Scope::ReferencedMessage && !walk.allowed.contains(&r.name.as_str())
-                    {
-                        self.report(ContractViolation::UnknownVariableInReference {
-                            message: walk.accessor.clone(),
-                            reference: origin.to_string(),
-                            variable: r.name.clone(),
-                        });
+                    let passed = walk.allowed.contains(&r.name.as_str());
+                    match scope {
+                        Scope::Accessor => {}
+                        Scope::ReferencedMessage if !passed => {
+                            self.report(ContractViolation::UnknownVariableInReference {
+                                message: walk.accessor.clone(),
+                                reference: origin.to_string(),
+                                variable: r.name.clone(),
+                            });
+                        }
+                        // Before a nested term, a term's variable is its own
+                        // argument; if missing it renders as `{$x}`, no panic.
+                        Scope::Term if after_nested_term && !passed => {
+                            self.report(ContractViolation::TermVariableAfterNestedTerm {
+                                term: origin.to_string(),
+                                variable: r.name.clone(),
+                                message: walk.accessor.clone(),
+                            });
+                        }
+                        Scope::ReferencedMessage | Scope::Term => {}
                     }
                 }
-                RefKind::Term => {
-                    let graph = self.graph;
-                    let Some(term_refs) = graph.term_refs(&r.name) else {
-                        self.report(ContractViolation::UnknownTerm {
-                            term: r.name.clone(),
-                            referenced_from: origin.to_string(),
-                        });
-                        continue;
-                    };
-                    let key = format!("-{}", r.name);
-                    if self.enter_cycle(&key, walk) {
-                        continue;
-                    }
-                    if self.walked_terms.insert(r.name.clone()) {
-                        walk.stack.push(key.clone());
-                        self.walk(&term_refs, &key, Scope::Term, walk);
-                        walk.stack.pop();
-                    }
+                RefKind::Term | RefKind::TermAttribute => {
+                    self.term(r, origin, walk);
+                    after_nested_term = true;
                 }
-                RefKind::Message => {
-                    let (id, attribute) = match r.name.split_once('.') {
-                        Some((id, a)) => (id, Some(a)),
-                        None => (r.name.as_str(), None),
-                    };
-                    let graph = self.graph;
-                    let Some(target_refs) = graph.message_refs(id, attribute) else {
-                        self.report(ContractViolation::UnknownMessageReference {
-                            reference: r.name.clone(),
-                            referenced_from: origin.to_string(),
-                        });
-                        continue;
-                    };
-                    if self.enter_cycle(&r.name, walk) {
-                        continue;
-                    }
-                    // Inside a term, a message reference is resolved in the
-                    // term's scope, not the accessor's, so its variables
-                    // aren't checked.
-                    let inner = match scope {
-                        Scope::Term => Scope::Term,
-                        _ => Scope::ReferencedMessage,
-                    };
-                    if walk.visited.insert(format!("{inner:?}:{}", r.name)) {
-                        walk.stack.push(r.name.clone());
-                        self.walk(&target_refs, &r.name, inner, walk);
-                        walk.stack.pop();
-                    }
-                }
+                RefKind::Message => self.message(r, origin, scope, walk),
             }
+        }
+    }
+
+    fn term(&mut self, r: &Ref, origin: &str, walk: &mut Walk<'_>) {
+        let (name, attribute) = split_reference(&r.name);
+        let graph = self.graph;
+        let Some(refs) = graph.term_refs(name, attribute) else {
+            let violation = if attribute.is_some() && graph.term_refs(name, None).is_some() {
+                ContractViolation::UnknownTermAttribute {
+                    reference: format!("-{}", r.name),
+                    referenced_from: origin.to_string(),
+                }
+            } else {
+                ContractViolation::UnknownTerm {
+                    term: name.to_string(),
+                    referenced_from: origin.to_string(),
+                }
+            };
+            self.report(violation);
+            return;
+        };
+        let key = format!("-{}", r.name);
+        if self.enter_cycle(&key, walk) {
+            return;
+        }
+        // Per accessor: whether a term is fine depends on the accessor's
+        // arguments (see `TermVariableAfterNestedTerm`).
+        if walk.visited.insert(key.clone()) {
+            walk.stack.push(key.clone());
+            self.walk(&refs, &key, Scope::Term, walk);
+            walk.stack.pop();
+        }
+    }
+
+    fn message(&mut self, r: &Ref, origin: &str, scope: Scope, walk: &mut Walk<'_>) {
+        let (id, attribute) = split_reference(&r.name);
+        let graph = self.graph;
+        let Some(refs) = graph.message_refs(id, attribute) else {
+            let violation = if attribute.is_none() && graph.message_exists(id) {
+                ContractViolation::ReferencedMessageHasNoValue {
+                    reference: r.name.clone(),
+                    referenced_from: origin.to_string(),
+                }
+            } else {
+                ContractViolation::UnknownMessageReference {
+                    reference: r.name.clone(),
+                    referenced_from: origin.to_string(),
+                }
+            };
+            self.report(violation);
+            return;
+        };
+        if self.enter_cycle(&r.name, walk) {
+            return;
+        }
+        // Inside a term, a message reference is resolved in the term's scope,
+        // not the accessor's, so its variables aren't checked.
+        let inner = match scope {
+            Scope::Term => Scope::Term,
+            _ => Scope::ReferencedMessage,
+        };
+        if walk.visited.insert(format!("{inner:?}:{}", r.name)) {
+            walk.stack.push(r.name.clone());
+            self.walk(&refs, &r.name, inner, walk);
+            walk.stack.pop();
         }
     }
 
@@ -664,8 +756,17 @@ enum Scope {
     /// A message referenced (directly or not) from the accessor's pattern:
     /// it sees the accessor's arguments.
     ReferencedMessage,
-    /// A term, or anything referenced from one: its own arguments only.
+    /// A term, or anything referenced from one: its own arguments, until a
+    /// nested term is resolved.
     Term,
+}
+
+/// Split `name` or `name.attribute`.
+fn split_reference(reference: &str) -> (&str, Option<&str>) {
+    match reference.split_once('.') {
+        Some((name, attribute)) => (name, Some(attribute)),
+        None => (reference, None),
+    }
 }
 
 /// Render a reference as `message` or `message.attribute`.
@@ -684,7 +785,7 @@ fn render_elements(elements: &[(String, RefKind)]) -> Vec<String> {
             RefKind::Variable => format!("${name}"),
             RefKind::Term => format!("-{name}"),
             // Elements are only ever variables or terms.
-            RefKind::Message | RefKind::Function => name.clone(),
+            RefKind::TermAttribute | RefKind::Message | RefKind::Function => name.clone(),
         })
         .collect()
 }
@@ -1021,12 +1122,81 @@ notice = { $icon } Du har { $count } olästa, se { -privacy-link }.
                     reference: "other.title".into(),
                     referenced_from: "hello".into(),
                 },
-                ContractViolation::UnknownMessageReference {
+                ContractViolation::ReferencedMessageHasNoValue {
                     reference: "attrs-only".into(),
                     referenced_from: "hello".into(),
                 },
             ]
         );
+    }
+
+    #[test]
+    fn a_referenced_message_cannot_use_element_variables() {
+        // `$icon` is an `(Element)` slot of `notice`, never passed as an
+        // argument, so `help` can't resolve it.
+        let ftl = VALID.replace("se { -privacy-link }", "se { -privacy-link } { help }")
+            + "help = Klicka { $icon }\n";
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::UnknownVariableInReference {
+                message: "notice".into(),
+                reference: "help".into(),
+                variable: "icon".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn term_attributes_must_exist_and_resolve() {
+        let selector = |attr: &str| {
+            with_hello(
+                &format!("{{ $name }} {{ -brand.{attr} ->\n   *[x] y\n}}"),
+                "-brand = B\n    .gen = { DATETIME(1) }\n",
+            )
+        };
+        assert_eq!(
+            violations(&selector("case")),
+            [ContractViolation::UnknownTermAttribute {
+                reference: "-brand.case".into(),
+                referenced_from: "hello".into(),
+            }]
+        );
+        assert_eq!(
+            violations(&selector("gen")),
+            [ContractViolation::UnknownFunction {
+                function: "DATETIME".into(),
+                referenced_from: "-brand.gen".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_term_variable_after_a_nested_term_must_be_an_accessor_argument() {
+        // fluent-bundle looks `$x` up in the accessor's arguments once `-inner`
+        // has been resolved, even though `-outer` is called with `x`.
+        let ftl = with_hello(
+            "{ $name } { -outer(x: 1) }",
+            "-inner = hi\n-outer = { -inner } { $x }\n",
+        );
+        assert_eq!(
+            violations(&ftl),
+            [ContractViolation::TermVariableAfterNestedTerm {
+                term: "-outer".into(),
+                variable: "x".into(),
+                message: "hello".into(),
+            }]
+        );
+        // Before the nested term, or when the accessor passes it, it's fine.
+        let before = with_hello(
+            "{ $name } { -outer(x: 1) }",
+            "-inner = hi\n-outer = { $x } { -inner }\n",
+        );
+        validate_ftl(before.as_bytes(), CONTRACTS).unwrap();
+        let passed = with_hello(
+            "{ $name } { -outer }",
+            "-inner = hi\n-outer = { -inner } { $name }\n",
+        );
+        validate_ftl(passed.as_bytes(), CONTRACTS).unwrap();
     }
 
     #[test]

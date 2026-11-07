@@ -25,6 +25,9 @@ pub struct Ref {
 pub enum RefKind {
     Variable,
     Term,
+    /// `{ -term.attribute }` (name `term.attribute`). Term attributes can
+    /// only be selectors, as in `{ -brand.case -> … }`.
+    TermAttribute,
     /// `{ other }` or `{ other.attribute }`.
     Message,
     /// `{ NUMBER($x) }`: the function name.
@@ -105,10 +108,20 @@ impl Collector {
                 name: id.name.to_owned(),
                 kind: RefKind::Variable,
             }),
-            ast::InlineExpression::TermReference { id, arguments, .. } => {
-                self.refs.push(Ref {
-                    name: id.name.to_owned(),
-                    kind: RefKind::Term,
+            ast::InlineExpression::TermReference {
+                id,
+                attribute,
+                arguments,
+            } => {
+                self.refs.push(match attribute {
+                    Some(a) => Ref {
+                        name: format!("{}.{}", id.name, a.name),
+                        kind: RefKind::TermAttribute,
+                    },
+                    None => Ref {
+                        name: id.name.to_owned(),
+                        kind: RefKind::Term,
+                    },
                 });
                 if let Some(arguments) = arguments {
                     self.call_arguments(arguments);
