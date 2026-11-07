@@ -53,7 +53,8 @@ fn test_locales_folder() {
         .with_locales_folder("src/tests/test_locales")
         .with_ftl_output(ftl_opts)
         .with_output_file_path("src/tests/gen/test_locales_gen.rs")
-        .with_default_language("en-gb");
+        .with_default_language("en-gb")
+        .with_langneg();
     Builder::load(options).unwrap().generate().unwrap();
 
     let generated = fs::read_to_string("src/tests/gen/test_locales_gen.rs").unwrap();
@@ -311,6 +312,103 @@ fn empty_locales_folder_is_an_error() {
             Err(BuildError::NoLocaleFolders { .. })
         ),
         "an empty locales folder should produce a NoLocaleFolders error, not a panic"
+    );
+}
+
+fn generate_with(dir: &str, options: BuildOptions, ftl: &str) -> String {
+    fs::create_dir_all(dir).unwrap();
+    let rs = format!("{dir}/l10n.rs");
+    let options = options
+        .with_output_file_path(&rs)
+        .with_ftl_output(FtlOutputOptions::single_file(&format!(
+            "{dir}/translations.ftl"
+        )))
+        .without_format();
+    Builder::load_one(options, "test", "en", ftl)
+        .unwrap()
+        .generate()
+        .unwrap();
+    fs::read_to_string(&rs).unwrap()
+}
+
+#[test]
+fn langneg_is_generated_only_when_asked_for() {
+    let off = generate_with(
+        "target/test-gen-langneg-off",
+        BuildOptions::default(),
+        "hello = Hi\n",
+    );
+    for absent in [
+        "fn langneg(",
+        "AsRef<LanguageIdentifier>",
+        "langid!(",
+        "require_langneg!",
+    ] {
+        assert!(
+            !off.contains(absent),
+            "unexpected `{absent}` without langneg"
+        );
+    }
+
+    let on = generate_with(
+        "target/test-gen-langneg-on",
+        BuildOptions::default().with_langneg(),
+        "hello = Hi\n",
+    );
+    for present in [
+        "fn langneg(",
+        "impl AsRef<LanguageIdentifier> for L10n",
+        "require_langneg!();",
+    ] {
+        assert!(on.contains(present), "expected `{present}` with langneg");
+    }
+}
+
+#[test]
+fn structured_accessors_use_the_prefix() {
+    let ftl = "# $icon (Element) - An icon.\nnotice = { $icon } Mail\n";
+    let generated = generate_with(
+        "target/test-gen-structured-prefix",
+        BuildOptions::default().with_prefix("tr_"),
+        ftl,
+    );
+    assert!(
+        generated.contains("pub fn tr_notice(&self) -> Notice"),
+        "expected the prefixed structured accessor"
+    );
+}
+
+#[test]
+fn only_message_accessors_can_be_reported_unused() {
+    let generated = generate_with(
+        "target/test-gen-dead-code",
+        BuildOptions::default().with_langneg(),
+        "hello = Hi\n",
+    );
+    // The helpers are allowed; the message accessor is not.
+    for item in [
+        "pub static MESSAGE_CONTRACTS",
+        "static ALL_LANGS",
+        "impl L10n {",
+        "pub fn new(",
+        "pub fn new_external(",
+    ] {
+        let at = generated
+            .find(item)
+            .unwrap_or_else(|| panic!("missing `{item}`"));
+        let before = &generated[..at];
+        let last_item_end = before.rfind(['}', ';']).unwrap_or(0);
+        assert!(
+            before[last_item_end..].contains("#[allow(dead_code)]"),
+            "`{item}` should be #[allow(dead_code)]"
+        );
+    }
+    let at = generated.find("pub fn msg_hello(").unwrap();
+    let before = &generated[..at];
+    let last_item_end = before.rfind(['}', ';']).unwrap_or(0);
+    assert!(
+        !before[last_item_end..].contains("allow(dead_code)"),
+        "message accessors must stay reportable as unused"
     );
 }
 

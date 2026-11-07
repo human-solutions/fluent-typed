@@ -99,7 +99,7 @@ impl FtlOutputOptions {
         }
     }
 
-    pub fn generate(&self, locales: &[LangBundle]) -> Result<GeneratedFtl, String> {
+    pub(crate) fn generate(&self, locales: &[LangBundle]) -> Result<GeneratedFtl, String> {
         match self {
             Self::MultiFile { output_ftl_folder } => {
                 let dir = PathBuf::from(output_ftl_folder);

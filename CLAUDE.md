@@ -3,14 +3,15 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build/Test Commands
-- Build: `cargo build`
-- Run tests: `cargo test`
-- Run a specific test: `cargo test test_name`
-- Run tests with output: `cargo test -- --nocapture`
+The default features are empty (CI enforces it), so pass features explicitly.
+A plain `cargo test` fails with a message saying so.
+- Build: `cargo build --features build,langneg`
+- Run tests: `cargo test --features build,langneg`
+- Run a specific test: `cargo test --features build,langneg test_name`
+- Run tests with output: `cargo test --features build,langneg -- --nocapture`
 - Format code: `cargo fmt`
-- Lint code: `cargo clippy`
-- Build with build feature: `cargo build --features build`
-- Build with langneg feature: `cargo build --features langneg`
+- Lint code: `cargo clippy --all-targets --features build,langneg`
+- Runtime only (what users depend on): `cargo build --no-default-features`
 
 ## Test Structure
 - **Unit Tests**: Located in `src/tests/` directory

@@ -8,7 +8,12 @@ use std::{
 };
 
 static LANG_DATA: &[u8] = include_bytes!("./ftl.bin"); // <<placeholder lang_data>>
-static MESSAGE_CONTRACTS: &[MessageContract] = &[]; // <<placeholder message contracts>>
+/// The message contract of every generated accessor: what an `.ftl` must
+/// define for this API. Pass it to `fluent_typed::validate_ftl` to check a
+/// translation without loading it (e.g. in CI).
+#[allow(dead_code)]
+pub static MESSAGE_CONTRACTS: &[MessageContract] = &[]; // <<placeholder message contracts>>
+#[allow(dead_code)]
 static ALL_LANGS: [L10n; 1] = [L10n::Placeholder]; // <<placeholder all_langs>>
 
 // <<placeholder static enum langid>>
@@ -58,7 +63,11 @@ impl Display for L10n {
     }
 }
 
+// Language helpers: not every app uses all of them, and an unused one is not a
+// stale translation, so they don't produce dead-code warnings.
+#[allow(dead_code)]
 impl L10n {
+    /// All languages with built-in translations.
     pub fn iter() -> Iter<'static, L10n> {
         ALL_LANGS.iter()
     }
@@ -71,6 +80,7 @@ impl L10n {
 ///
 /// It provides functions for each message that was found in
 /// all the languages at build time.
+#[derive(Debug)]
 pub struct L10nLanguage(L10nBundle);
 
 impl L10nLanguage {
@@ -81,6 +91,7 @@ impl L10nLanguage {
     /// The bytes are expected to be the contents of a .ftl file. An owned
     /// buffer (`Vec<u8>`, `String`) is moved in without copying; a borrowed
     /// one (`&[u8]`, `&str`) is copied once.
+    #[allow(dead_code)]
     pub fn new(lang: impl AsRef<str>, bytes: impl Into<Vec<u8>>) -> Result<Self, L10nError> {
         Ok(Self(L10nBundle::new(lang, bytes)?)) // <<placeholder l10n bundle new>>
     }
@@ -98,6 +109,7 @@ impl L10nLanguage {
     /// Use this to load a language that was not compiled in, or to hot-reload
     /// a translation under revision. Pass the buffer by value (e.g. straight
     /// from `std::fs::read`) to avoid a copy.
+    #[allow(dead_code)]
     pub fn new_external(
         lang: impl AsRef<str>,
         bytes: impl Into<Vec<u8>>,

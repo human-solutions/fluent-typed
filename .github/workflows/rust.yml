@@ -26,6 +26,31 @@ jobs:
       - name: Run tests
         run: cargo test --features build,langneg --verbose
 
+  features:
+    name: Feature hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # The default features must stay empty, so the runtime dependency stays
+      # lean (0.9.0 shipped with `build` and `langneg` on by default by
+      # accident). Every other job passes its features explicitly.
+      - name: Default features are empty
+        run: |
+          default=$(cargo metadata --no-deps --format-version 1 \
+            | jq -c '.packages[] | select(.name == "fluent-typed") | .features.default')
+          if [ "$default" != "[]" ]; then
+            echo "::error file=Cargo.toml::default features must be [], found $default"
+            exit 1
+          fi
+      # What users put in [dependencies]: the runtime alone, with and without
+      # langneg, must build without the `build` feature.
+      - name: Runtime builds without the build feature
+        run: |
+          cargo build --no-default-features
+          cargo build --no-default-features --features langneg
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

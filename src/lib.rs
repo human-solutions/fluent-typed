@@ -14,6 +14,35 @@ pub use error::L10nError;
 #[cfg(all(test, feature = "build"))]
 mod tests;
 
+// The unit tests need the build pipeline. Without this, a plain `cargo test`
+// (no features, since the defaults are empty) would compile zero tests and
+// report success.
+#[cfg(all(test, not(feature = "build")))]
+compile_error!("run the tests with `cargo test --features build,langneg`");
+
+/// Emitted by generated code built with `BuildOptions::with_langneg`, so a
+/// missing runtime `langneg` feature fails with an actionable message instead
+/// of unresolved-name errors inside the generated file.
+#[doc(hidden)]
+#[macro_export]
+#[cfg(feature = "langneg")]
+macro_rules! __require_langneg {
+    () => {};
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(not(feature = "langneg"))]
+macro_rules! __require_langneg {
+    () => {
+        compile_error!(
+            "the generated l10n code uses language negotiation (`BuildOptions::with_langneg`), \
+             so enable the `langneg` feature of fluent-typed in [dependencies]: \
+             fluent-typed = { version = \"…\", features = [\"langneg\"] }"
+        );
+    };
+}
+
 #[cfg(any(doc, feature = "build"))]
 pub use build::{
     BuildError, BuildOptions, FtlOutputOptions, LintLevel, build_from_locales_folder,
@@ -25,7 +54,11 @@ pub use build::{
 #[cfg(feature = "bench-internals")]
 pub use build::bench_internals;
 
+/// Everything the generated code needs, imported with
+/// `use fluent_typed::prelude::*;` at the top of the generated file.
 pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::__require_langneg as require_langneg;
     pub use crate::contract::{ContractViolation, ElementContract, MessageContract, validate_ftl};
     pub use crate::error::L10nError;
     pub use crate::l10n_bundle::L10nBundle;
@@ -65,6 +98,10 @@ pub mod prelude {
         requested.into_iter().map(|(lid, _)| lid).collect()
     }
 
+    /// Pick the first of `available` whose language subtag matches an entry of
+    /// the `Accept-Language` header (highest quality first), or
+    /// `A::default()` when none matches. The generated `L10n::langneg` calls
+    /// this with every built-in language.
     #[cfg(feature = "langneg")]
     pub fn negotiate_languages<'a, A>(accept_language: &str, available: &'a [A]) -> A
     where
