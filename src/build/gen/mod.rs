@@ -12,8 +12,13 @@ mod template;
 
 use super::typed::{ElementKind, VarType};
 use super::{BuildOptions, LangBundle, Message};
-pub use ext::StrExt;
+pub use ext::{StrExt, escape_ident};
 pub use generated_ftl::GeneratedFtl;
+pub use message::param_name;
+
+/// The indentation the generator writes. `Builder` converts it to
+/// `BuildOptions::indentation` afterwards, in one pass over the output.
+pub const INDENT: &str = "    ";
 
 pub fn generate(
     options: &BuildOptions,
@@ -28,7 +33,7 @@ pub fn generate(
         .collect::<Vec<_>>();
     langs.sort();
 
-    let indent = &options.indentation;
+    let indent = INDENT;
     let mut replacements: Vec<(&str, String)> = Vec::new();
 
     replacements.push((
@@ -155,7 +160,8 @@ pub fn generate(
     }}"#,
             names
                 .iter()
-                .map(|(var, name)| format!(r#"            Self::{var} => "{name}","#))
+                // `{:?}` escapes quotes and backslashes in the name.
+                .map(|(var, name)| format!("            Self::{var} => {name:?},"))
                 .collect::<Vec<_>>()
                 .join("\n")
         )

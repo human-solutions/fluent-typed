@@ -146,20 +146,6 @@ fn strict_accepts_a_bool_variable() {
 }
 
 #[test]
-fn bool_selector_requires_true_and_false_keys() {
-    let lints = lints_of(
-        "# $enabled (Bool) - feature state\nfeature = { $enabled ->\n    [yes] On\n   *[no] Off\n}\n",
-    );
-    assert_eq!(
-        lints.mistakes,
-        [
-            "main.ftl:2: Boolean selector $enabled in message 'feature' has keys \
-             [yes, no] — expected [true] and [false]"
-        ],
-    );
-}
-
-#[test]
 fn invalid_default_bool_selector_fails_at_warn_level() {
     let err = build_at(
         "bool-keys-warn",
@@ -346,8 +332,9 @@ fn an_extra_variable_in_another_locale_drops_the_message() {
     assert_eq!(
         analyzed.warnings,
         [
-            "en.ftl:1: message 'hello' is not generated — incompatible variables, \
-          Boolean selectors or elements in locale(s): fr (fr.ftl:1)"
+            "fr.ftl:1: message 'hello' is not generated — the 'fr' translation uses \
+             $extra, which the default locale's message (en.ftl:1) doesn't have, so the \
+             accessor never passes it"
         ],
     );
 }
@@ -363,8 +350,8 @@ fn a_message_missing_from_the_default_locale_is_reported() {
     assert_eq!(
         analyzed.warnings,
         [
-            "message 'bye' is not generated — present in locale(s) fr but missing \
-          from the default locale 'en'"
+            "fr.ftl:2: message 'bye' is not generated — it is missing from the default \
+             locale 'en'"
         ],
     );
 }
@@ -385,11 +372,12 @@ fn invalid_bool_selector_in_another_locale_drops_the_message() {
     ];
     let analyzed = Analyzed::from(&langs, &langs[0]);
     assert!(!analyzed.common.contains(&Id::new_msg("feature")));
-    assert_eq!(analyzed.warnings.len(), 1, "{:?}", analyzed.warnings);
-    assert!(
-        analyzed.warnings[0].contains("Boolean selectors"),
-        "{:?}",
-        analyzed.warnings
+    assert_eq!(
+        analyzed.warnings,
+        [
+            "fr.ftl:1: message 'feature' is not generated — the 'fr' translation selects \
+             on the Boolean $enabled with the keys [yes, no] — expected [true] and [false]"
+        ],
     );
 }
 
@@ -419,7 +407,7 @@ fn a_message_missing_from_another_locale_is_reported() {
     assert!(!analyzed.common.contains(&Id::new_msg("bye")));
     assert_eq!(
         analyzed.warnings,
-        ["en.ftl:2: message 'bye' is not generated — missing from locale(s): fr"],
+        ["en.ftl:2: message 'bye' is not generated — it is missing from locale(s): fr"],
     );
 }
 
@@ -448,11 +436,18 @@ fn a_parse_error_names_the_file_and_line() {
         BuildError::FtlParse { path, errors } => {
             assert!(path.ends_with("bad.ftl"), "{path:?}");
             assert!(!errors.is_empty());
-            assert!(errors[0].starts_with("line "), "{:?}", errors[0]);
+            assert_eq!(
+                errors[0],
+                "bad.ftl:2:8: Expected a token starting with \"=\""
+            );
         }
         other => panic!("expected FtlParse, got {other:?}"),
     }
-    assert!(err.to_string().contains("bad.ftl"), "{err}");
+    // The file is named once per error, not again in a heading.
+    assert_eq!(
+        err.to_string(),
+        "bad.ftl:2:8: Expected a token starting with \"=\""
+    );
 }
 
 #[test]
@@ -733,8 +728,8 @@ fn a_broken_reference_in_a_locale_skips_the_message() {
     assert_eq!(
         analyzed.warnings,
         [
-            "en.ftl:2: message 'see' is not generated — it would fail to format: \
-          fr (fr.ftl:2): 'see' references message 'inbox-lien', which is not defined"
+            "fr.ftl:2: message 'see' is not generated — the 'fr' translation would fail \
+             to format: 'see' references message 'inbox-lien', which is not defined"
         ],
     );
 }
@@ -759,11 +754,218 @@ fn unknown_functions_and_missing_terms_skip_the_message_in_any_locale() {
     assert_eq!(
         analyzed.warnings,
         [
-            "en.ftl:2: message 'on' is not generated — it would fail to format: \
-             en (en.ftl:2): 'on' calls function DATETIME(), which is not available \
+            "en.ftl:2: message 'on' is not generated — the 'en' translation would fail \
+             to format: 'on' calls function DATETIME(), which is not available \
              (only NUMBER() is)",
-            "en.ftl:3: message 'by' is not generated — it would fail to format: \
-             fr (fr.ftl:2): 'by' references term '-marque', which is not defined",
+            "fr.ftl:2: message 'by' is not generated — the 'fr' translation would fail \
+             to format: 'by' references term '-marque', which is not defined",
         ],
     );
+}
+
+#[test]
+fn a_parse_error_quotes_the_entry_where_the_mistake_starts() {
+    // The unclosed `{` on line 2 is only noticed at line 3.
+    let err = LangBundle::from_ftl(
+        "ok = fine\nbroken = { $x\nnext = y\n",
+        "bad.ftl",
+        "en",
+        true,
+    )
+    .expect_err("malformed ftl must fail to parse");
+    assert_eq!(
+        err.to_string(),
+        "bad.ftl:3:1: Expected a token starting with \
+         \"}\" (in the entry starting at line 2: `broken = { $x`)"
+    );
+}
+
+// ----------------------------------------------------------------------------
+// Generated Rust names that would clash are build errors, not compile errors
+// inside the generated file.
+// ----------------------------------------------------------------------------
+
+fn collisions(opts: BuildOptions, ftl: &str) -> Vec<String> {
+    match Builder::load_one(opts, "test", "en", ftl)
+        .unwrap()
+        .generate()
+    {
+        Err(BuildError::NameCollision { messages }) => messages,
+        other => panic!("expected NameCollision, got {other:?}"),
+    }
+}
+
+#[test]
+fn clashing_generated_names_are_build_errors() {
+    let ftl = "\
+foo-bar = a
+foo_bar = b
+a-b = c
+a = d
+    .b = e
+both = { $myVar } { $my_var }
+# $i (Element)
+save-file = f { $i } g
+# $i (Element)
+save_file = h { $i } i
+# $i (Element)
+string = j { $i } k
+";
+    assert_eq!(
+        collisions(BuildOptions::default(), ftl),
+        [
+            "test:2: message 'foo_bar' and message 'foo-bar' (test:1) both generate the \
+             method `msg_foo_bar`. Rename one.",
+            "test:5: message 'a' with attribute 'b' and message 'a-b' (test:3) both \
+             generate the method `msg_a_b`. Rename one.",
+            "test:6: in message 'both', $myVar and $my_var both become the parameter \
+             `my_var`. Rename one.",
+            "test:10: message 'save_file' and message 'save-file' (test:8) both generate \
+             the method `msg_save_file`. Rename one.",
+            "test:10: message 'save_file' and message 'save-file' (test:8) both generate \
+             the struct `SaveFile`. Rename one.",
+            "test:12: message 'string' would generate the struct `String`, a name the \
+             generated code already uses. Rename the message.",
+        ],
+    );
+}
+
+#[test]
+fn an_accessor_named_like_a_language_method_is_a_build_error() {
+    assert_eq!(
+        collisions(BuildOptions::default().with_prefix(""), "new = New\n"),
+        [
+            "test:1: message 'new' would generate the method `new`, which `L10nLanguage` \
+             already has. Rename the message, or set a prefix with \
+             `BuildOptions::with_prefix`."
+        ],
+    );
+}
+
+// ----------------------------------------------------------------------------
+// Locale folders must be named after a language.
+// ----------------------------------------------------------------------------
+
+/// Build a locales folder with one `a = A` resource per named subfolder.
+fn build_folders(dir: &str, folders: &[&str], langneg: bool) -> Result<(), BuildError> {
+    let mut opts = folder_options(dir, folders);
+    if langneg {
+        opts = opts.with_langneg();
+    }
+    Builder::load(opts)?.generate()
+}
+
+/// Options for `target/test-lint/{dir}`, with a `main.ftl` in each of the
+/// `folders` under its `locales`.
+fn folder_options(dir: &str, folders: &[&str]) -> BuildOptions {
+    let root = format!("target/test-lint/{dir}");
+    let _ = std::fs::remove_dir_all(&root);
+    for folder in folders {
+        std::fs::create_dir_all(format!("{root}/locales/{folder}")).unwrap();
+        std::fs::write(format!("{root}/locales/{folder}/main.ftl"), "a = A\n").unwrap();
+    }
+    BuildOptions::default()
+        .without_format()
+        .with_locales_folder(&format!("{root}/locales"))
+        .with_output_file_path(&format!("{root}/l10n.rs"))
+        .with_ftl_output(FtlOutputOptions::single_file(&format!("{root}/t.ftl")))
+}
+
+#[test]
+fn a_folder_that_is_not_a_language_is_a_build_error() {
+    // Hidden folders are skipped.
+    let err = build_folders("not-a-language", &["en", "templates", ".git"], false)
+        .expect_err("'templates' is not a language");
+    let BuildError::InvalidLanguageFolder { path, .. } = &err else {
+        panic!("expected InvalidLanguageFolder, got {err:?}");
+    };
+    assert!(path.ends_with("templates"), "{path:?}");
+    let message = err.to_string();
+    assert!(
+        message.contains("'templates' is not a language id") && message.contains("'en-GB'"),
+        "{message}"
+    );
+}
+
+#[test]
+fn a_folder_with_a_long_name_is_not_a_language() {
+    // BCP 47 allows 5-8 letter language subtags, but none is in use.
+    let err = build_folders("long-name", &["en", "shared"], false)
+        .expect_err("'shared' is not a language");
+    assert!(
+        err.to_string()
+            .contains("'shared' is not a language id: language codes have 2 or 3 letters."),
+        "{err}"
+    );
+}
+
+#[test]
+fn hidden_folders_inside_a_locale_are_skipped() {
+    let opts = folder_options("hidden-nested", &["en", "en/.history"]);
+    std::fs::write(
+        "target/test-lint/hidden-nested/locales/en/.history/main.ftl",
+        "broken {\n",
+    )
+    .unwrap();
+    Builder::load(opts)
+        .and_then(|b| b.generate())
+        .expect("the editor history isn't loaded");
+}
+
+#[test]
+fn custom_indentation_applies_once_at_every_level() {
+    let opts = folder_options("indentation", &["en", "fr"]).with_indentation("  ");
+    Builder::load(opts).unwrap().generate().unwrap();
+    let generated = std::fs::read_to_string("target/test-lint/indentation/l10n.rs").unwrap();
+    // A `from_str` match arm, three levels deep.
+    assert!(
+        generated.contains("\n      \"en\" => Ok(Self::En),\n"),
+        "{generated}"
+    );
+}
+
+#[test]
+fn an_underscore_folder_is_rejected_only_with_langneg() {
+    build_folders("underscore", &["en", "en_US"], false).expect("en_US loads without langneg");
+    let err = build_folders("underscore-langneg", &["en", "en_US"], true)
+        .expect_err("langid! rejects en_US");
+    assert!(
+        err.to_string().contains("Rename the folder to 'en-US'"),
+        "{err}"
+    );
+}
+
+#[test]
+fn locale_folders_of_the_same_language_are_a_build_error() {
+    // `L10n::EnUS` and `L10n::EnUs` differ, but with langneg both would be
+    // `static EN_US`.
+    let err = build_folders("same-language", &["en", "en-US", "en_us"], false)
+        .expect_err("en-US and en_us are one language");
+    let BuildError::NameCollision { messages } = &err else {
+        panic!("expected NameCollision, got {err:?}");
+    };
+    assert_eq!(messages.len(), 1, "{messages:?}");
+    assert!(
+        messages[0].ends_with(
+            "the locale folders 'en-US' and 'en_us' are the same language. Remove or \
+             rename one."
+        ),
+        "{messages:?}"
+    );
+}
+
+#[test]
+fn an_unreadable_locales_folder_names_the_reason() {
+    let opts = BuildOptions::default().with_locales_folder("target/test-lint/does-not-exist");
+    let Err(err) = Builder::load(opts) else {
+        panic!("the folder doesn't exist");
+    };
+    let message = err.to_string();
+    assert!(
+        message
+            .starts_with("Could not read the locales folder 'target/test-lint/does-not-exist': "),
+        "{message}"
+    );
+    // The OS reason follows, e.g. "No such file or directory (os error 2)".
+    assert!(message.len() > 70, "{message}");
 }

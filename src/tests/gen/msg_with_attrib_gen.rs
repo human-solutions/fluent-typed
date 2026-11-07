@@ -150,8 +150,8 @@ impl L10nLanguage {
         self.0.msg("hello", None).unwrap()
     }
     pub fn msg_hello_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, user_name: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("userName", user_name);
-        self.0.attr("hello", "tooltip", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("userName", user_name);
+        self.0.attr("hello", "tooltip", Some(_args)).unwrap()
     }
 }

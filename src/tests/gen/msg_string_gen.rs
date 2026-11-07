@@ -147,14 +147,14 @@ impl L10nLanguage {
 
     /// $name (String) - The name.
     pub fn msg_greeting<F0: AsRef<str>>(&self, name: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("name", name.as_ref());
-        self.0.msg("greeting", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("name", name.as_ref());
+        self.0.msg("greeting", Some(_args)).unwrap()
     }
     /// $enabled (Bool) - Whether the feature is enabled.
     pub fn msg_feature_status(&self, enabled: bool) -> String {
-        let mut args = FluentArgs::new();
-        args.set("enabled", if enabled { "true" } else { "false" });
-        self.0.msg("feature-status", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("enabled", if enabled { "true" } else { "false" });
+        self.0.msg("feature-status", Some(_args)).unwrap()
     }
 }

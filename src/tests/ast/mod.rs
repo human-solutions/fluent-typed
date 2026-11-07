@@ -9,6 +9,7 @@ mod msg_text;
 mod msg_with_attrib;
 mod msg_with_var;
 mod res_msg_text;
+mod rust_names;
 
 use super::{assert_gen, bundle};
 use crate::build::{LineIndex, Message};

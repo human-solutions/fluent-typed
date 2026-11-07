@@ -3,6 +3,7 @@ mod error;
 pub mod r#gen;
 mod lang_bundle;
 pub mod lint;
+mod names;
 pub mod options;
 pub mod typed;
 mod utils;

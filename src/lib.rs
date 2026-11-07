@@ -110,7 +110,13 @@ pub mod prelude {
             .filter_map(|entry| {
                 let mut parts = entry.split(';');
                 let tag = parts.next()?.trim();
-                let quality = match parts.find_map(|p| p.trim().strip_prefix("q=")) {
+                // Parameter names are case-insensitive (RFC 9110), so `Q=` too.
+                let quality = match parts.find_map(|p| {
+                    let p = p.trim();
+                    p.get(..2)
+                        .filter(|name| name.eq_ignore_ascii_case("q="))
+                        .map(|_| &p[2..])
+                }) {
                     None => 1000,
                     Some(q) => {
                         let q = q.trim().parse::<f32>().ok()?;

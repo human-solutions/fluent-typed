@@ -191,9 +191,9 @@ impl L10nLanguage {
         self.0.msg("language-name", None).unwrap()
     }
     pub fn msg_greeting<'a, F0: Into<FluentValue<'a>>>(&self, gender: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("gender", gender);
-        self.0.msg("greeting", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("gender", gender);
+        self.0.msg("greeting", Some(_args)).unwrap()
     }
     pub fn msg_enter_details(&self) -> String {
         self.0.msg("enter-details", None).unwrap()

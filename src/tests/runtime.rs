@@ -343,4 +343,6 @@ fn langneg_skips_unacceptable_and_malformed_weights() {
         negotiate("en;level=1;q=0.1, fr;q=0.5", &["en", "fr"]),
         Some("fr")
     );
+    // The parameter name is case-insensitive.
+    assert_eq!(negotiate("en;Q=0.1, fr;q=0.5", &["en", "fr"]), Some("fr"));
 }

@@ -1,0 +1,265 @@
+// This file is generated. Do not edit it manually.
+use crate::prelude::*;
+use std::{fmt::Display, ops::Deref, slice::Iter, str::FromStr};
+
+static LANG_DATA: &[u8] = include_bytes!("rust_names_gen.ftl");
+/// The message contract of every generated accessor: what an `.ftl` must
+/// define for this API. Pass it to `fluent_typed::validate_ftl` to check a
+/// translation without loading it (e.g. in CI).
+#[allow(dead_code)]
+pub static MESSAGE_CONTRACTS: &[MessageContract] = &[
+    MessageContract {
+        message: "language-name",
+        attribute: None,
+        vars: &[],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "kind",
+        attribute: None,
+        vars: &["type"],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "count",
+        attribute: None,
+        vars: &["self"],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "args",
+        attribute: None,
+        vars: &["args", "match"],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "menu",
+        attribute: None,
+        vars: &[],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "menu",
+        attribute: Some("tooltip"),
+        vars: &["type"],
+        bool_vars: &[],
+        elements: &[],
+    },
+    MessageContract {
+        message: "nav",
+        attribute: None,
+        vars: &["segments"],
+        bool_vars: &[],
+        elements: &[ElementContract {
+            name: "loop",
+            is_term: false,
+        }],
+    },
+];
+#[allow(dead_code)]
+static ALL_LANGS: [L10n; 1] = [
+    // languages as an array
+    L10n::En,
+];
+
+/// The languages that have translations available.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum L10n {
+    En,
+}
+
+impl Default for L10n {
+    fn default() -> Self {
+        Self::En
+    }
+}
+
+impl FromStr for L10n {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "en" => Ok(Self::En),
+            _ => Err(format!("Unknown language: {}", s)),
+        }
+    }
+}
+
+impl Deref for L10n {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::En => "en",
+        }
+    }
+}
+
+impl AsRef<str> for L10n {
+    fn as_ref(&self) -> &str {
+        self
+    }
+}
+
+impl Display for L10n {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.deref())
+    }
+}
+
+// Language helpers: not every app uses all of them, and an unused one is not a
+// stale translation, so they don't produce dead-code warnings.
+#[allow(dead_code)]
+impl L10n {
+    /// All languages with built-in translations.
+    pub fn iter() -> Iter<'static, L10n> {
+        ALL_LANGS.iter()
+    }
+
+    /// The language name as defined in the ftl message "language-name".
+    pub fn language_name(&self) -> &'static str {
+        match self {
+            Self::En => "Say \"hi\" \\ bye",
+        }
+    }
+
+    fn byte_range(&self) -> std::ops::Range<usize> {
+        match self {
+            Self::En => 0..477,
+        }
+    }
+    /// Load a L10nLanguage from the embedded data.
+    pub fn load(&self) -> L10nLanguage {
+        L10nLanguage::new(self, &LANG_DATA[self.byte_range()])
+            .expect("fluent-typed: the embedded .ftl could not be loaded. This is a build-time bug; please report it.")
+    }
+
+    /// Load all languages (L10nLanguage) from the embedded data.
+    pub fn load_all() -> L10nLanguageVec {
+        L10nLanguageVec::load(
+            LANG_DATA,
+            Self::iter().map(|lang| (lang, lang.byte_range())),
+        )
+        .expect("fluent-typed: the embedded .ftl could not be loaded. This is a build-time bug; please report it.")
+    }
+}
+
+/// A thin wrapper around the Fluent messages for one language.
+///
+/// It provides functions for each message that was found in
+/// all the languages at build time.
+#[derive(Debug)]
+pub struct L10nLanguage(L10nBundle);
+
+impl L10nLanguage {
+    /// Load the L10n resources for the given language. The language
+    /// has to be a valid LanguageIdentifier or otherwise
+    /// an error is returned.
+    ///
+    /// The bytes are expected to be the contents of a .ftl file. An owned
+    /// buffer (`Vec<u8>`, `String`) is moved in without copying; a borrowed
+    /// one (`&[u8]`, `&str`) is copied once.
+    #[allow(dead_code)]
+    pub fn new(lang: impl AsRef<str>, bytes: impl Into<Vec<u8>>) -> Result<Self, L10nError> {
+        Ok(Self(L10nBundle::new(lang, bytes)?))
+    }
+
+    /// Load external `.ftl` bytes — read from disk, downloaded, etc. — after
+    /// validating them against the message contract compiled into this API.
+    ///
+    /// A translation where a message is missing or misspelled, uses a variable
+    /// this API never passes, drops an `(Element)` marker, references a
+    /// message or term that doesn't exist, or calls a function other than
+    /// `NUMBER()` is rejected here with `L10nError::Validation` (listing every
+    /// violation) instead of panicking later in an accessor.
+    ///
+    /// Use this to load a language that was not compiled in, or to hot-reload
+    /// a translation under revision. Pass the buffer by value (e.g. straight
+    /// from `std::fs::read`) to avoid a copy.
+    #[allow(dead_code)]
+    pub fn new_external(
+        lang: impl AsRef<str>,
+        bytes: impl Into<Vec<u8>>,
+    ) -> Result<Self, L10nError> {
+        let bytes = bytes.into();
+        validate_ftl(&bytes, MESSAGE_CONTRACTS)?;
+        Self::new(lang, bytes)
+    }
+
+    #[allow(unused)]
+    pub fn msg_language_name(&self) -> String {
+        self.0.msg("language-name", None).unwrap()
+    }
+    /// $type (String) - a keyword
+    pub fn msg_kind<F0: AsRef<str>>(&self, r#type: F0) -> String {
+        let mut _args = FluentArgs::new();
+        _args.set("type", r#type.as_ref());
+        self.0.msg("kind", Some(_args)).unwrap()
+    }
+    /// $self (Number) - a keyword that can't be a raw identifier
+    pub fn msg_count<F0: Into<FluentNumber>>(&self, self_: F0) -> String {
+        let mut _args = FluentArgs::new();
+        _args.set("self", self_.into());
+        self.0.msg("count", Some(_args)).unwrap()
+    }
+    /// $args (String) - the name of the accessor's argument list
+    /// $match (String) - another keyword
+    pub fn msg_args<F0: AsRef<str>, F1: AsRef<str>>(&self, args: F0, r#match: F1) -> String {
+        let mut _args = FluentArgs::new();
+        _args.set("args", args.as_ref());
+        _args.set("match", r#match.as_ref());
+        self.0.msg("args", Some(_args)).unwrap()
+    }
+    pub fn msg_menu(&self) -> String {
+        self.0.msg("menu", None).unwrap()
+    }
+    pub fn msg_menu_tooltip<'a, F0: Into<FluentValue<'a>>>(&self, r#type: F0) -> String {
+        let mut _args = FluentArgs::new();
+        _args.set("type", r#type);
+        self.0.attr("menu", "tooltip", Some(_args)).unwrap()
+    }
+    /// $loop (Element) - a link
+    /// $segments (String) - the name of the accessor's segment array
+    pub fn msg_nav<F0: AsRef<str>>(&self, segments: F0) -> Nav {
+        let mut _args = FluentArgs::new();
+        _args.set("segments", segments.as_ref());
+        let _segments: [Segment; 3] = self
+            .0
+            .msg_segments("nav", &["loop"], &[], Some(_args))
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let [_seg0, _, _seg2] = _segments;
+        Nav {
+            s0: _seg0.into_text(),
+            r#loop: ElementGap,
+            s1: _seg2.into_text(),
+        }
+    }
+}
+
+/// Structured output for message 'nav'.
+///
+/// Render the fields in declaration order. To keep bidirectional text correct,
+/// wrap each field — and each element the app injects — in an isolated bidi run
+/// (an HTML `<bdi>`, or `unicode-bidi: isolate`), with the container set to the
+/// locale's base direction.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Nav {
+    /// A resolved run of translated text.
+    pub s0: String,
+    /// Element slot: the app injects its own UI element here.
+    pub r#loop: ElementGap,
+    /// A resolved run of translated text.
+    pub s1: String,
+}
+
+impl ::core::fmt::Display for Nav {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        write!(f, "{}{}", self.s0, self.s1)
+    }
+}

@@ -778,7 +778,7 @@ fn render_reference(message: &str, attribute: Option<&str>) -> String {
 }
 
 /// Render an element marker sequence as `$variable` / `-term` names.
-fn render_elements(elements: &[(String, RefKind)]) -> Vec<String> {
+pub(crate) fn render_elements(elements: &[(String, RefKind)]) -> Vec<String> {
     elements
         .iter()
         .map(|(name, kind)| match kind {

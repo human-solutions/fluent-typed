@@ -10,9 +10,28 @@ mod msg_text_gen;
 mod msg_with_attrib_gen;
 mod msg_with_var_gen;
 mod res_msg_text_gen;
+mod rust_names_gen;
 mod test_locales_gen;
 mod test_locales_missing_msg_gen;
 mod test_locales_multi_resources_gen;
+
+/// Keyword-named variables, a variable named like the accessor's own locals,
+/// and a language name that needs escaping all compile and render.
+#[test]
+fn generated_names_are_escaped() {
+    use rust_names_gen::{L10n, Nav};
+    let strs = L10n::En.load();
+    let plain = |s: String| s.replace(['\u{2068}', '\u{2069}'], "");
+    assert_eq!(L10n::En.language_name(), r#"Say "hi" \ bye"#);
+    assert_eq!(plain(strs.msg_kind("noun")), "Kind: noun");
+    assert_eq!(plain(strs.msg_count(3)), "3 items");
+    assert_eq!(plain(strs.msg_args("a", "b")), "a and b");
+    assert_eq!(plain(strs.msg_menu_tooltip("x")), "Tooltip for x");
+    let nav = strs.msg_nav("home");
+    assert_eq!(nav.s0, "Go ");
+    assert_eq!(plain(nav.s1), " to home");
+    let _: Nav = strs.msg_nav("home");
+}
 
 #[test]
 fn generated_bool_accessor_selects_both_branches() {

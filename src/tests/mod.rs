@@ -264,9 +264,9 @@ fn test_term_message_collision_same_file_fails() {
     let rendered = err.to_string();
     assert_eq!(
         rendered,
-        "Term '-hello' and message 'hello' share the same name — \
-         fluent-bundle treats them as the same key and will crash at runtime. \
-         Rename one. Term defined in 'test:2', message defined in 'test:1'."
+        "test:2: term '-hello' has the same name as message 'hello' (test:1). \
+         fluent-bundle stores both under one key, so the translation would fail to \
+         load at runtime. Rename one."
     );
 }
 
