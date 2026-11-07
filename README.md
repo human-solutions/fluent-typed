@@ -2,8 +2,8 @@
 
 [![crates.io](https://img.shields.io/crates/v/fluent-typed.svg)](https://crates.io/crates/fluent-typed)
 [![docs.rs](https://docs.rs/fluent-typed/badge.svg)](https://docs.rs/fluent-typed)
-[![CI](https://github.com/human-solutions/fluent-typed/actions/workflows/rust.yml/badge.svg)](https://github.com/human-solutions/fluent-typed/actions/workflows/rust.yml)
-[![msrv](https://img.shields.io/crates/msrv/fluent-typed.svg)](https://github.com/human-solutions/fluent-typed)
+[![CI](https://github.com/akesson/fluent-typed/actions/workflows/rust.yml/badge.svg)](https://github.com/akesson/fluent-typed/actions/workflows/rust.yml)
+[![msrv](https://img.shields.io/crates/msrv/fluent-typed.svg)](https://github.com/akesson/fluent-typed)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 **Your [Fluent](https://projectfluent.org) translations as typed Rust functions.** A
@@ -203,7 +203,7 @@ is held to — the same check, shared code.
 // A Polish translation shipped as a file next to the binary,
 // added after release — never seen at build time.
 let bytes = std::fs::read("locales/pl.ftl")?;
-let pl: L10nLanguage = L10nLanguage::new_external("pl", &bytes)?;
+let pl: L10nLanguage = L10nLanguage::new_external("pl", bytes)?;
 pl.msg_hello("Ala");   // every generated accessor is safe to call
 
 // A broken translation — a misspelled id, an unknown $variable — is
@@ -212,10 +212,10 @@ pl.msg_hello("Ala");   // every generated accessor is safe to call
 let err = L10nLanguage::new_external("pl", b"helo = oops").unwrap_err();
 ```
 
-When you already own the buffer (as with `std::fs::read` above), the `_owned`
-variants take it by value instead of copying it:
-`L10nLanguage::new_external_owned("pl", bytes)` and `L10nLanguage::new_owned`
-(`L10nBundle::new_owned` / `new_owned_without_isolation` at the runtime level).
+The constructors (`L10nLanguage::new` / `new_external`, `L10nBundle::new` /
+`new_without_isolation`) take any `impl Into<Vec<u8>>`. Pass an owned buffer — a
+`Vec<u8>` from `std::fs::read` as above, or a `String` — by value and it is moved
+in without a copy; a borrowed `&[u8]`, `&str` or `b"..."` is copied once.
 
 The validation cannot check argument *types* at runtime — it doesn't need to: the
 accessor signatures fixed what your code passes at compile time, so matching
@@ -229,7 +229,7 @@ build-time language set) can never return:
 
 ```rust
 let mut languages = L10n::load_all();
-languages.insert(L10nBundle::new("pl", &bytes)?);
+languages.insert(L10nBundle::new("pl", bytes)?);
 // `langneg` returns Option — you pick the fallback:
 let bundle = languages
     .langneg(accept_language_header)
@@ -243,7 +243,7 @@ example to live-proofread — stays in your app: re-load on change and swap the 
 
 ```rust
 // on file change (e.g. via the `notify` crate):
-match L10nLanguage::new_external("en", &std::fs::read(&path)?) {
+match L10nLanguage::new_external("en", std::fs::read(&path)?) {
     Ok(fresh) => current.store(Arc::new(fresh)),   // e.g. an ArcSwap<L10nLanguage>
     Err(e) => eprintln!("translation rejected: {e}"),  // keep the last good one
 }

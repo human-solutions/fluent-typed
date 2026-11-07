@@ -50,18 +50,25 @@ fn msg_with_variable_without_isolation() {
 }
 
 #[test]
-fn owned_constructors_match_borrowed() {
+fn every_accepted_input_type_loads_the_same_bundle() {
     let args = || {
         let mut args = FluentArgs::new();
         args.set("name", "world");
         Some(args)
     };
-    let isolated = L10nBundle::new_owned("en", FTL.as_bytes().to_vec()).unwrap();
-    assert_eq!(
-        isolated.msg("hello", args()).unwrap(),
-        "Hi \u{2068}world\u{2069}!"
-    );
-    let plain = L10nBundle::new_owned_without_isolation("en", FTL.as_bytes().to_vec()).unwrap();
+    let isolated = [
+        L10nBundle::new("en", FTL.as_bytes()).unwrap(),
+        L10nBundle::new("en", FTL.as_bytes().to_vec()).unwrap(),
+        L10nBundle::new("en", FTL).unwrap(),
+        L10nBundle::new("en", FTL.to_string()).unwrap(),
+    ];
+    for bundle in &isolated {
+        assert_eq!(
+            bundle.msg("hello", args()).unwrap(),
+            "Hi \u{2068}world\u{2069}!"
+        );
+    }
+    let plain = L10nBundle::new_without_isolation("en", FTL.as_bytes().to_vec()).unwrap();
     assert_eq!(plain.msg("hello", args()).unwrap(), "Hi world!");
 }
 
@@ -69,7 +76,7 @@ fn owned_constructors_match_borrowed() {
 fn invalid_utf8_is_rejected() {
     let bytes = b"hello = \xff\n";
     assert!(matches!(
-        L10nBundle::new_owned("en", bytes.to_vec()),
+        L10nBundle::new("en", bytes),
         Err(L10nError::InvalidUtf8(_))
     ));
     assert!(matches!(

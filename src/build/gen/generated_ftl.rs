@@ -64,7 +64,7 @@ impl GeneratedFtl {
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
         let bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
-        L10nLanguage::new_owned(self, bytes)
+        L10nLanguage::new(self, bytes)
     }
 "#
         } else {
