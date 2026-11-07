@@ -2,7 +2,9 @@
 // rustdoc compiles doctests, so they're excluded from doctests. Their examples
 // are compiled and run by playground/docs-check instead.
 #![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
-#[cfg(any(doc, feature = "build"))]
+// Documented even without the feature (docs.rs enables it anyway), but not
+// collected as doctests then: its examples need the feature to compile.
+#[cfg(any(all(doc, not(doctest)), feature = "build"))]
 mod build;
 mod contract;
 mod error;
@@ -46,7 +48,9 @@ macro_rules! __require_langneg {
     };
 }
 
-#[cfg(any(doc, feature = "build"))]
+// Documented even without the feature (docs.rs enables it anyway), but not
+// collected as doctests then: its examples need the feature to compile.
+#[cfg(any(all(doc, not(doctest)), feature = "build"))]
 pub use build::{
     BuildError, BuildOptions, FtlOutputOptions, LintLevel, build_from_locales_folder,
     try_build_from_locales_folder,
@@ -127,7 +131,8 @@ pub mod prelude {
 
     /// Pick the first of `available` whose language subtag matches an entry of
     /// the `Accept-Language` header (highest quality first), or
-    /// `A::default()` when none matches. The generated `L10n::langneg` calls
+    /// `A::default()` when none matches. Regions and scripts are ignored:
+    /// `en-GB` matches the first `en*` entry of `available`. The generated `L10n::langneg` calls
     /// this with every built-in language.
     #[cfg(feature = "langneg")]
     pub fn negotiate_languages<'a, A>(accept_language: &str, available: &'a [A]) -> A

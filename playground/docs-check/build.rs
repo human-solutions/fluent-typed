@@ -2,7 +2,9 @@
 //! 2. Extracts every ```rust block from README.md and docs/*.md into
 //!    `$OUT_DIR/blocks.rs`, one `#[test]` function per block, so `cargo test`
 //!    compiles them all and runs them (their `assert!`s check what the docs
-//!    claim).
+//!    claim). A `build.rs` example becomes a nested `fn main` that is
+//!    compiled but never called: running it would regenerate this crate's own
+//!    l10n modules with other options.
 //!
 //! A block is controlled by an HTML comment on the line before its fence
 //! (invisible on GitHub, crates.io and docs.rs), with space-separated words:
@@ -104,10 +106,9 @@ fn rust_blocks(text: &str) -> Vec<Block> {
     let mut blocks = Vec::new();
     let mut i = 0;
     while i < lines.len() {
-        let fence = lines[i].trim_start();
-        let is_rust = fence
-            .strip_prefix("```")
-            .is_some_and(|info| info.split(',').next() == Some("rust"));
+        let fence = lines[i].trim();
+        let is_rust = fence.starts_with("```")
+            && fence.trim_start_matches('`').split(',').next() == Some("rust");
         if !is_rust {
             i += 1;
             continue;
@@ -121,9 +122,10 @@ fn rust_blocks(text: &str) -> Vec<Block> {
             .unwrap_or("");
         let start = i + 1;
         let mut end = start;
-        while end < lines.len() && lines[end].trim_start() != "```" {
+        while end < lines.len() && !is_closing_fence(lines[end]) {
             end += 1;
         }
+        assert!(end < lines.len(), "unclosed ```rust block at line {}", i + 1);
         let words: Vec<&str> = marker.split_whitespace().collect();
         for word in &words {
             assert!(
@@ -146,6 +148,12 @@ fn rust_blocks(text: &str) -> Vec<Block> {
         i = end + 1;
     }
     blocks
+}
+
+/// A line of three or more backticks and nothing else (whitespace aside).
+fn is_closing_fence(line: &str) -> bool {
+    let line = line.trim();
+    line.len() >= 3 && line.chars().all(|c| c == '`')
 }
 
 fn write_block(out: &mut String, doc: &str, block: &Block) -> std::fmt::Result {

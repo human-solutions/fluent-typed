@@ -48,8 +48,8 @@ strs.msg_helo("Sam");    // ✗ misspelled key — caught at compile time
   after release, or a hot-reloaded translation — checked against the compiled message
   contract, so a missing message or a wrong variable is rejected when you load it
   instead of panicking in an accessor.
-- **Language negotiation.** `L10n::langneg("fr-CA, en;q=0.5")` picks the closest
-  available language, falling back to your default.
+- **Language negotiation.** `L10n::langneg("fr-CA, en;q=0.5")` picks an available
+  language from an `Accept-Language` header, falling back to your default.
 - **Bidi-safe by default.** Interpolated values are wrapped in Unicode isolation marks so
   right-to-left text can't corrupt the surrounding message.
 

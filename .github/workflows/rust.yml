@@ -50,6 +50,15 @@ jobs:
         run: |
           cargo build --no-default-features
           cargo build --no-default-features --features langneg
+      # Docs and doctests must also work for every feature set, not just the
+      # one docs.rs uses.
+      - name: Docs and doctests without features
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: |
+          cargo doc --no-deps --no-default-features
+          cargo test --doc --no-default-features
+          cargo test --doc --no-default-features --features langneg
 
   fmt:
     name: Rustfmt
