@@ -3,9 +3,15 @@
 //! The build step compiles a [`MessageContract`] for every generated accessor
 //! into the generated file (the `MESSAGE_CONTRACTS` static). [`validate_ftl`]
 //! checks external `.ftl` bytes — a translation read from disk or downloaded
-//! at runtime — against those contracts, using the same compatibility rules
-//! the build applies to every locale. On success, every generated accessor is
-//! safe to call on a bundle loaded from those bytes.
+//! at runtime — against those contracts: every generated message and attribute
+//! is defined, uses only variables its accessor passes (the same rule the
+//! build applies to every locale), keeps its `(Element)` markers, and
+//! references only terms that exist.
+//!
+//! Not checked: references to other messages (`{ other-message }`) and
+//! function calls other than `NUMBER()` (the only function the runtime
+//! registers). A translation with either mistake passes, and the accessor
+//! panics when it formats that message.
 
 use std::fmt;
 

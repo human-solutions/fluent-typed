@@ -33,7 +33,7 @@ pub struct BuildOptions {
     /// Defaults to "src/l10n.rs".
     pub(crate) output_file_path: String,
 
-    /// The the ftl output options, which let you configure how the output ftl
+    /// The ftl output options, which let you configure how the output ftl
     /// files are generated and accessed.
     pub(crate) ftl_output: FtlOutputOptions,
 

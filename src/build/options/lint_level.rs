@@ -19,7 +19,7 @@ pub enum LintLevel {
     /// translator-owned files and must never block a build.
     Deny,
     /// Like [`LintLevel::Deny`], and additionally every variable of every
-    /// generated message must resolve to a concrete type (`String` or
-    /// `Number`) — an untyped variable fails the build.
+    /// generated message must resolve to a concrete type (`String`, `Number`
+    /// or `Bool`) — an untyped variable fails the build.
     Strict,
 }

@@ -7,9 +7,11 @@ use std::fmt;
 ///
 /// Returned by [`L10nBundle`](crate::prelude::L10nBundle),
 /// [`L10nLanguageVec`](crate::prelude::L10nLanguageVec) and the generated
-/// `L10nLanguage::new`. The generated message accessors `unwrap` this: a failure
-/// there means the generated code and the embedded `.ftl` have drifted apart,
-/// which is a build-time bug rather than something to handle at runtime.
+/// `L10nLanguage::new`. The generated message accessors `unwrap` this, so a
+/// formatting failure panics. That happens when a translation references a
+/// message that doesn't exist or calls a function other than `NUMBER()`:
+/// mistakes neither the build nor [`validate_ftl`](crate::validate_ftl)
+/// catches yet.
 ///
 /// The variants carry owned strings rather than `fluent-bundle`'s own error
 /// types on purpose, so this enum does not change shape when that (pre-1.0)
