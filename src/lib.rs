@@ -100,25 +100,26 @@ pub mod prelude {
     pub use icu_locale_core::{LanguageIdentifier, langid};
 
     /// Parse an `Accept-Language` header into language identifiers, sorted by
-    /// quality (highest first). Unparseable entries are skipped.
+    /// quality (highest first; equal qualities keep their order). Entries that
+    /// don't parse, have an invalid `q`, or have `q=0` ("not acceptable") are
+    /// skipped.
     #[cfg(feature = "langneg")]
     pub(crate) fn requested_languages(accept_language: &str) -> Vec<LanguageIdentifier> {
         let mut requested: Vec<(LanguageIdentifier, u16)> = accept_language
             .split(',')
             .filter_map(|entry| {
-                let entry = entry.trim();
-                if entry.is_empty() {
-                    return None;
-                }
-                let (tag, quality) = if let Some((tag, params)) = entry.split_once(';') {
-                    let q = params
-                        .trim()
-                        .strip_prefix("q=")
-                        .and_then(|v| v.parse::<f32>().ok())
-                        .unwrap_or(1.0);
-                    (tag.trim(), (q * 1000.0) as u16)
-                } else {
-                    (entry, 1000)
+                let mut parts = entry.split(';');
+                let tag = parts.next()?.trim();
+                let quality = match parts.find_map(|p| p.trim().strip_prefix("q=")) {
+                    None => 1000,
+                    Some(q) => {
+                        let q = q.trim().parse::<f32>().ok()?;
+                        // q=0 means "not acceptable", and NaN isn't a weight.
+                        if q.is_nan() || q <= 0.0 {
+                            return None;
+                        }
+                        (q.min(1.0) * 1000.0) as u16
+                    }
                 };
                 tag.parse::<LanguageIdentifier>()
                     .ok()
@@ -135,45 +136,73 @@ pub mod prelude {
     ///
     /// The header's entries are tried highest quality first, and the first
     /// entry with any match wins. For one entry, such as `en-GB`, the best
-    /// match is, in order: `en-GB` itself; the same language and region with
-    /// another script; the generic `en`; then any other `en-*`, in the order of
-    /// `available`.
+    /// match is, in order:
+    ///
+    /// 1. `en-GB` itself;
+    /// 2. the same region, with no conflicting script (`en-Latn-GB`);
+    /// 3. the generic locale of the language (`en`);
+    /// 4. another region with no conflicting script (`en-US`);
+    /// 5. a locale with a different script than the one requested (for
+    ///    `sr-Latn`: `sr-Cyrl`).
+    ///
+    /// Ties go to the locale without a script the request didn't ask for, then
+    /// to the order of `available`. Scripts are not inferred from regions:
+    /// `zh-TW` doesn't know it means Traditional Chinese, so with `zh-Hans`
+    /// and `zh-Hant` available, name the script in the locale folders that
+    /// have regions (`zh-Hant-TW`) or add the regional locale.
     #[cfg(feature = "langneg")]
-    pub fn negotiate_languages<'a, A>(accept_language: &str, available: &'a [A]) -> A
+    pub fn negotiate_languages<A>(accept_language: &str, available: &[A]) -> A
     where
-        A: 'a + AsRef<LanguageIdentifier> + PartialEq + Default + Copy,
+        A: AsRef<LanguageIdentifier> + Default + Copy,
     {
-        let ids: Vec<Option<&LanguageIdentifier>> =
-            available.iter().map(|a| Some(a.as_ref())).collect();
-        match best_match(accept_language, &ids) {
+        match best_match(accept_language, available.len(), |i| {
+            Some(available[i].as_ref())
+        }) {
             Some(idx) => available[idx],
             None => A::default(),
         }
     }
 
-    /// The index of the best match in `available` for an `Accept-Language`
-    /// header, as described on [`negotiate_languages`]; `None` entries never
-    /// match. Shared by the generated `L10n::langneg` and
-    /// `L10nLanguageVec::langneg`.
+    /// The index of the best match among `len` candidates for an
+    /// `Accept-Language` header, as described on [`negotiate_languages`].
+    /// `candidate(i)` returns the `i`th candidate's id; `None` never matches.
+    /// Shared by the generated `L10n::langneg` and `L10nLanguageVec::langneg`.
     #[cfg(feature = "langneg")]
-    pub(crate) fn best_match(
+    pub(crate) fn best_match<'a>(
         accept_language: &str,
-        available: &[Option<&LanguageIdentifier>],
+        len: usize,
+        candidate: impl Fn(usize) -> Option<&'a LanguageIdentifier>,
     ) -> Option<usize> {
-        for req in requested_languages(accept_language) {
-            let same_language = |a: &LanguageIdentifier| a.language == req.language;
-            let tiers: [&dyn Fn(&LanguageIdentifier) -> bool; 4] = [
-                &|a| *a == req,
-                &|a| same_language(a) && a.region == req.region,
-                &|a| same_language(a) && a.region.is_none(),
-                &same_language,
-            ];
-            for tier in tiers {
-                if let Some(idx) = available.iter().position(|a| a.is_some_and(tier)) {
-                    return Some(idx);
-                }
-            }
+        requested_languages(accept_language).iter().find_map(|req| {
+            (0..len)
+                .filter_map(|i| Some((rank(req, candidate(i)?)?, i)))
+                .min()
+                .map(|(_, i)| i)
+        })
+    }
+
+    /// How well `a` matches the request `req`: lower is better, `None` is no
+    /// match. The first element is the tier listed on [`negotiate_languages`];
+    /// the second prefers a locale without a script `req` didn't ask for.
+    #[cfg(feature = "langneg")]
+    fn rank(req: &LanguageIdentifier, a: &LanguageIdentifier) -> Option<(u8, bool)> {
+        if a.language != req.language {
+            return None;
         }
-        None
+        if a == req {
+            return Some((0, false));
+        }
+        let script_conflict = matches!((req.script, a.script), (Some(r), Some(s)) if r != s);
+        let extra_script = req.script.is_none() && a.script.is_some();
+        let tier = if script_conflict {
+            5
+        } else if req.region.is_some() && a.region == req.region {
+            2
+        } else if a.region.is_none() {
+            3
+        } else {
+            4
+        };
+        Some((tier, extra_script))
     }
 }
