@@ -12,10 +12,13 @@ the *message contract* compiled into the generated file before loading them:
 - every generated message and attribute is defined;
 - no message uses a variable its accessor doesn't pass;
 - structured messages keep their `(Element)` markers;
-- every referenced term exists.
+- every message and term it references exists, directly or through other
+  references, without reference cycles;
+- every function it calls is `NUMBER()`, the only one the runtime registers.
 
-The first three are the checks each locale also gets at build time. Some mistakes
-aren't caught yet; see [What isn't checked](#what-isnt-checked).
+These are the checks each locale gets at build time, using the same code. At build
+time a message that fails them in any locale isn't generated, with a warning naming
+the file and line; at runtime the file is rejected.
 
 <!-- docs-check: no_run -->
 ```rust
@@ -97,16 +100,12 @@ This is the same check `new_external` runs.
 
 ## What isn't checked
 
-Two kinds of mistake pass both the build and `new_external`, and make the accessor
-panic when it formats the message:
+Argument *types* aren't checked at runtime (see above). Two other mistakes give
+wrong text, but no panic:
 
-- **A reference to a message that doesn't exist**, such as `see { inbox-lien }` when
-  the message is called `inbox-link`.
-- **A function other than `NUMBER()`**, such as `{ DATETIME($date) }`. `NUMBER` is the
-  only function the runtime registers.
-
-And one passes the build only: **a reference to a term that doesn't exist**
-(`{ -marque }`) in a compiled-in locale. `new_external` rejects it.
-
-Until these are checked, review translations for them, and avoid functions other than
-`NUMBER` in your messages.
+- A term that uses a variable its caller doesn't pass, such as `-brand = Acme { $x }`
+  used as `{ -brand }`, renders as `Acme {$x}`. (After a nested term reference the
+  same mistake would panic, and that case *is* rejected.)
+- A `(Bool)` argument used outside a `[true]`/`[false]` selector in a *referenced*
+  message, such as `status = { state }` with `state = Feature is { $on }`, renders
+  the raw `true` or `false`. In the accessor's own message this is rejected.
