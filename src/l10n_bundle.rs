@@ -14,35 +14,28 @@ pub struct L10nBundle {
 impl L10nBundle {
     /// Load the messages for `lang` from the bytes of a `.ftl` file.
     ///
+    /// `bytes` is anything convertible into a `Vec<u8>`. An owned buffer
+    /// (`Vec<u8>` from `std::fs::read`, a decompressor, a `String`) is moved
+    /// in without copying; a borrowed one (`&[u8]`, `&str`, `b"..."`) is
+    /// copied once, which the underlying `FluentResource` requires anyway.
+    ///
     /// Interpolated variables are wrapped in Unicode bidi isolation marks
     /// (FSI `U+2068` / PDI `U+2069`), which is the safe default for text
     /// rendered in a bidi-aware context such as a web UI. Use
     /// [`Self::new_without_isolation`] to disable this.
-    pub fn new(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
-        Self::build(lang, bytes.to_vec(), true)
-    }
-
-    /// Like [`Self::new`], but takes ownership of the `.ftl` bytes, so a
-    /// buffer that was just read or decompressed is reused instead of copied.
-    pub fn new_owned(lang: impl AsRef<str>, bytes: Vec<u8>) -> Result<Self, L10nError> {
-        Self::build(lang, bytes, true)
+    pub fn new(lang: impl AsRef<str>, bytes: impl Into<Vec<u8>>) -> Result<Self, L10nError> {
+        Self::build(lang, bytes.into(), true)
     }
 
     /// Like [`Self::new`], but without Unicode bidi isolation marks around
     /// interpolated variables. Only use this if the strings are never
     /// rendered in a bidi-aware context, or you never use right-to-left
     /// locales or interpolate user-provided text.
-    pub fn new_without_isolation(lang: impl AsRef<str>, bytes: &[u8]) -> Result<Self, L10nError> {
-        Self::build(lang, bytes.to_vec(), false)
-    }
-
-    /// Like [`Self::new_without_isolation`], but takes ownership of the
-    /// `.ftl` bytes instead of copying them.
-    pub fn new_owned_without_isolation(
+    pub fn new_without_isolation(
         lang: impl AsRef<str>,
-        bytes: Vec<u8>,
+        bytes: impl Into<Vec<u8>>,
     ) -> Result<Self, L10nError> {
-        Self::build(lang, bytes, false)
+        Self::build(lang, bytes.into(), false)
     }
 
     fn build(
