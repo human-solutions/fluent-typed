@@ -10,5 +10,5 @@ fluent-typed = { path = "../..", features = ["langneg"] }
 flate2 = { version = "1.1" }
 
 [build-dependencies]
-fluent-typed = { path = "../..", features = ["build", "langneg"] }
+fluent-typed = { path = "../..", features = ["build"] }
 flate2 = { version = "1.1" }

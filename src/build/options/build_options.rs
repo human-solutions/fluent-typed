@@ -82,6 +82,13 @@ pub struct BuildOptions {
     ///
     /// Defaults to true.
     pub(crate) use_isolating: bool,
+
+    /// Whether to generate language negotiation (`L10n::langneg` and the
+    /// per-language `LanguageIdentifier`s). Requires the runtime `langneg`
+    /// feature.
+    ///
+    /// Defaults to false.
+    pub(crate) langneg: bool,
 }
 
 impl Default for BuildOptions {
@@ -97,6 +104,7 @@ impl Default for BuildOptions {
             deny_duplicate_keys: true,
             lint_level: LintLevel::default(),
             use_isolating: true,
+            langneg: false,
         }
     }
 }
@@ -182,6 +190,27 @@ impl BuildOptions {
     /// interpolate user-provided text.
     pub fn without_bidi_isolation(mut self) -> Self {
         self.use_isolating = false;
+        self
+    }
+
+    /// Generate language negotiation: `L10n::langneg(accept_language)`, which
+    /// picks the best built-in language for an `Accept-Language` header and
+    /// falls back to the default language. Off by default.
+    ///
+    /// The generated code needs the runtime `langneg` feature, so enable it on
+    /// the regular dependency (the build dependency only needs `build`):
+    ///
+    /// ```toml
+    /// [dependencies]
+    /// fluent-typed = { version = "0.10", features = ["langneg"] }
+    ///
+    /// [build-dependencies]
+    /// fluent-typed = { version = "0.10", features = ["build"] }
+    /// ```
+    ///
+    /// Forgetting the feature is a compile error that says so.
+    pub fn with_langneg(mut self) -> Self {
+        self.langneg = true;
         self
     }
 }

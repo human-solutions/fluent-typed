@@ -15,7 +15,7 @@ impl Message {
 
     pub fn implementations(&self, prefix: &str) -> String {
         if !self.elements.is_empty() {
-            return self.element_impl();
+            return self.element_impl(prefix);
         }
         let func_name = self.id.func_name();
         let mut out = String::new();
@@ -174,8 +174,8 @@ impl ::core::fmt::Display for {struct_name} {{
 
     /// The `impl L10nLanguage` accessor for a structured message: resolves the
     /// segments and builds the generated struct.
-    fn element_impl(&self) -> String {
-        let func_name = self.id.func_name();
+    fn element_impl(&self, prefix: &str) -> String {
+        let func_name = format!("{prefix}{}", self.id.func_name());
         let struct_name = self.id.message.rust_var_name();
         let fields = self.element_fields();
         let seg_count = fields.len();

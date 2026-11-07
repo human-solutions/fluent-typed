@@ -24,8 +24,49 @@
   If you still need the buffer afterwards, pass `bytes.as_slice()` or
   `bytes.clone()`. The generated file is rewritten by your build script, so
   only hand-written call sites need changing.
+- **The default features are now empty.** 0.9.0 and earlier enabled `build`
+  and `langneg` by default, so every app compiled the build pipeline and
+  `icu_locale_core` into its runtime dependency. Enable what you use:
+  `features = ["build"]` on the build dependency (as the README already
+  showed), and `features = ["langneg"]` on the regular dependency if you use
+  language negotiation. CI now checks that the defaults stay empty.
+- **Language negotiation is enabled in `build.rs` with
+  `BuildOptions::with_langneg()`**, instead of by the build dependency's
+  `langneg` feature. Before, generation followed the *build* dependency's
+  feature while the generated code needed the *runtime* one, so enabling it
+  on only one of them silently dropped `L10n::langneg` or broke the generated
+  file. Now:
+
+  ```rust
+  // build.rs
+  build_from_locales_folder(BuildOptions::default().with_langneg())
+  ```
+  ```toml
+  [dependencies]
+  fluent-typed = { version = "0.10", features = ["langneg"] }
+  [build-dependencies]
+  fluent-typed = { version = "0.10", features = ["build"] }
+  ```
+
+  Forgetting the runtime feature is a compile error that says what to add.
+- **Structured `(Element)` accessors use the prefix** like every other
+  accessor: `strs.notice(3)` is now `strs.msg_notice(3)` (or your
+  `with_prefix` value). The returned struct (`Notice`) is unchanged.
+
+### Added
+- `L10nBundle`, `L10nLanguageVec` and the generated `L10nLanguage` implement
+  `Debug`, so `unwrap_err()`, `dbg!` and `assert!` work on load results.
+- The generated `MESSAGE_CONTRACTS` static is `pub`, so
+  `fluent_typed::validate_ftl(&bytes, l10n::MESSAGE_CONTRACTS)` can check a
+  translation without loading it, e.g. in CI.
 
 ### Changed
+- Unused generated helpers (`L10n::iter`, `load`, `load_all`, `langneg`,
+  `L10nLanguage::new` / `new_external` and the generated statics) no longer
+  produce dead-code warnings. Only unused message accessors do, so a warning
+  always means a translation you no longer use.
+- `FtlOutputOptions::generate` is no longer public. It took a type users could
+  not name, so it could not be called from outside the crate.
 - Fewer copies of the `.ftl` text when loading: the generated compressed
   `load(decompressor)` hands the decompressed buffer over instead of copying
   it, the uncompressed `load()` no longer makes a throwaway copy of the

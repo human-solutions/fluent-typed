@@ -3,6 +3,7 @@ use std::ops::Range;
 use crate::error::L10nError;
 use crate::prelude::L10nBundle;
 
+#[derive(Debug)]
 pub struct L10nLanguageVec {
     langs: Vec<L10nBundle>,
 }

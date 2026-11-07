@@ -11,6 +11,15 @@ pub struct L10nBundle {
     bundle: FluentBundle<FluentResource>,
 }
 
+// `FluentBundle` has no `Debug`; the language is what identifies a bundle.
+impl std::fmt::Debug for L10nBundle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("L10nBundle")
+            .field("lang", &self.lang)
+            .finish_non_exhaustive()
+    }
+}
+
 impl L10nBundle {
     /// Load the messages for `lang` from the bytes of a `.ftl` file.
     ///
