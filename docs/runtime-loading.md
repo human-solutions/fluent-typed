@@ -100,7 +100,12 @@ This is the same check `new_external` runs.
 
 ## What isn't checked
 
-Argument *types* aren't checked at runtime (see above), and neither are variables
-inside terms: a term that uses a variable its caller doesn't pass, such as
-`-brand = Acme { $x }` used as `{ -brand }`, renders as `Acme {$x}`. That's wrong
-output, but not a panic.
+Argument *types* aren't checked at runtime (see above). Two other mistakes give
+wrong text, but no panic:
+
+- A term that uses a variable its caller doesn't pass, such as `-brand = Acme { $x }`
+  used as `{ -brand }`, renders as `Acme {$x}`. (After a nested term reference the
+  same mistake would panic, and that case *is* rejected.)
+- A `(Bool)` argument used outside a `[true]`/`[false]` selector in a *referenced*
+  message, such as `status = { state }` with `state = Feature is { $on }`, renders
+  the raw `true` or `false`. In the accessor's own message this is rejected.

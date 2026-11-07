@@ -40,8 +40,16 @@ impl RefGraph for BuildGraph<'_> {
         Some(Cow::Borrowed(m.pattern_refs.as_slice()))
     }
 
-    fn term_refs(&self, name: &str) -> Option<Cow<'_, [Ref]>> {
-        let refs = self.lang.term_refs.get(name)?;
+    fn message_exists(&self, message: &str) -> bool {
+        // Only asked when a reference doesn't resolve, so a scan is fine.
+        self.lang.messages.iter().any(|m| m.id.message == message)
+    }
+
+    fn term_refs(&self, name: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>> {
+        let refs = match attribute {
+            Some(a) => self.lang.term_refs.get(&format!("{name}.{a}"))?,
+            None => self.lang.term_refs.get(name)?,
+        };
         Some(Cow::Borrowed(refs.as_slice()))
     }
 }
@@ -135,18 +143,9 @@ impl Analyzed {
 /// external translations. Returns one entry per locale with a problem, naming
 /// the locale, the file and line of its message, and every problem found.
 fn unresolved_references(contract: &Message, graphs: &[BuildGraph]) -> Vec<String> {
-    let allowed: Vec<&str> = contract
-        .variables
-        .iter()
-        .map(|v| v.id.as_str())
-        .chain(
-            contract
-                .elements
-                .iter()
-                .filter(|e| e.kind == ElementKind::Variable)
-                .map(|e| e.name.as_str()),
-        )
-        .collect();
+    // The accessor's arguments. `(Element)` variables aren't among them: they
+    // are never passed.
+    let allowed: Vec<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
     let id = &contract.id;
 
     let mut problems = Vec::new();

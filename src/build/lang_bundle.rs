@@ -1,13 +1,14 @@
-use crate::build::LineIndex;
-use crate::build::utils::Traversable;
-
-use super::{BuildError, Message};
-use crate::ftl_refs::{Ref, find_refs_and_selectors};
-use fluent_syntax::ast::{Entry, Resource};
-use fluent_syntax::parser::{self, ParserError};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use fluent_syntax::ast::{Entry, Resource};
+use fluent_syntax::parser::{self, ParserError};
+
+use super::{BuildError, Message};
+use crate::build::LineIndex;
+use crate::build::utils::Traversable;
+use crate::ftl_refs::{Ref, find_refs_and_selectors};
 
 /// A single line of a standalone `#` comment — one that is *not* attached to a
 /// message. Used by the linter to flag type annotations detached from their
@@ -26,8 +27,9 @@ pub struct LangBundle {
     pub messages: Vec<Message>,
     pub standalone_comments: Vec<CommentLine>,
     pub ftl: String,
-    /// Every term's references, by name (without `-`), for checking that a
-    /// message's references resolve. The first definition wins.
+    /// Every term's references, by name (without `-`), and every term
+    /// attribute's, by `name.attribute`, for checking that a message's
+    /// references resolve. The first definition wins.
     pub term_refs: HashMap<String, Vec<Ref>>,
 }
 
@@ -232,9 +234,15 @@ fn to_messages(
                 seen.term_names
                     .entry(t.id.name.to_owned())
                     .or_insert_with(|| (path.to_path_buf(), line));
-                term_refs
-                    .entry(t.id.name.to_owned())
-                    .or_insert_with(|| find_refs_and_selectors(&t.value).0);
+                if !term_refs.contains_key(t.id.name) {
+                    term_refs.insert(t.id.name.to_owned(), find_refs_and_selectors(&t.value).0);
+                    for a in &t.attributes {
+                        term_refs.insert(
+                            format!("{}.{}", t.id.name, a.id.name),
+                            find_refs_and_selectors(&a.value).0,
+                        );
+                    }
+                }
                 continue;
             }
             Entry::Message(m) => m,
