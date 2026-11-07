@@ -3,6 +3,12 @@ use std::ops::Range;
 use crate::error::L10nError;
 use crate::prelude::L10nBundle;
 
+/// Several loaded languages, as [`L10nBundle`]s looked up by language id.
+///
+/// The generated `L10n::load_all()` returns one with every built-in language.
+/// [`Self::insert`] adds languages at runtime and `langneg` (with the `langneg`
+/// feature) picks one for an `Accept-Language` header. For typed access to each language, keep
+/// the generated `L10nLanguage`s instead (see the `guide::languages` guide).
 #[derive(Debug)]
 pub struct L10nLanguageVec {
     langs: Vec<L10nBundle>,
@@ -37,7 +43,14 @@ impl L10nLanguageVec {
         Ok(Self {
             langs: iter
                 .map(|(lang, range)| {
-                    let data = &bytes[range];
+                    let data =
+                        bytes
+                            .get(range.clone())
+                            .ok_or_else(|| L10nError::TruncatedData {
+                                lang: lang.as_ref().to_string(),
+                                expected: range.end,
+                                found: bytes.len(),
+                            })?;
                     if use_isolating {
                         L10nBundle::new(lang, data)
                     } else {

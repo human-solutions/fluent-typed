@@ -1,0 +1,18 @@
+[workspace]
+
+# Compiles and runs every ```rust block of README.md and docs/*.md against code
+# generated from locales/ (see build.rs). Built by `tests/playground.rs`; not published.
+[package]
+name = "docs-check"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+# `build` too, because some doc blocks show build.rs code.
+fluent-typed = { path = "../..", features = ["build", "langneg"] }
+flate2 = "1.1"
+
+[build-dependencies]
+fluent-typed = { path = "../..", features = ["build"] }
+flate2 = "1.1"

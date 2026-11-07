@@ -63,7 +63,18 @@ impl GeneratedFtl {
     where
         D: Fn(&[u8]) -> Result<Vec<u8>, String>,
     {
-        let bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
+        let mut bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
+        // The file holds every language; keep only this one's bytes, in place.
+        let range = self.byte_range();
+        if bytes.len() < range.end {
+            return Err(L10nError::TruncatedData {
+                lang: self.to_string(),
+                expected: range.end,
+                found: bytes.len(),
+            });
+        }
+        bytes.truncate(range.end);
+        bytes.drain(..range.start);
         L10nLanguage::new(self, bytes)
     }
 "#
@@ -134,7 +145,7 @@ fn byte_range_fn(positions: &[(String, Range<usize>)]) -> String {
         .join("\n");
     format!(
         r#"
-    fn byte_range(&self) -> Range<usize> {{
+    fn byte_range(&self) -> std::ops::Range<usize> {{
         match self {{
 {range_statements}
         }}

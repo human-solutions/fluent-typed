@@ -1,22 +1,36 @@
 use std::{error::Error, fmt, io, path::PathBuf};
 
+/// Why the build step failed. Its `Display` names the `.ftl` file and line
+/// wherever there is one.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BuildError {
+    /// An `.ftl` file has Fluent syntax errors.
     FtlParse {
+        /// The file that failed to parse.
         path: PathBuf,
         /// One entry per parse error, each prefixed with its line number.
         errors: Vec<String>,
     },
+    /// An `.ftl` file could not be read.
     FtlRead {
+        /// The file that could not be read.
         path: PathBuf,
+        /// The underlying I/O error.
         source: io::Error,
     },
+    /// The same message is defined twice in one language. Allow it with
+    /// [`BuildOptions::with_allow_duplicate_keys`](crate::BuildOptions::with_allow_duplicate_keys).
     DuplicateKey {
+        /// The duplicated message id.
         key: String,
+        /// The file with the first definition.
         original: PathBuf,
+        /// The line of the first definition.
         original_line: usize,
+        /// The file with the second definition.
         duplicate: PathBuf,
+        /// The line of the second definition.
         duplicate_line: usize,
     },
     /// A term and a message share the same bare name (e.g. `-foo` and `foo`).
@@ -24,39 +38,62 @@ pub enum BuildError {
     /// crashes at runtime with `FluentError::Overriding`. Detected at build
     /// time so the cliff never happens.
     TermMessageCollision {
+        /// The shared name, without the term's `-`.
         name: String,
+        /// The file defining the term.
         term_file: PathBuf,
+        /// The line of the term.
         term_line: usize,
+        /// The file defining the message.
         message_file: PathBuf,
+        /// The line of the message.
         message_line: usize,
     },
+    /// The locales folder could not be read.
     LocalesFolder {
+        /// The configured locales folder.
         folder: String,
+        /// The underlying I/O error.
         source: io::Error,
     },
+    /// The locales folder has no language subfolders.
     NoLocaleFolders {
+        /// The configured locales folder.
         folder: String,
     },
+    /// The default language has no subfolder in the locales folder. Set it
+    /// with [`BuildOptions::with_default_language`](crate::BuildOptions::with_default_language).
     DefaultLanguageNotFound {
+        /// The configured default language.
         language: String,
+        /// The configured locales folder.
         folder: String,
     },
     /// One or more lint diagnostics, raised as a hard error under
     /// [`crate::LintLevel::Deny`] or [`crate::LintLevel::Strict`]. Each entry
     /// already carries `file:line`.
     Lint {
+        /// One entry per diagnostic.
         messages: Vec<String>,
     },
     /// Invalid default-locale message contracts that would generate accessors
     /// with silently wrong runtime output.
     InvalidContract {
+        /// One entry per invalid message.
         messages: Vec<String>,
     },
+    /// The generated Rust file could not be written.
     WriteOutput {
+        /// The configured output file.
         path: String,
+        /// The underlying I/O error.
         source: io::Error,
     },
+    /// `rustfmt` could not be run on the generated file, or failed. Skip
+    /// formatting with [`BuildOptions::without_format`](crate::BuildOptions::without_format).
     Rustfmt(String),
+    /// The joined `.ftl` output could not be written or compressed, or its path
+    /// relative to the generated Rust file could not be worked out.
     Generation(String),
     /// Several independent build errors, collected so they can all be fixed in
     /// one pass instead of one rebuild at a time.

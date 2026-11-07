@@ -16,6 +16,28 @@ where
     assert!(out.status.success());
 }
 
+/// Run cargo in `dir`, assert that it fails, and return its stderr.
+#[allow(dead_code)] // not every test binary that includes `common` uses it
+pub fn cargo_fails<I, S>(dir: &Path, args: I) -> String
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    let out = Command::new("cargo")
+        .args(args)
+        .current_dir(dir)
+        // CI sets CARGO_TERM_COLOR=always; ANSI codes would break matching.
+        .env("CARGO_TERM_COLOR", "never")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        !out.status.success(),
+        "expected the build to fail, but it succeeded:\n{stderr}"
+    );
+    stderr
+}
+
 pub fn ls_ascii(path: &Path, indent: usize) -> io::Result<String> {
     let mut entries = path.read_dir()?;
     let mut out = Vec::new();
