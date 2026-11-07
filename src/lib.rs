@@ -1,4 +1,7 @@
-#![doc = include_str!("../README.md")]
+// The README and the guides call generated code, which doesn't exist when
+// rustdoc compiles doctests, so they're excluded from doctests. Their examples
+// are compiled and run by playground/docs-check instead.
+#![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
 #[cfg(any(doc, feature = "build"))]
 mod build;
 mod contract;
@@ -53,6 +56,30 @@ pub use build::{
 /// behind the non-default `bench-internals` feature; not a stable API.
 #[cfg(feature = "bench-internals")]
 pub use build::bench_internals;
+
+/// Guides, also readable on GitHub in the `docs/` folder.
+pub mod guide {
+    /// Embed all languages, compress them, or load one language at a time.
+    #[cfg_attr(not(doctest), doc = include_str!("../docs/output-modes.md"))]
+    pub mod output_modes {}
+
+    /// The `L10n` enum, `Accept-Language` negotiation, and serving every
+    /// language from one server.
+    #[cfg_attr(not(doctest), doc = include_str!("../docs/languages.md"))]
+    pub mod languages {}
+
+    /// Add a language after release, hot-reload a translation, validate a file.
+    #[cfg_attr(not(doctest), doc = include_str!("../docs/runtime-loading.md"))]
+    pub mod runtime_loading {}
+
+    /// How argument types are decided, and the linter for type comments.
+    #[cfg_attr(not(doctest), doc = include_str!("../docs/types-and-linting.md"))]
+    pub mod types_and_linting {}
+
+    /// Elements in the middle of a sentence, and bidi isolation.
+    #[cfg_attr(not(doctest), doc = include_str!("../docs/structured-messages.md"))]
+    pub mod structured_messages {}
+}
 
 /// Everything the generated code needs, imported with
 /// `use fluent_typed::prelude::*;` at the top of the generated file.

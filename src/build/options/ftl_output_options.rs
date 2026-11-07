@@ -26,7 +26,7 @@ pub enum FtlOutputOptions {
     /// download them all together.
     #[non_exhaustive]
     MultiFile {
-        /// The path to the where the output ftl files will be written.
+        /// The path to the folder where the output ftl files will be written.
         /// For convenience fluent-typed joins all ftl resources for each language
         /// into a single file.
         ///
@@ -43,13 +43,13 @@ pub enum FtlOutputOptions {
     /// download in a html request.
     #[non_exhaustive]
     SingleFile {
-        /// The path to the where the output ftl file will be written.
+        /// The path where the output ftl file will be written.
         /// For convenience fluent-typed joins all ftl resources for each language
         /// into a single file.
         ///
         /// Defaults to "gen/translations.ftl" in the root of the package.
         output_ftl_file: String,
-        /// The compresssor is an closure that takes the ftl file content
+        /// The compressor is a closure that takes the ftl file content
         /// as a byte array, compresses it and returns the compressed bytes.
         ///
         /// Any compression algorithm can be used, but it's up to the user

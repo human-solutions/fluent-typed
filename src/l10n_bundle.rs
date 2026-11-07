@@ -6,6 +6,11 @@ use unic_langid::LanguageIdentifier;
 use crate::error::L10nError;
 use crate::structured::Segment;
 
+/// The Fluent messages of one language, looked up by id.
+///
+/// The generated `L10nLanguage` wraps one of these and gives every message a
+/// typed accessor; use `L10nBundle` directly for messages chosen at runtime, or
+/// with [`L10nLanguageVec`](crate::prelude::L10nLanguageVec).
 pub struct L10nBundle {
     lang: String,
     bundle: FluentBundle<FluentResource>,
@@ -81,15 +86,27 @@ impl L10nBundle {
         })
     }
 
+    /// The language id this bundle was loaded for, e.g. `"en-GB"`.
     pub fn lang(&self) -> &str {
         &self.lang
     }
 
+    /// Format the message `id` with `args`.
+    ///
+    /// Fails with [`L10nError::MessageNotFound`] if there is no such message,
+    /// [`L10nError::MessageHasNoValue`] if it only has attributes, and
+    /// [`L10nError::Format`] if formatting fails (for example, a missing
+    /// argument).
     pub fn msg(&self, id: &str, args: Option<FluentArgs>) -> Result<String, L10nError> {
         let pattern = self.try_get_pattern(id, None)?;
         self.format(id, None, pattern, args.as_ref())
     }
 
+    /// Format the attribute `attr` of message `msg` with `args`, such as
+    /// `login.placeholder`.
+    ///
+    /// Fails like [`Self::msg`], or with [`L10nError::AttributeNotFound`] if
+    /// the message has no such attribute.
     pub fn attr(
         &self,
         msg: &str,
