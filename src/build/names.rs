@@ -5,6 +5,8 @@
 
 use std::collections::HashMap;
 
+use unic_langid::LanguageIdentifier;
+
 use super::r#gen::{StrExt, param_name};
 use super::{LangBundle, Message};
 
@@ -55,10 +57,27 @@ pub(crate) fn name_collisions(
 ) -> Vec<String> {
     let mut errors = Vec::new();
 
+    // Language ids ignore case and accept `_` for `-`, so `en-us`, `en_US`
+    // and `en-US` are one language. Both would become `static EN_US` with
+    // `with_langneg`, while the `L10n` variants (`EnUs`, `EnUS`) differ.
+    let mut canonical: HashMap<String, &str> = HashMap::new();
     let mut variants: HashMap<String, &str> = HashMap::new();
     for lang in langs {
         let id = lang.language_id.as_str();
         let variant = id.rust_var_name();
+        // Every folder name was parsed when it was loaded, so this only falls
+        // back to the name as is in unit tests that build bundles by hand.
+        let language = id
+            .parse::<LanguageIdentifier>()
+            .map_or_else(|_| id.to_string(), |l| l.to_string());
+        if let Some(first) = canonical.get(&language) {
+            errors.push(format!(
+                "{locales_folder}/{id}: the locale folders '{first}' and '{id}' are the \
+                 same language. Remove or rename one."
+            ));
+            continue;
+        }
+        canonical.insert(language, id);
         if let Some(first) = variants.get(&variant) {
             errors.push(format!(
                 "{locales_folder}/{id}: the locale folders '{first}' and '{id}' both \

@@ -443,7 +443,11 @@ fn a_parse_error_names_the_file_and_line() {
         }
         other => panic!("expected FtlParse, got {other:?}"),
     }
-    assert!(err.to_string().contains("bad.ftl"), "{err}");
+    // The file is named once per error, not again in a heading.
+    assert_eq!(
+        err.to_string(),
+        "bad.ftl:2:8: Expected a token starting with \"=\""
+    );
 }
 
 #[test]
@@ -771,7 +775,7 @@ fn a_parse_error_quotes_the_entry_where_the_mistake_starts() {
     .expect_err("malformed ftl must fail to parse");
     assert_eq!(
         err.to_string(),
-        "Fluent syntax error(s) in 'bad.ftl':\n  bad.ftl:3:1: Expected a token starting with \
+        "bad.ftl:3:1: Expected a token starting with \
          \"}\" (in the entry starting at line 2: `broken = { $x`)"
     );
 }
@@ -844,21 +848,27 @@ fn an_accessor_named_like_a_language_method_is_a_build_error() {
 
 /// Build a locales folder with one `a = A` resource per named subfolder.
 fn build_folders(dir: &str, folders: &[&str], langneg: bool) -> Result<(), BuildError> {
+    let mut opts = folder_options(dir, folders);
+    if langneg {
+        opts = opts.with_langneg();
+    }
+    Builder::load(opts)?.generate()
+}
+
+/// Options for `target/test-lint/{dir}`, with a `main.ftl` in each of the
+/// `folders` under its `locales`.
+fn folder_options(dir: &str, folders: &[&str]) -> BuildOptions {
     let root = format!("target/test-lint/{dir}");
     let _ = std::fs::remove_dir_all(&root);
     for folder in folders {
         std::fs::create_dir_all(format!("{root}/locales/{folder}")).unwrap();
         std::fs::write(format!("{root}/locales/{folder}/main.ftl"), "a = A\n").unwrap();
     }
-    let mut opts = BuildOptions::default()
+    BuildOptions::default()
         .without_format()
         .with_locales_folder(&format!("{root}/locales"))
         .with_output_file_path(&format!("{root}/l10n.rs"))
-        .with_ftl_output(FtlOutputOptions::single_file(&format!("{root}/t.ftl")));
-    if langneg {
-        opts = opts.with_langneg();
-    }
-    Builder::load(opts)?.generate()
+        .with_ftl_output(FtlOutputOptions::single_file(&format!("{root}/t.ftl")))
 }
 
 #[test]
@@ -878,6 +888,43 @@ fn a_folder_that_is_not_a_language_is_a_build_error() {
 }
 
 #[test]
+fn a_folder_with_a_long_name_is_not_a_language() {
+    // BCP 47 allows 5-8 letter language subtags, but none is in use.
+    let err = build_folders("long-name", &["en", "shared"], false)
+        .expect_err("'shared' is not a language");
+    assert!(
+        err.to_string()
+            .contains("'shared' is not a language id: language codes have 2 or 3 letters."),
+        "{err}"
+    );
+}
+
+#[test]
+fn hidden_folders_inside_a_locale_are_skipped() {
+    let opts = folder_options("hidden-nested", &["en", "en/.history"]);
+    std::fs::write(
+        "target/test-lint/hidden-nested/locales/en/.history/main.ftl",
+        "broken {\n",
+    )
+    .unwrap();
+    Builder::load(opts)
+        .and_then(|b| b.generate())
+        .expect("the editor history isn't loaded");
+}
+
+#[test]
+fn custom_indentation_applies_once_at_every_level() {
+    let opts = folder_options("indentation", &["en", "fr"]).with_indentation("  ");
+    Builder::load(opts).unwrap().generate().unwrap();
+    let generated = std::fs::read_to_string("target/test-lint/indentation/l10n.rs").unwrap();
+    // A `from_str` match arm, three levels deep.
+    assert!(
+        generated.contains("\n      \"en\" => Ok(Self::En),\n"),
+        "{generated}"
+    );
+}
+
+#[test]
 fn an_underscore_folder_is_rejected_only_with_langneg() {
     build_folders("underscore", &["en", "en_US"], false).expect("en_US loads without langneg");
     let err = build_folders("underscore-langneg", &["en", "en_US"], true)
@@ -889,16 +936,18 @@ fn an_underscore_folder_is_rejected_only_with_langneg() {
 }
 
 #[test]
-fn locale_folders_with_the_same_rust_name_are_a_build_error() {
-    let err = build_folders("same-variant", &["en", "en-US", "en_US"], false)
-        .expect_err("en-US and en_US are both L10n::EnUS");
+fn locale_folders_of_the_same_language_are_a_build_error() {
+    // `L10n::EnUS` and `L10n::EnUs` differ, but with langneg both would be
+    // `static EN_US`.
+    let err = build_folders("same-language", &["en", "en-US", "en_us"], false)
+        .expect_err("en-US and en_us are one language");
     let BuildError::NameCollision { messages } = &err else {
         panic!("expected NameCollision, got {err:?}");
     };
     assert_eq!(messages.len(), 1, "{messages:?}");
     assert!(
         messages[0].ends_with(
-            "the locale folders 'en-US' and 'en_US' both become `L10n::EnUS`. Remove or \
+            "the locale folders 'en-US' and 'en_us' are the same language. Remove or \
              rename one."
         ),
         "{messages:?}"

@@ -104,7 +104,14 @@ impl<'a> LineIndex<'a> {
     }
 }
 
-/// Every `.ftl` file under `dir`, recursively.
+/// Whether `path` names a hidden file or folder (`.git`, `.history`): editor
+/// and tool state, never translations.
+pub fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| name.as_encoded_bytes().starts_with(b"."))
+}
+
+/// Every `.ftl` file under `dir`, recursively, skipping hidden folders.
 pub fn ftl_files(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     collect_ftl_files(dir, &mut paths)?;
@@ -115,7 +122,9 @@ fn collect_ftl_files(dir: &Path, paths: &mut Vec<PathBuf>) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_dir() {
-            collect_ftl_files(&path, paths)?;
+            if !is_hidden(&path) {
+                collect_ftl_files(&path, paths)?;
+            }
         } else if path.extension().is_some_and(|ext| ext == "ftl") {
             paths.push(path);
         }

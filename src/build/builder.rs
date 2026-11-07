@@ -1,8 +1,3 @@
-use super::{
-    Analyzed, BuildError, BuildOptions, LangBundle, LintLevel, Message, r#gen::generate, lint,
-    names::name_collisions, typed::Id, utils::write_if_changed,
-    validations::default_contract_errors,
-};
 use std::{
     collections::HashSet,
     ffi::OsStr,
@@ -11,7 +6,18 @@ use std::{
     path::Path,
     process::{Command, Stdio},
 };
+
 use unic_langid::LanguageIdentifier;
+
+use super::{
+    Analyzed, BuildError, BuildOptions, LangBundle, LintLevel, Message,
+    r#gen::{INDENT, generate},
+    lint,
+    names::name_collisions,
+    typed::Id,
+    utils::{is_hidden, write_if_changed},
+    validations::default_contract_errors,
+};
 
 pub struct Builder {
     options: BuildOptions,
@@ -159,9 +165,6 @@ impl Builder {
     }
 }
 
-/// The indentation the generator writes.
-const INDENT: &str = "    ";
-
 /// Replace each leading [`INDENT`] of every line with `indent`. Only leading
 /// whitespace changes: spaces inside string literals and comments stay.
 fn reindent(source: &str, indent: &str) -> String {
@@ -239,11 +242,10 @@ fn from_locales_folder(options: &BuildOptions) -> Result<Vec<LangBundle>, BuildE
         if !path.is_dir() {
             continue;
         }
-        let name = entry.file_name();
-        // Hidden folders (`.git`, editor state) are never locales.
-        if name.as_encoded_bytes().starts_with(b".") {
+        if is_hidden(&path) {
             continue;
         }
+        let name = entry.file_name();
         let lang = match language_id(&name, options.langneg) {
             Ok(lang) => lang,
             Err(reason) => {
@@ -276,10 +278,15 @@ fn language_id(name: &OsStr, langneg: bool) -> Result<&str, String> {
     let lang = name
         .to_str()
         .ok_or_else(|| "the folder name is not valid UTF-8".to_string())?;
-    if let Err(e) = lang.parse::<LanguageIdentifier>() {
+    let hint = "Name each locale folder after its language, such as 'en', 'en-GB' or 'zh-Hant'.";
+    let id = lang
+        .parse::<LanguageIdentifier>()
+        .map_err(|e| format!("'{lang}' is not a language id ({e}). {hint}"))?;
+    // BCP 47 allows 5-8 letter language subtags, but none is in use, so such
+    // a folder (`shared`, `common`, `assets`) is a folder of something else.
+    if id.language.as_str().len() > 3 {
         return Err(format!(
-            "'{lang}' is not a language id ({e}). Name each locale folder after its \
-             language, such as 'en', 'en-GB' or 'zh-Hant'."
+            "'{lang}' is not a language id: language codes have 2 or 3 letters. {hint}"
         ));
     }
     // `langid!` in the generated code (and `Accept-Language` matching) only

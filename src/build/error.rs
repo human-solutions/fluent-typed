@@ -129,13 +129,8 @@ impl BuildError {
 impl fmt::Display for BuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::FtlParse { path, errors } => {
-                write!(f, "Fluent syntax error(s) in '{}':", path.display())?;
-                for e in errors {
-                    write!(f, "\n  {e}")?;
-                }
-                Ok(())
-            }
+            // Each entry already starts with the file's `path:line:column`.
+            Self::FtlParse { errors, .. } => write!(f, "{}", errors.join("\n")),
             Self::FtlRead { path, source } => {
                 write!(f, "Could not read '{}': {source}", path.display())
             }

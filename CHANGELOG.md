@@ -9,15 +9,18 @@
   - a variable named `$args` or `$segments`, which clashed with the
     accessor's own locals;
   - a `language-name` containing `"` or `\`.
-- A locale folder that isn't a language id, such as `templates/`, built and
-  then panicked on first load with "This is a build-time bug". It is now a
-  build error (`BuildError::InvalidLanguageFolder`). With `with_langneg`, a
-  folder such as `en_US` is rejected the same way, with the `en-US` to rename it
-  to, instead of failing to compile in `langid!`. Hidden folders (`.git`) are
-  skipped.
+- A locale folder that isn't a language id, such as `templates/` or `shared/`,
+  built and then panicked on first load with "This is a build-time bug", or
+  became a locale missing most messages. It is now a build error
+  (`BuildError::InvalidLanguageFolder`); language codes must have 2 or 3
+  letters. With `with_langneg`, a folder such as `en_US` is rejected the same
+  way, with the `en-US` to rename it to, instead of failing to compile in
+  `langid!`. Hidden folders (`.git`, `.history`) are skipped at every level, so
+  editor backups inside a locale are no longer loaded.
 - `Accept-Language` matching ignored an upper-case `Q=` weight.
 - `with_indentation` (with `without_format`) re-indented four-space runs inside
-  string literals too; it now changes only leading indentation.
+  string literals too, and indented the `L10n` match arms twice (4 spaces
+  instead of 6 with `"  "`); it now changes only leading indentation, once.
 
 ### Added
 - `BuildError::NameCollision`: messages, variables or locale folders whose
@@ -26,11 +29,13 @@
   generated file. For example, `foo-bar` and `foo_bar` (both `msg_foo_bar`), a
   message `a-b` and an attribute `a.b`, `$myVar` and `$my_var` in one message,
   or an `(Element)` message whose struct would be called `String` or `L10n`.
+  Locale folders of one language (`en-US` and `en_us`) are reported too.
 
 ### Changed
 - Build diagnostics start with the `file:line` to fix, so terminals and IDEs
   can link them, and say exactly what is wrong:
-  - parse errors give `file:line:column`, and when the parser only notices a
+  - parse errors give `file:line:column` (the file is no longer repeated in a
+    heading), and when the parser only notices a
     mistake later (an unclosed `{`), the line where the broken entry starts;
   - a translation that doesn't fit its message is reported at the
     translation's line, with the reason (for example, "uses `$who`, which the
