@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.10.0
+
+### Upgrading from 0.9
+
+1. Add the features you use. The defaults are now empty:
+   `features = ["build"]` on the build dependency, and `features = ["langneg"]`
+   on the regular dependency if you use language negotiation.
+2. If you use `L10n::langneg`, call `BuildOptions::with_langneg()` in `build.rs`.
+3. Where you pass a `&Vec<u8>` to `new` / `new_external`, drop the `&`.
+4. Structured `(Element)` accessors are prefixed now: `strs.notice(..)` becomes
+   `strs.msg_notice(..)`.
+5. Rebuild and read the build warnings: a message whose translation references a
+   missing message, term or function is no longer generated (see *Fixed*), so a
+   call to it stops compiling until the translation is fixed.
 
 ### Breaking
 - The `.ftl` constructors now take `bytes: impl Into<Vec<u8>>` instead of
@@ -65,6 +78,7 @@
   `L10nLanguage::new` / `new_external` and the generated statics) no longer
   produce dead-code warnings. Only unused message accessors do, so a warning
   always means a translation you no longer use.
+- `negotiate_languages` no longer requires `PartialEq` on the language type.
 - `FtlOutputOptions::generate` is no longer public. It took a type users could
   not name, so it could not be called from outside the crate.
 - Fewer copies of the `.ftl` text when loading: the generated compressed
@@ -78,18 +92,6 @@
   when the pattern references a term. Behavior is unchanged.
 
 ### Fixed
-- **Language negotiation ignored regions.** With both `en` and `en-gb`,
-  `L10n::langneg("en-GB")` returned `en`, because the first locale with the same
-  language won. Now the closest locale wins: the exact one, then the same region
-  with another script, then the generic locale (`en` for `en-AU`), then another
-  region, and a locale with a conflicting script (`sr-Cyrl` for `sr-Latn`) only
-  as a last resort. `L10nLanguageVec::langneg` matches the same way. Scripts
-  aren't inferred from regions, so `zh-TW` doesn't prefer `zh-Hant` over
-  `zh-Hans`.
-- `Accept-Language` entries with `q=0` ("not acceptable") or an invalid `q` are
-  now skipped. Before, `q=0` entries could still be picked and invalid weights
-  counted as `q=1`.
-- `negotiate_languages` no longer requires `PartialEq` on the language type.
 - **Translations that passed validation could still make an accessor panic.**
   Neither the build nor `new_external` checked references to other messages
   (`{ inbox-link }`, `{ other.title }`) or function calls (`{ DATETIME($d) }`;
@@ -128,6 +130,17 @@
   panicking.
 - The generated file no longer imports `std::ops::Range` in multi-file mode, where
   it's unused and caused an `unused import` warning.
+- **Language negotiation ignored regions.** With both `en` and `en-gb`,
+  `L10n::langneg("en-GB")` returned `en`, because the first locale with the same
+  language won. Now the closest locale wins: the exact one, then the same region
+  with another script, then the generic locale (`en` for `en-AU`), then another
+  region, and a locale with a conflicting script (`sr-Cyrl` for `sr-Latn`) only
+  as a last resort. `L10nLanguageVec::langneg` matches the same way. Scripts
+  aren't inferred from regions, so `zh-TW` doesn't prefer `zh-Hant` over
+  `zh-Hans`.
+- `Accept-Language` entries with `q=0` ("not acceptable") or an invalid `q` are
+  now skipped. Before, `q=0` entries could still be picked and invalid weights
+  counted as `q=1`.
 
 ### Documentation
 - The README is now a pitch plus a step-by-step getting-started, and the rest moved
