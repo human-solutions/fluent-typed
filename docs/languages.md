@@ -54,8 +54,10 @@ assert_eq!(lang, L10n::Fr);
 let strs = lang.load();
 ```
 
-Matching is by language: `fr-CA` matches a `fr` locale. Entries are tried in order of
-their `q` weight.
+Entries are tried in order of their `q` weight, and each is compared by its language
+subtag only: `fr-CA` matches a `fr` locale. Regions are ignored, so if you have both
+`en` and `en-gb`, a request for `en-GB` gets whichever comes first in `L10n::iter()`
+(here `en`), not the exact match.
 
 ## Serving every language from one server
 

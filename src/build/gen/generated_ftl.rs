@@ -66,6 +66,13 @@ impl GeneratedFtl {
         let mut bytes = decompressor(LANG_DATA).map_err(L10nError::Decompression)?;
         // The file holds every language; keep only this one's bytes, in place.
         let range = self.byte_range();
+        if bytes.len() < range.end {
+            return Err(L10nError::TruncatedData {
+                lang: self.to_string(),
+                expected: range.end,
+                found: bytes.len(),
+            });
+        }
         bytes.truncate(range.end);
         bytes.drain(..range.start);
         L10nLanguage::new(self, bytes)

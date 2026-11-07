@@ -27,3 +27,12 @@ fn compressed_load_picks_its_language() {
     let all = l10n_gz::L10n::load_all(gunzip).unwrap();
     assert_eq!(all.get(l10n_gz::L10n::Fr).msg("greeting", None).unwrap(), "Bienvenue !");
 }
+
+/// A decompressor that returns too little data (one that doesn't match the
+/// build's compressor) is an error, not a panic.
+#[test]
+fn a_short_decompressed_file_is_an_error() {
+    let short = |_: &[u8]| -> Result<Vec<u8>, String> { Ok(b"hello = Hi\n".to_vec()) };
+    assert!(l10n_gz::L10n::Fr.load(short).is_err());
+    assert!(l10n_gz::L10n::load_all(short).is_err());
+}
