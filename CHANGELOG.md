@@ -80,9 +80,16 @@
 ### Fixed
 - **Language negotiation ignored regions.** With both `en` and `en-gb`,
   `L10n::langneg("en-GB")` returned `en`, because the first locale with the same
-  language won. Now the closest locale wins: the exact one, then the same language
-  and region with another script, then the generic locale (`en` for `en-AU`), then
-  any locale of the language. `L10nLanguageVec::langneg` matches the same way.
+  language won. Now the closest locale wins: the exact one, then the same region
+  with another script, then the generic locale (`en` for `en-AU`), then another
+  region, and a locale with a conflicting script (`sr-Cyrl` for `sr-Latn`) only
+  as a last resort. `L10nLanguageVec::langneg` matches the same way. Scripts
+  aren't inferred from regions, so `zh-TW` doesn't prefer `zh-Hant` over
+  `zh-Hans`.
+- `Accept-Language` entries with `q=0` ("not acceptable") or an invalid `q` are
+  now skipped. Before, `q=0` entries could still be picked and invalid weights
+  counted as `q=1`.
+- `negotiate_languages` no longer requires `PartialEq` on the language type.
 - **Translations that passed validation could still make an accessor panic.**
   Neither the build nor `new_external` checked references to other messages
   (`{ inbox-link }`, `{ other.title }`) or function calls (`{ DATETIME($d) }`;

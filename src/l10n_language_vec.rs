@@ -90,9 +90,8 @@ impl L10nLanguageVec {
 
         let parsed: Vec<Option<LanguageIdentifier>> =
             self.langs.iter().map(|b| b.lang().parse().ok()).collect();
-        let available: Vec<Option<&LanguageIdentifier>> =
-            parsed.iter().map(Option::as_ref).collect();
-        crate::prelude::best_match(accept_language, &available).map(|idx| &self.langs[idx])
+        crate::prelude::best_match(accept_language, parsed.len(), |i| parsed[i].as_ref())
+            .map(|idx| &self.langs[idx])
     }
 
     /// Get the bundle for `lang`, or `None` if no such language was loaded.

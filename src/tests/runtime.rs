@@ -270,8 +270,8 @@ fn try_get_returns_none_for_unloaded_language() {
 fn negotiate<'a>(header: &str, available: &[&'a str]) -> Option<&'a str> {
     let parsed: Vec<Option<crate::prelude::LanguageIdentifier>> =
         available.iter().map(|a| a.parse().ok()).collect();
-    let ids: Vec<_> = parsed.iter().map(Option::as_ref).collect();
-    crate::prelude::best_match(header, &ids).map(|idx| available[idx])
+    crate::prelude::best_match(header, parsed.len(), |i| parsed[i].as_ref())
+        .map(|idx| available[idx])
 }
 
 #[cfg(feature = "langneg")]
@@ -310,4 +310,37 @@ fn langneg_follows_header_quality_before_match_quality() {
         Some("de")
     );
     assert_eq!(negotiate("pt, it", &["en", "fr"]), None);
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_respects_scripts() {
+    // A conflicting script only wins when nothing else of the language does.
+    assert_eq!(
+        negotiate("sr-Latn", &["sr-Cyrl", "sr-Latn-RS"]),
+        Some("sr-Latn-RS")
+    );
+    assert_eq!(
+        negotiate("zh-Hant-HK", &["zh-Hans", "zh-Hant-TW"]),
+        Some("zh-Hant-TW")
+    );
+    assert_eq!(negotiate("sr-Latn", &["en", "sr-Cyrl"]), Some("sr-Cyrl"));
+    // Without a requested script, the plain locale beats a script variant.
+    assert_eq!(negotiate("en", &["en-Latn", "en"]), Some("en"));
+    // Known limit: no script is inferred from a region, so `zh-TW` can't tell
+    // `zh-Hant` from `zh-Hans` and takes the first.
+    assert_eq!(negotiate("zh-TW", &["zh-Hans", "zh-Hant"]), Some("zh-Hans"));
+}
+
+#[cfg(feature = "langneg")]
+#[test]
+fn langneg_skips_unacceptable_and_malformed_weights() {
+    assert_eq!(negotiate("de-CH, en;q=0", &["en", "fr"]), None);
+    assert_eq!(negotiate("en;q=abc, fr;q=0.5", &["en", "fr"]), Some("fr"));
+    assert_eq!(negotiate("fr;q=0.5, en;q=2", &["en", "fr"]), Some("en"));
+    // Other parameters next to q are fine.
+    assert_eq!(
+        negotiate("en;level=1;q=0.1, fr;q=0.5", &["en", "fr"]),
+        Some("fr")
+    );
 }
