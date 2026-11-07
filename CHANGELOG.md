@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.10.1
+
+### Upgrading from 0.10.0
+
+The build is stricter about locale folders. If it now fails, the error names
+the folder to fix:
+- a folder that isn't a language, such as `templates/` or `shared/`: move it
+  out of the locales folder, or make it hidden (`.templates/`);
+- two folders for one language, such as `en-US` and `en_us`: merge them.
 
 ### Fixed
 - Valid `.ftl` that produced generated code which didn't compile:
