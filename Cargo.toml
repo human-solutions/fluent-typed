@@ -11,7 +11,7 @@ categories = [
     "development-tools::build-utils",
 ]
 license = "MIT"
-repository = "https://github.com/human-solutions/fluent-typed"
+repository = "https://github.com/akesson/fluent-typed"
 # Keep the published crate lean: drop AI-assistant notes and the 89-file
 # snapshot test corpus under src/tests (noise to anyone reading the source).
 # The small tests/ harness is kept so cargo's auto-discovered test targets
