@@ -2,20 +2,35 @@
 
 ## Unreleased
 
-### Added
-- Owned-input constructors that take the `.ftl` buffer by value instead of
-  copying it (#43): `L10nBundle::new_owned` /
-  `L10nBundle::new_owned_without_isolation`, and the generated
-  `L10nLanguage::new_owned` / `L10nLanguage::new_external_owned`. The existing
-  `&[u8]` constructors are unchanged.
+### Breaking
+- The `.ftl` constructors now take `bytes: impl Into<Vec<u8>>` instead of
+  `&[u8]` (#43): `L10nBundle::new` / `L10nBundle::new_without_isolation`, and
+  the generated `L10nLanguage::new` / `L10nLanguage::new_external`. An owned
+  buffer (`Vec<u8>` from `std::fs::read` or a decompressor, a `String`) is now
+  moved in without being copied; `&[u8]`, `&str`, `b"..."` and
+  `include_bytes!` still work and are copied once, as before.
+
+  **Migration:** passing `&Vec<u8>` no longer compiles (there is no
+  `From<&Vec<u8>> for Vec<u8>`). Drop the `&` to hand the buffer over:
+
+  ```rust
+  // before
+  let bytes = std::fs::read("pl.ftl")?;
+  L10nLanguage::new_external("pl", &bytes)?;
+  // after (and no copy)
+  L10nLanguage::new_external("pl", bytes)?;
+  ```
+
+  If you still need the buffer afterwards, pass `bytes.as_slice()` or
+  `bytes.clone()`. The generated file is rewritten by your build script, so
+  only hand-written call sites need changing.
 
 ### Changed
 - Fewer copies of the `.ftl` text when loading: the generated compressed
   `load(decompressor)` hands the decompressed buffer over instead of copying
   it, the uncompressed `load()` no longer makes a throwaway copy of the
   embedded bytes, and `validate_ftl` borrows its input instead of copying it.
-  Validation behavior is unchanged; regenerate the generated file to pick up
-  the new constructors.
+  Validation behavior is unchanged.
 - `validate_ftl` is ~20% faster on large files: its lookup maps are
   pre-sized and use the FxHash hasher (`rustc-hash`, already a dependency of
   `fluent-bundle`), and the per-contract term-reference label is only built
