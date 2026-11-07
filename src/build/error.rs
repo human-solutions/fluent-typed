@@ -9,7 +9,7 @@ pub enum BuildError {
     FtlParse {
         /// The file that failed to parse.
         path: PathBuf,
-        /// One entry per parse error, each prefixed with its line number.
+        /// One entry per parse error, each prefixed with `path:line:column:`.
         errors: Vec<String>,
     },
     /// An `.ftl` file could not be read.
@@ -55,6 +55,20 @@ pub enum BuildError {
         folder: String,
         /// The underlying I/O error.
         source: io::Error,
+    },
+    /// A subfolder of the locales folder isn't named after a language, such as
+    /// `en` or `en-GB`. Hidden folders (starting with `.`) are skipped.
+    InvalidLanguageFolder {
+        /// The folder.
+        path: PathBuf,
+        /// Why its name isn't a usable language id.
+        reason: String,
+    },
+    /// Messages, variables or locales whose generated Rust names would clash,
+    /// such as `foo-bar` and `foo_bar` both becoming `msg_foo_bar()`.
+    NameCollision {
+        /// One entry per clash, each starting with `file:line:`.
+        messages: Vec<String>,
     },
     /// The locales folder has no language subfolders.
     NoLocaleFolders {
@@ -116,14 +130,14 @@ impl fmt::Display for BuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::FtlParse { path, errors } => {
-                write!(f, "Could not parse '{}':", path.display())?;
+                write!(f, "Fluent syntax error(s) in '{}':", path.display())?;
                 for e in errors {
                     write!(f, "\n  {e}")?;
                 }
                 Ok(())
             }
-            Self::FtlRead { path, .. } => {
-                write!(f, "Could not read '{}'", path.display())
+            Self::FtlRead { path, source } => {
+                write!(f, "Could not read '{}': {source}", path.display())
             }
             Self::DuplicateKey {
                 key,
@@ -132,22 +146,17 @@ impl fmt::Display for BuildError {
                 duplicate,
                 duplicate_line,
             } => {
-                if original == duplicate {
-                    write!(
-                        f,
-                        "Duplicate message key '{key}' in '{}': lines {original_line} and \
-                         {duplicate_line}",
-                        duplicate.display(),
-                    )
+                let first = if original == duplicate {
+                    format!("line {original_line}")
                 } else {
-                    write!(
-                        f,
-                        "Duplicate message key '{key}' in '{}:{duplicate_line}', first defined \
-                         in '{}:{original_line}'",
-                        duplicate.display(),
-                        original.display(),
-                    )
-                }
+                    format!("{}:{original_line}", original.display())
+                };
+                write!(
+                    f,
+                    "{}:{duplicate_line}: message '{key}' is defined twice, first at {first}. \
+                     Remove or rename one.",
+                    duplicate.display(),
+                )
             }
             Self::TermMessageCollision {
                 name,
@@ -158,16 +167,29 @@ impl fmt::Display for BuildError {
             } => {
                 write!(
                     f,
-                    "Term '-{name}' and message '{name}' share the same name — \
-                     fluent-bundle treats them as the same key and will crash \
-                     at runtime. Rename one. Term defined in '{}:{term_line}', \
-                     message defined in '{}:{message_line}'.",
+                    "{}:{term_line}: term '-{name}' has the same name as message '{name}' \
+                     ({}:{message_line}). fluent-bundle stores both under one key, so the \
+                     translation would fail to load at runtime. Rename one.",
                     term_file.display(),
                     message_file.display(),
                 )
             }
-            Self::LocalesFolder { folder, .. } => {
-                write!(f, "Could not read locales folder '{folder}'")
+            Self::LocalesFolder { folder, source } => {
+                write!(f, "Could not read the locales folder '{folder}': {source}")
+            }
+            Self::InvalidLanguageFolder { path, reason } => {
+                write!(f, "Invalid locale folder '{}': {reason}", path.display())
+            }
+            Self::NameCollision { messages } => {
+                write!(
+                    f,
+                    "fluent-typed found {} name collision(s) in the generated code:",
+                    messages.len()
+                )?;
+                for m in messages {
+                    write!(f, "\n  {m}")?;
+                }
+                Ok(())
             }
             Self::NoLocaleFolders { folder } => {
                 write!(
@@ -201,10 +223,10 @@ impl fmt::Display for BuildError {
                 }
                 Ok(())
             }
-            Self::WriteOutput { path, .. } => {
-                write!(f, "Could not write file '{path}'")
+            Self::WriteOutput { path, source } => {
+                write!(f, "Could not write '{path}': {source}")
             }
-            Self::Rustfmt(msg) => write!(f, "Rustfmt error: {msg}"),
+            Self::Rustfmt(msg) => write!(f, "rustfmt failed on the generated code: {msg}"),
             Self::Generation(msg) => write!(f, "{msg}"),
             Self::Multiple(errors) => {
                 write!(f, "{} build errors:", errors.len())?;

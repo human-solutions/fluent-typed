@@ -141,8 +141,8 @@ impl L10nLanguage {
     }
 
     pub fn msg_key<'a, F0: Into<FluentValue<'a>>>(&self, var: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("var", var);
-        self.0.msg("key", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("var", var);
+        self.0.msg("key", Some(_args)).unwrap()
     }
 }

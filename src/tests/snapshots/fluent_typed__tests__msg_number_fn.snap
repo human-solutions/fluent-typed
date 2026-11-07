@@ -141,8 +141,8 @@ impl L10nLanguage {
     }
 
     pub fn msg_dpi_ratio<F0: Into<FluentNumber>>(&self, ratio: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("ratio", ratio.into());
-        self.0.msg("dpi-ratio", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("ratio", ratio.into());
+        self.0.msg("dpi-ratio", Some(_args)).unwrap()
     }
 }

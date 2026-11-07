@@ -14,21 +14,12 @@
 //! The `bench-internals` feature re-exports the otherwise-private pipeline
 //! functions; it is not part of the stable public API.
 //!
-//! To run a single scale, filter by benchmark id — useful because the `large`
-//! scale is slow (see the note below):
+//! To run a single scale, filter by benchmark id — useful while iterating,
+//! since the `large` scale (10k messages, 30 locales) takes the longest:
 //!
 //! ```text
 //! cargo bench --features bench-internals -- /small
 //! ```
-//!
-//! ## Why the `large` scale is slow
-//!
-//! `Analyzed::from` does a linear `.find()` over a locale's messages for every
-//! (message, locale) pair — O(messages² · locales). `lint::comment_mistakes`
-//! rescans every message for every commented message — O(messages²). Neither is
-//! a problem at hundreds of messages, but both blow up at ten thousand. The
-//! three scales exist precisely to make that growth measurable; the cost is
-//! that the `large` `analyze` benchmark takes minutes per run.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -165,9 +156,8 @@ struct Scale {
     locales: usize,
 }
 
-/// Three project sizes. `large` targets ~10k messages / 30 locales; it is slow
-/// to run because of the super-linear `analyze`/`lint` cost noted in the module
-/// docs. Shrink these while iterating, or filter a run with `-- /small`.
+/// Three project sizes. `large` targets ~10k messages / 30 locales; filter a
+/// run with `-- /small` while iterating.
 const SCALES: [Scale; 3] = [
     Scale {
         name: "small",

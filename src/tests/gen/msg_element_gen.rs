@@ -154,27 +154,27 @@ impl L10nLanguage {
         num: F0,
         provider: F1,
     ) -> CalendarSyncDescription {
-        let mut args = FluentArgs::new();
-        args.set("num", num.into());
-        args.set("provider", provider.as_ref());
-        let segments: [Segment; 5] = self
+        let mut _args = FluentArgs::new();
+        _args.set("num", num.into());
+        _args.set("provider", provider.as_ref());
+        let _segments: [Segment; 5] = self
             .0
             .msg_segments(
                 "calendar-sync-description",
                 &["icon"],
                 &["privacy-link"],
-                Some(args),
+                Some(_args),
             )
             .unwrap()
             .try_into()
             .unwrap();
-        let [seg0, _, seg2, seg3, seg4] = segments;
+        let [_seg0, _, _seg2, _seg3, _seg4] = _segments;
         CalendarSyncDescription {
-            s0: seg0.into_text(),
+            s0: _seg0.into_text(),
             icon: ElementGap,
-            s1: seg2.into_text(),
-            privacy_link: seg3.into_text(),
-            s2: seg4.into_text(),
+            s1: _seg2.into_text(),
+            privacy_link: _seg3.into_text(),
+            s2: _seg4.into_text(),
         }
     }
 }

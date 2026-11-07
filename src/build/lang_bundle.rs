@@ -7,7 +7,7 @@ use fluent_syntax::parser::{self, ParserError};
 
 use super::{BuildError, Message};
 use crate::build::LineIndex;
-use crate::build::utils::Traversable;
+use crate::build::utils::ftl_files;
 use crate::ftl_refs::{Ref, find_refs_and_selectors};
 
 /// A single line of a standalone `#` comment — one that is *not* attached to a
@@ -87,17 +87,12 @@ impl LangBundle {
         };
         let mut errors: Vec<BuildError> = Vec::new();
 
-        let mut paths = match folder
-            .gather_all_files(|file| file.extension().map(|s| s == "ftl") == Some(true))
-        {
-            Ok(paths) => paths,
-            Err(e) => {
-                return Err(vec![BuildError::FtlRead {
-                    path: folder.to_path_buf(),
-                    source: std::io::Error::other(e.to_string()),
-                }]);
-            }
-        };
+        let mut paths = ftl_files(folder).map_err(|source| {
+            vec![BuildError::FtlRead {
+                path: folder.to_path_buf(),
+                source,
+            }]
+        })?;
         paths.sort();
 
         let mut seen = SeenIds::default();
@@ -127,7 +122,7 @@ impl LangBundle {
             {
                 bundle.language_name = Some(lang_name);
             }
-            let name = path.file_stem().unwrap().to_str().unwrap().to_string();
+            let name = path.file_stem().unwrap_or_default().to_string_lossy();
 
             bundle.ftl.push_str(&format!(
                 "\n## ########## Resource: {name} ###############\n\n"
@@ -161,7 +156,7 @@ impl LangBundle {
 }
 
 /// Parse an FTL string, turning any parse errors into a [`BuildError::FtlParse`]
-/// that names the file and the line of each error.
+/// that names the file, line and column of each error.
 fn parse_ftl<'a>(ftl: &'a str, path: &Path) -> Result<Resource<&'a str>, BuildError> {
     parser::parse(ftl).map_err(|(_, errors)| {
         let lines = LineIndex::new(ftl);
@@ -169,22 +164,37 @@ fn parse_ftl<'a>(ftl: &'a str, path: &Path) -> Result<Resource<&'a str>, BuildEr
             path: path.to_path_buf(),
             errors: errors
                 .iter()
-                .map(|e| format_parse_error(&lines, e))
+                .map(|e| format_parse_error(ftl, &lines, path, e))
                 .collect(),
         }
     })
 }
 
-fn format_parse_error(lines: &LineIndex, error: &ParserError) -> String {
+/// `path:line:column: what went wrong`. The parser reports where it gave up,
+/// which can be a line or more after the actual mistake (an unclosed `{` is
+/// noticed at the next line), so when the broken entry starts on an earlier
+/// line, that line is quoted too.
+fn format_parse_error(ftl: &str, lines: &LineIndex, path: &Path, error: &ParserError) -> String {
     // `error.kind` is formatted with `Display` (a human-readable sentence from
-    // fluent-syntax), not `Debug`. `error.pos.start` is a raw byte offset that
-    // may land inside a multi-byte character, so `line_at_byte` counts over raw
-    // bytes rather than slicing.
-    format!(
-        "line {}: {}",
-        lines.line_at_byte(error.pos.start),
-        error.kind
-    )
+    // fluent-syntax), not `Debug`. Positions are raw byte offsets that may land
+    // inside a multi-byte character; `LineIndex` handles that.
+    let (line, col) = lines.line_col_at_byte(error.pos.start);
+    let mut out = format!("{}:{line}:{col}: {}", path.display(), error.kind);
+    // The entry's range begins after the previous entry, blank lines included.
+    let entry_start = error.slice.as_ref().map(|slice| {
+        let text = &ftl.as_bytes()[slice.start.min(ftl.len())..];
+        let blank = text.iter().take_while(|b| b.is_ascii_whitespace()).count();
+        lines.line_at_byte(slice.start + blank)
+    });
+    if let Some(start) = entry_start
+        && start < line
+    {
+        out.push_str(&format!(
+            " (in the entry starting at line {start}: `{}`)",
+            lines.line_text(start).trim()
+        ));
+    }
+    out
 }
 
 /// Cross-file bookkeeping for one locale's parse pass. Tracks every message

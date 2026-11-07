@@ -137,8 +137,8 @@ impl L10nLanguage {
     }
 
     pub fn msg_hello<'a, F0: Into<FluentValue<'a>>>(&self, first_name: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("first-name", first_name);
-        self.0.msg("hello", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("first-name", first_name);
+        self.0.msg("hello", Some(_args)).unwrap()
     }
 }

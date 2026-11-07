@@ -138,8 +138,8 @@ impl L10nLanguage {
 
     /// $duration (Number) - The duration in seconds.
     pub fn msg_time_elapsed<F0: Into<FluentNumber>>(&self, duration: F0) -> String {
-        let mut args = FluentArgs::new();
-        args.set("duration", duration.into());
-        self.0.msg("time-elapsed", Some(args)).unwrap()
+        let mut _args = FluentArgs::new();
+        _args.set("duration", duration.into());
+        self.0.msg("time-elapsed", Some(_args)).unwrap()
     }
 }

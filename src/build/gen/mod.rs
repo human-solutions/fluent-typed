@@ -12,8 +12,9 @@ mod template;
 
 use super::typed::{ElementKind, VarType};
 use super::{BuildOptions, LangBundle, Message};
-pub use ext::StrExt;
+pub use ext::{StrExt, escape_ident};
 pub use generated_ftl::GeneratedFtl;
+pub use message::param_name;
 
 pub fn generate(
     options: &BuildOptions,
@@ -155,7 +156,8 @@ pub fn generate(
     }}"#,
             names
                 .iter()
-                .map(|(var, name)| format!(r#"            Self::{var} => "{name}","#))
+                // `{:?}` escapes quotes and backslashes in the name.
+                .map(|(var, name)| format!("            Self::{var} => {name:?},"))
                 .collect::<Vec<_>>()
                 .join("\n")
         )

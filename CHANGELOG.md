@@ -1,5 +1,49 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Valid `.ftl` that produced generated code which didn't compile:
+  - a variable named after a Rust keyword (`$type`, `$match`, `$self`): it
+    becomes `r#type`, or `self_` for the four keywords that can't be raw;
+  - a variable named `$args` or `$segments`, which clashed with the
+    accessor's own locals;
+  - a `language-name` containing `"` or `\`.
+- A locale folder that isn't a language id, such as `templates/`, built and
+  then panicked on first load with "This is a build-time bug". It is now a
+  build error (`BuildError::InvalidLanguageFolder`). With `with_langneg`, a
+  folder such as `en_US` is rejected the same way, with the `en-US` to rename it
+  to, instead of failing to compile in `langid!`. Hidden folders (`.git`) are
+  skipped.
+- `Accept-Language` matching ignored an upper-case `Q=` weight.
+- `with_indentation` (with `without_format`) re-indented four-space runs inside
+  string literals too; it now changes only leading indentation.
+
+### Added
+- `BuildError::NameCollision`: messages, variables or locale folders whose
+  generated Rust names would clash are a build error naming both sides with
+  their `file:line`, instead of a duplicate-definition error inside the
+  generated file. For example, `foo-bar` and `foo_bar` (both `msg_foo_bar`), a
+  message `a-b` and an attribute `a.b`, `$myVar` and `$my_var` in one message,
+  or an `(Element)` message whose struct would be called `String` or `L10n`.
+
+### Changed
+- Build diagnostics start with the `file:line` to fix, so terminals and IDEs
+  can link them, and say exactly what is wrong:
+  - parse errors give `file:line:column`, and when the parser only notices a
+    mistake later (an unclosed `{`), the line where the broken entry starts;
+  - a translation that doesn't fit its message is reported at the
+    translation's line, with the reason (for example, "uses `$who`, which the
+    default locale's message doesn't have") instead of "incompatible variables,
+    Boolean selectors or elements";
+  - a message that only exists in a translation is reported at its line;
+  - read and write errors include the OS reason, such as "Permission denied";
+  - a `rustfmt` failure includes rustfmt's own output, and a missing rustfmt
+    says how to install it.
+  The text of these messages changed; `BuildError`'s variants and fields
+  didn't, except the strings in `FtlParse::errors`, which now start with
+  `path:line:column:`.
+
 ## 0.10.0
 
 ### Upgrading from 0.9

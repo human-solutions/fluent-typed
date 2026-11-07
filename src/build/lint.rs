@@ -44,7 +44,6 @@ pub fn check(langs: &[LangBundle], default: &LangBundle, common: &HashSet<Id>) -
     let mut mistakes = Vec::new();
     for msg in &default.messages {
         mistakes.extend(comment_mistakes(msg, &refs_by_message));
-        mistakes.extend(bool_selector_mistakes(msg));
     }
     mistakes.extend(detached_comments(default));
     mistakes.sort();
@@ -85,34 +84,6 @@ pub fn check(langs: &[LangBundle], default: &LangBundle, common: &HashSet<Id>) -
         ineffective,
         untyped,
     }
-}
-
-/// A `(Bool)` variable is encoded as the strings `"true"` and `"false"`.
-/// Every selector it drives must therefore expose exactly those two keys.
-fn bool_selector_mistakes(msg: &Message) -> Vec<String> {
-    let bool_vars: HashSet<&str> = msg
-        .variables
-        .iter()
-        .filter(|v| v.typ == VarType::Bool)
-        .map(|v| v.id.as_str())
-        .collect();
-
-    msg.selectors
-        .iter()
-        .filter(|selector| bool_vars.contains(selector.variable.as_str()))
-        .filter(|selector| !selector.has_bool_keys())
-        .map(|selector| {
-            format!(
-                "{}:{}: Boolean selector ${} in {} has keys [{}] — expected \
-                 [true] and [false]",
-                msg.file,
-                msg.line,
-                selector.variable,
-                msg.id,
-                selector.keys.join(", "),
-            )
-        })
-        .collect()
 }
 
 /// L1 (typo'd keyword) and L2 (annotation of a non-existent variable/term),

@@ -1,14 +1,17 @@
 use super::{
     Analyzed, BuildError, BuildOptions, LangBundle, LintLevel, Message, r#gen::generate, lint,
-    typed::Id, utils::write_if_changed, validations::default_contract_errors,
+    names::name_collisions, typed::Id, utils::write_if_changed,
+    validations::default_contract_errors,
 };
 use std::{
     collections::HashSet,
+    ffi::OsStr,
     fs,
     io::Write,
     path::Path,
     process::{Command, Stdio},
 };
+use unic_langid::LanguageIdentifier;
 
 pub struct Builder {
     options: BuildOptions,
@@ -17,10 +20,7 @@ pub struct Builder {
 
 impl Builder {
     pub fn load(options: BuildOptions) -> Result<Self, BuildError> {
-        let folder = &options.locales_folder;
-        println!("cargo::rerun-if-changed={folder}");
-
-        let mut langbundles = from_locales_folder(folder, options.deny_duplicate_keys)?;
+        let mut langbundles = from_locales_folder(&options)?;
 
         langbundles.sort_by_cached_key(|lb| lb.language_id.clone());
 
@@ -76,9 +76,20 @@ impl Builder {
         self.run_lints(default, &analyzed.common)?;
 
         let messages = &self.messages(default, &analyzed.common);
-        let mut generated = generate(&self.options, &self.langbundles, messages)
-            .map_err(BuildError::Generation)?
-            .replace("    ", &self.options.indentation);
+        let collisions = name_collisions(
+            &self.options.prefix,
+            &self.options.locales_folder,
+            &self.langbundles,
+            messages,
+        );
+        if !collisions.is_empty() {
+            return Err(BuildError::NameCollision {
+                messages: collisions,
+            });
+        }
+
+        let mut generated =
+            generate(&self.options, &self.langbundles, messages).map_err(BuildError::Generation)?;
 
         // Format before the skip-if-unchanged compare: the file on disk holds
         // rustfmt's output, so comparing pre-format text against it would
@@ -87,6 +98,8 @@ impl Builder {
         // rustfmt failure leaves no unformatted file behind.
         if self.options.format {
             generated = rustfmt(&generated)?;
+        } else if self.options.indentation != INDENT {
+            generated = reindent(&generated, &self.options.indentation);
         }
 
         let output_file_path = &self.options.output_file_path;
@@ -146,6 +159,24 @@ impl Builder {
     }
 }
 
+/// The indentation the generator writes.
+const INDENT: &str = "    ";
+
+/// Replace each leading [`INDENT`] of every line with `indent`. Only leading
+/// whitespace changes: spaces inside string literals and comments stay.
+fn reindent(source: &str, indent: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    for line in source.split_inclusive('\n') {
+        let mut rest = line;
+        while let Some(stripped) = rest.strip_prefix(INDENT) {
+            out.push_str(indent);
+            rest = stripped;
+        }
+        out.push_str(rest);
+    }
+    out
+}
+
 /// Format `source` by piping it through rustfmt's stdin/stdout, returning the
 /// formatted text.
 ///
@@ -159,8 +190,19 @@ fn rustfmt(source: &str) -> Result<String, BuildError> {
     let mut child = Command::new("rustfmt")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
-        .map_err(map_io)?;
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                BuildError::Rustfmt(
+                    "rustfmt was not found. Install it with `rustup component add rustfmt`, \
+                     or turn formatting off with `BuildOptions::without_format`."
+                        .to_string(),
+                )
+            } else {
+                map_io(e)
+            }
+        })?;
     // rustfmt parses all of stdin before emitting anything, so writing the
     // whole input first cannot deadlock against a filling stdout pipe.
     child
@@ -171,16 +213,19 @@ fn rustfmt(source: &str) -> Result<String, BuildError> {
         .map_err(map_io)?;
     let output = child.wait_with_output().map_err(map_io)?;
     if !output.status.success() {
-        return Err(BuildError::Rustfmt("rustfmt failed".to_string()));
+        // The generator should always emit valid Rust, so this is a bug.
+        return Err(BuildError::Rustfmt(format!(
+            "{}\nThis is a fluent-typed bug; please report it. To see the generated code, \
+             build with `BuildOptions::without_format`.",
+            String::from_utf8_lossy(&output.stderr).trim_end()
+        )));
     }
     String::from_utf8(output.stdout)
         .map_err(|e| BuildError::Rustfmt(format!("rustfmt produced non-UTF-8 output: {e}")))
 }
 
-fn from_locales_folder(
-    folder: &str,
-    deny_duplicate_keys: bool,
-) -> Result<Vec<LangBundle>, BuildError> {
+fn from_locales_folder(options: &BuildOptions) -> Result<Vec<LangBundle>, BuildError> {
+    let folder = &options.locales_folder;
     let map_io = |e| BuildError::LocalesFolder {
         folder: folder.to_string(),
         source: e,
@@ -191,14 +236,26 @@ fn from_locales_folder(
     for entry in locales_dir {
         let entry = entry.map_err(map_io)?;
         let path = entry.path();
-        if path.is_dir() {
-            let lang = path.file_name().unwrap().to_str().unwrap();
-            // Collect every locale's errors rather than stopping at the first,
-            // so one rebuild surfaces them all.
-            match LangBundle::from_folder(&path, lang, deny_duplicate_keys) {
-                Ok(bundle) => locales.push(bundle),
-                Err(errs) => errors.extend(errs),
+        if !path.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        // Hidden folders (`.git`, editor state) are never locales.
+        if name.as_encoded_bytes().starts_with(b".") {
+            continue;
+        }
+        let lang = match language_id(&name, options.langneg) {
+            Ok(lang) => lang,
+            Err(reason) => {
+                errors.push(BuildError::InvalidLanguageFolder { path, reason });
+                continue;
             }
+        };
+        // Collect every locale's errors rather than stopping at the first,
+        // so one rebuild surfaces them all.
+        match LangBundle::from_folder(&path, lang, options.deny_duplicate_keys) {
+            Ok(bundle) => locales.push(bundle),
+            Err(errs) => errors.extend(errs),
         }
     }
     if !errors.is_empty() {
@@ -212,9 +269,43 @@ fn from_locales_folder(
     Ok(locales)
 }
 
+/// The language id named by a locale folder, or why it isn't one. The runtime
+/// parses it when a language is loaded, so a folder that isn't a language id
+/// would otherwise build and then fail on first use.
+fn language_id(name: &OsStr, langneg: bool) -> Result<&str, String> {
+    let lang = name
+        .to_str()
+        .ok_or_else(|| "the folder name is not valid UTF-8".to_string())?;
+    if let Err(e) = lang.parse::<LanguageIdentifier>() {
+        return Err(format!(
+            "'{lang}' is not a language id ({e}). Name each locale folder after its \
+             language, such as 'en', 'en-GB' or 'zh-Hant'."
+        ));
+    }
+    // `langid!` in the generated code (and `Accept-Language` matching) only
+    // accept the standard `-` separator.
+    if langneg && lang.contains('_') {
+        return Err(format!(
+            "'{lang}' uses '_', which language negotiation (`with_langneg`) doesn't \
+             accept. Rename the folder to '{}'.",
+            lang.replace('_', "-")
+        ));
+    }
+    Ok(lang)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reindent_changes_only_leading_indentation() {
+        let source = "fn f() {\n    if x {\n        s(\"a    b\");\n    }\n}\n";
+        assert_eq!(
+            reindent(source, "\t"),
+            "fn f() {\n\tif x {\n\t\ts(\"a    b\");\n\t}\n}\n"
+        );
+    }
 
     #[test]
     fn rustfmt_formats_in_memory() {
@@ -225,6 +316,11 @@ mod tests {
     #[test]
     fn rustfmt_failure_is_a_build_error() {
         let err = rustfmt("fn {\n").unwrap_err();
-        assert!(matches!(err, BuildError::Rustfmt(_)), "got: {err:?}");
+        let BuildError::Rustfmt(message) = &err else {
+            panic!("got: {err:?}");
+        };
+        // rustfmt's own diagnostic is part of the error, not just "failed".
+        assert!(message.contains("error"), "{message}");
+        assert!(message.contains("without_format"), "{message}");
     }
 }

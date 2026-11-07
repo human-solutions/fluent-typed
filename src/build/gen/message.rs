@@ -1,7 +1,17 @@
-use crate::build::r#gen::StrExt;
+use crate::build::r#gen::{StrExt, escape_ident};
 use crate::build::typed::{ElementKind, ElementMarker, Message, VarType, Variable};
 
 impl Message {
+    /// The name of this message's generated accessor on `L10nLanguage`.
+    pub fn accessor_name(&self, prefix: &str) -> String {
+        escape_ident(format!("{prefix}{}", self.id.func_name()))
+    }
+
+    /// The name of the struct generated for a structured (`(Element)`) message.
+    pub fn struct_name(&self) -> String {
+        escape_ident(self.id.message.rust_var_name())
+    }
+
     fn signature(&self, variables: &[Variable], func_name: &str) -> String {
         if variables.is_empty() {
             format!(r"    pub fn {func_name}(&self) -> String")
@@ -17,11 +27,10 @@ impl Message {
         if !self.elements.is_empty() {
             return self.element_impl(prefix);
         }
-        let func_name = self.id.func_name();
         let mut out = String::new();
 
-        let signature = self.signature(&self.variables, &format!("{prefix}{func_name}"));
-        if func_name == "language_name" {
+        let signature = self.signature(&self.variables, &self.accessor_name(prefix));
+        if self.id.func_name() == "language_name" {
             out.push_str("    #[allow(unused)]\n");
         }
         out.push_str(&self.comment_lines());
@@ -53,9 +62,9 @@ impl Message {
 
             format!(
                 r##"{signature} {{
-        let mut args = FluentArgs::new();
+        let mut _args = FluentArgs::new();
 {args}
-        self.0.attr("{msg_id}", "{attr_id}", Some(args)).unwrap()
+        self.0.attr("{msg_id}", "{attr_id}", Some(_args)).unwrap()
     }}"##,
             )
         }
@@ -72,9 +81,9 @@ impl Message {
 
             format!(
                 r##"{signature} {{
-        let mut args = FluentArgs::new();
+        let mut _args = FluentArgs::new();
 {args}
-        self.0.msg("{id}", Some(args)).unwrap()
+        self.0.msg("{id}", Some(_args)).unwrap()
     }}"##,
             )
         }
@@ -103,7 +112,7 @@ impl Message {
                 ElementKind::Term => FieldKind::Term,
             };
             fields.push(Field {
-                name: marker.name.rust_id(),
+                name: escape_ident(marker.name.rust_id()),
                 kind,
             });
         }
@@ -121,7 +130,7 @@ impl Message {
         if self.elements.is_empty() {
             return None;
         }
-        let struct_name = self.id.message.rust_var_name();
+        let struct_name = self.struct_name();
         let fields = self.element_fields();
 
         let field_defs = fields
@@ -175,8 +184,8 @@ impl ::core::fmt::Display for {struct_name} {{
     /// The `impl L10nLanguage` accessor for a structured message: resolves the
     /// segments and builds the generated struct.
     fn element_impl(&self, prefix: &str) -> String {
-        let func_name = format!("{prefix}{}", self.id.func_name());
-        let struct_name = self.id.message.rust_var_name();
+        let func_name = self.accessor_name(prefix);
+        let struct_name = self.struct_name();
         let fields = self.element_fields();
         let seg_count = fields.len();
 
@@ -193,14 +202,14 @@ impl ::core::fmt::Display for {struct_name} {{
             String::new()
         } else {
             format!(
-                "        let mut args = FluentArgs::new();\n{}\n",
+                "        let mut _args = FluentArgs::new();\n{}\n",
                 args_impl(&self.variables)
             )
         };
         let args_expr = if self.variables.is_empty() {
             "None"
         } else {
-            "Some(args)"
+            "Some(_args)"
         };
 
         let vars_arr = quoted_element_names(&self.elements, ElementKind::Variable);
@@ -211,7 +220,7 @@ impl ::core::fmt::Display for {struct_name} {{
             .enumerate()
             .map(|(i, f)| match f.kind {
                 FieldKind::Gap => "_".to_string(),
-                _ => format!("seg{i}"),
+                _ => format!("_seg{i}"),
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -221,20 +230,20 @@ impl ::core::fmt::Display for {struct_name} {{
             .enumerate()
             .map(|(i, f)| match f.kind {
                 FieldKind::Gap => format!("            {}: ElementGap,", f.name),
-                _ => format!("            {}: seg{i}.into_text(),", f.name),
+                _ => format!("            {}: _seg{i}.into_text(),", f.name),
             })
             .collect::<Vec<_>>()
             .join("\n");
 
         format!(
             r##"{comment}{signature} {{
-{args_setup}        let segments: [Segment; {seg_count}] = self
+{args_setup}        let _segments: [Segment; {seg_count}] = self
             .0
             .msg_segments("{msg_id}", &[{vars_arr}], &[{terms_arr}], {args_expr})
             .unwrap()
             .try_into()
             .unwrap();
-        let [{destructure}] = segments;
+        let [{destructure}] = _segments;
         {struct_name} {{
 {inits}
         }}
@@ -243,6 +252,11 @@ impl ::core::fmt::Display for {struct_name} {{
             msg_id = self.id.message,
         )
     }
+}
+
+/// The name of `var` as a parameter of its generated accessor.
+pub fn param_name(var: &Variable) -> String {
+    escape_ident(var.id.rust_id())
 }
 
 fn lifetime(vars: &[Variable]) -> &'static str {
@@ -269,18 +283,12 @@ fn args_declaration(vars: &[Variable]) -> ArgInfo {
     let mut args = vec![];
 
     for (num, var) in vars.iter().enumerate() {
-        let Some(ArgInfo { generic, arg }) = ArgInfo::new(num, var) else {
-            continue;
-        };
+        let ArgInfo { generic, arg } = ArgInfo::new(num, var);
         if !generic.is_empty() {
             generics.push(generic);
         }
         args.push(arg);
     }
-    if args.is_empty() {
-        return ArgInfo::default();
-    }
-
     ArgInfo {
         generic: generics.join(", "),
         arg: args.join(", "),
@@ -292,14 +300,14 @@ fn args_impl(vars: &[Variable]) -> String {
 
     for var in vars {
         let name = var.id.as_str();
-        let id = var.id.rust_id();
+        let id = param_name(var);
 
         let impl_ = match var.typ {
-            VarType::Any => format!(r#"        args.set("{name}", {id});"#),
-            VarType::String => format!(r#"        args.set("{name}", {id}.as_ref());"#),
-            VarType::Number => format!(r#"        args.set("{name}", {id}.into());"#),
+            VarType::Any => format!(r#"        _args.set("{name}", {id});"#),
+            VarType::String => format!(r#"        _args.set("{name}", {id}.as_ref());"#),
+            VarType::Number => format!(r#"        _args.set("{name}", {id}.into());"#),
             VarType::Bool => {
-                format!(r#"        args.set("{name}", if {id} {{ "true" }} else {{ "false" }});"#)
+                format!(r#"        _args.set("{name}", if {id} {{ "true" }} else {{ "false" }});"#)
             }
         };
         impls.push(impl_);
@@ -307,14 +315,13 @@ fn args_impl(vars: &[Variable]) -> String {
     impls.join("\n")
 }
 
-#[derive(Default)]
 struct ArgInfo {
     generic: String,
     arg: String,
 }
 
 impl ArgInfo {
-    fn new(num: usize, var: &Variable) -> Option<Self> {
+    fn new(num: usize, var: &Variable) -> Self {
         let generic = match var.typ {
             VarType::Any => format!("F{num}: Into<FluentValue<'a>>"),
             VarType::String => format!("F{num}: AsRef<str>"),
@@ -322,10 +329,10 @@ impl ArgInfo {
             VarType::Bool => String::new(),
         };
         let arg = match var.typ {
-            VarType::Bool => format!("{}: bool", var.id.rust_id()),
-            _ => format!("{}: F{num}", var.id.rust_id()),
+            VarType::Bool => format!("{}: bool", param_name(var)),
+            _ => format!("{}: F{num}", param_name(var)),
         };
-        Some(Self { generic, arg })
+        Self { generic, arg }
     }
 }
 

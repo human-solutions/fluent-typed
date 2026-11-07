@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use crate::build::LangBundle;
 use crate::build::typed::{ElementKind, Id, Message, Ref, RefKind, VarType};
-use crate::contract::{RefGraph, Resolver};
+use crate::contract::{RefGraph, Resolver, render_elements};
 use crate::ftl_refs::{RefsIncompat, check_refs};
 
 /// A locale's messages by `(message, attribute)`, which is also how the
@@ -54,6 +54,54 @@ impl RefGraph for BuildGraph<'_> {
     }
 }
 
+/// A message's contract in the form [`check_refs`] takes: its argument names,
+/// which of those are `(Bool)`, and its `(Element)` marker sequence.
+struct Contract<'m> {
+    vars: Vec<&'m str>,
+    bool_vars: Vec<&'m str>,
+    elements: Vec<(&'m str, RefKind)>,
+}
+
+impl<'m> Contract<'m> {
+    fn of(msg: &'m Message) -> Self {
+        Self {
+            vars: msg.variables.iter().map(|v| v.id.as_str()).collect(),
+            bool_vars: msg
+                .variables
+                .iter()
+                .filter(|v| v.typ == VarType::Bool)
+                .map(|v| v.id.as_str())
+                .collect(),
+            elements: msg
+                .elements
+                .iter()
+                .map(|e| {
+                    let kind = match e.kind {
+                        ElementKind::Variable => RefKind::Variable,
+                        ElementKind::Term => RefKind::Term,
+                    };
+                    (e.name.as_str(), kind)
+                })
+                .collect(),
+        }
+    }
+
+    /// Check `other`'s pattern against this contract. The check is
+    /// comment-independent: it uses `pattern_refs`, the raw `$variable`/`-term`
+    /// references, never per-locale comment annotations. It is [`check_refs`],
+    /// the same check `validate_ftl` applies to external translations at
+    /// runtime, so the two can never drift apart.
+    fn check(&self, other: &Message) -> Result<(), Vec<RefsIncompat>> {
+        check_refs(
+            &self.vars,
+            &self.bool_vars,
+            &self.elements,
+            &other.pattern_refs,
+            &other.selectors,
+        )
+    }
+}
+
 /// The result of comparing every locale against the default-locale contract.
 #[derive(Debug)]
 pub struct Analyzed {
@@ -61,7 +109,7 @@ pub struct Analyzed {
     /// present in every other locale, and structurally compatible everywhere.
     pub common: HashSet<Id>,
     /// Human-readable warnings for messages that could *not* be generated.
-    /// Each names the `.ftl` file and line involved. Sorted for determinism.
+    /// Each starts with the `file:line` to fix. Sorted for determinism.
     pub warnings: Vec<String>,
 }
 
@@ -84,50 +132,45 @@ impl Analyzed {
         let mut common = HashSet::new();
         let mut warnings = Vec::new();
 
-        for contract in &default.messages {
-            let id = &contract.id;
-            let mut missing_in: Vec<String> = Vec::new();
-            let mut incompatible_in: Vec<String> = Vec::new();
+        for msg in &default.messages {
+            let id = &msg.id;
+            let contract = Contract::of(msg);
+            let mut missing_in: Vec<&str> = Vec::new();
+            let mut compatible = true;
 
             for graph in &others {
-                let lang = graph.lang;
-                match graph.by_id.get(&key(id)) {
-                    None => missing_in.push(lang.language_id.clone()),
-                    Some(msg) if !compatible(contract, msg) => {
-                        incompatible_in
-                            .push(format!("{} ({}:{})", lang.language_id, msg.file, msg.line));
+                let lang = graph.lang.language_id.as_str();
+                let Some(translation) = graph.by_id.get(&key(id)) else {
+                    missing_in.push(lang);
+                    continue;
+                };
+                if let Err(incompatibilities) = contract.check(translation) {
+                    compatible = false;
+                    let at = format!("{}:{}", msg.file, msg.line);
+                    for incompatibility in incompatibilities {
+                        warnings.push(format!(
+                            "{}:{}: {id} is not generated — the '{lang}' translation {}",
+                            translation.file,
+                            translation.line,
+                            describe(&incompatibility, &at),
+                        ));
                     }
-                    Some(_) => {}
                 }
             }
 
             if !missing_in.is_empty() {
                 warnings.push(format!(
-                    "{}:{}: {id} is not generated — missing from locale(s): {}",
-                    contract.file,
-                    contract.line,
+                    "{}:{}: {id} is not generated — it is missing from locale(s): {}",
+                    msg.file,
+                    msg.line,
                     missing_in.join(", "),
                 ));
-            } else if !incompatible_in.is_empty() {
-                warnings.push(format!(
-                    "{}:{}: {id} is not generated — incompatible variables, \
-                     Boolean selectors or elements in locale(s): {}",
-                    contract.file,
-                    contract.line,
-                    incompatible_in.join(", "),
-                ));
-            } else {
-                let unresolved_in = unresolved_references(contract, &graphs);
-                if unresolved_in.is_empty() {
+            } else if compatible {
+                let unresolved = unresolved_references(msg, &graphs);
+                if unresolved.is_empty() {
                     common.insert(id.clone());
-                } else {
-                    warnings.push(format!(
-                        "{}:{}: {id} is not generated — it would fail to format: {}",
-                        contract.file,
-                        contract.line,
-                        unresolved_in.join("; "),
-                    ));
                 }
+                warnings.extend(unresolved);
             }
         }
 
@@ -138,26 +181,52 @@ impl Analyzed {
     }
 }
 
-/// Check, in every locale, that everything `contract`'s pattern references
+/// Why a translation doesn't fit its contract, as the end of a sentence that
+/// starts with "the 'fr' translation". `at` is where the contract is defined.
+fn describe(incompatibility: &RefsIncompat, at: &str) -> String {
+    match incompatibility {
+        RefsIncompat::UnknownVariable { variable } => format!(
+            "uses ${variable}, which the default locale's message ({at}) doesn't have, \
+             so the accessor never passes it"
+        ),
+        RefsIncompat::ElementMismatch { expected, found } => format!(
+            "has the (Element) markers [{}], but the default locale's message ({at}) has \
+             [{}] in that order",
+            render_elements(found).join(", "),
+            render_elements(expected).join(", "),
+        ),
+        RefsIncompat::BoolSelectorMismatch { variable, found } => format!(
+            "selects on the Boolean ${variable} with the keys [{}] — expected [true] and \
+             [false]",
+            found.join(", "),
+        ),
+        RefsIncompat::BoolReferenceOutsideSelector { variable } => format!(
+            "uses the Boolean ${variable} outside a [true]/[false] selector, where it would \
+             render as the text \"true\" or \"false\""
+        ),
+    }
+}
+
+/// Check, in every locale, that everything `msg`'s pattern references
 /// resolves — the same check [`validate_ftl`](crate::validate_ftl) runs on
-/// external translations. Returns one entry per locale with a problem, naming
-/// the locale, the file and line of its message, and every problem found.
-fn unresolved_references(contract: &Message, graphs: &[BuildGraph]) -> Vec<String> {
+/// external translations. Returns one warning per locale with a problem,
+/// starting with that locale's `file:line` and naming every problem found.
+fn unresolved_references(msg: &Message, graphs: &[BuildGraph]) -> Vec<String> {
     // The accessor's arguments. `(Element)` variables aren't among them: they
     // are never passed.
-    let allowed: Vec<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
-    let id = &contract.id;
+    let allowed: Vec<&str> = msg.variables.iter().map(|v| v.id.as_str()).collect();
+    let id = &msg.id;
 
-    let mut problems = Vec::new();
+    let mut warnings = Vec::new();
     for graph in graphs {
-        let Some(msg) = graph.by_id.get(&key(id)) else {
+        let Some(translation) = graph.by_id.get(&key(id)) else {
             continue; // missing messages are reported by the caller
         };
         let mut resolver = Resolver::new(graph);
         resolver.check(
             &id.message,
             id.attribute.as_deref(),
-            &msg.pattern_refs,
+            &translation.pattern_refs,
             &allowed,
         );
         let violations = resolver.into_violations();
@@ -165,83 +234,32 @@ fn unresolved_references(contract: &Message, graphs: &[BuildGraph]) -> Vec<Strin
             continue;
         }
         let violations: Vec<String> = violations.iter().map(ToString::to_string).collect();
-        problems.push(format!(
-            "{} ({}:{}): {}",
+        warnings.push(format!(
+            "{}:{}: {id} is not generated — the '{}' translation would fail to format: {}",
+            translation.file,
+            translation.line,
             graph.lang.language_id,
-            msg.file,
-            msg.line,
-            violations.join(", "),
+            violations.join("; "),
         ));
     }
-    problems
+    warnings
 }
 
 /// Warn about messages that exist in non-default locales but are absent from
 /// the default locale — they have no contract, so no accessor is generated.
 fn orphan_warnings(others: &[&BuildGraph], default: &LangBundle) -> Vec<String> {
     let default_ids: HashSet<&Id> = default.messages.iter().map(|m| &m.id).collect();
-    let mut orphans: HashMap<Id, Vec<String>> = HashMap::new();
-
-    for graph in others {
-        let lang = graph.lang;
-        for msg in &lang.messages {
-            if !default_ids.contains(&msg.id) {
-                orphans
-                    .entry(msg.id.clone())
-                    .or_default()
-                    .push(lang.language_id.clone());
-            }
-        }
-    }
-
-    orphans
-        .into_iter()
-        .map(|(id, mut langs)| {
-            langs.sort();
+    others
+        .iter()
+        .flat_map(|graph| &graph.lang.messages)
+        .filter(|msg| !default_ids.contains(&msg.id))
+        .map(|msg| {
             format!(
-                "{id} is not generated — present in locale(s) {} but missing from \
-                 the default locale '{}'",
-                langs.join(", "),
-                default.language_id,
+                "{}:{}: {} is not generated — it is missing from the default locale '{}'",
+                msg.file, msg.line, msg.id, default.language_id,
             )
         })
         .collect()
-}
-
-/// Whether `other` (a non-default locale's message) is structurally compatible
-/// with the `contract` (the default locale's message of the same id).
-///
-/// The check is comment-independent: it uses `pattern_refs`, the raw
-/// `$variable`/`-term` references, never the per-locale comment annotations.
-/// It delegates to [`check_refs`], the same check `validate_ftl` applies to
-/// external translations at runtime, so the two can never drift apart.
-fn compatible(contract: &Message, other: &Message) -> bool {
-    let vars: Vec<&str> = contract.variables.iter().map(|v| v.id.as_str()).collect();
-    let bool_vars: Vec<&str> = contract
-        .variables
-        .iter()
-        .filter(|v| v.typ == VarType::Bool)
-        .map(|v| v.id.as_str())
-        .collect();
-    let elements: Vec<(&str, RefKind)> = contract
-        .elements
-        .iter()
-        .map(|e| {
-            let kind = match e.kind {
-                ElementKind::Variable => RefKind::Variable,
-                ElementKind::Term => RefKind::Term,
-            };
-            (e.name.as_str(), kind)
-        })
-        .collect();
-    check_refs(
-        &vars,
-        &bool_vars,
-        &elements,
-        &other.pattern_refs,
-        &other.selectors,
-    )
-    .is_ok()
 }
 
 /// Structural errors in default-locale Boolean contracts. These must fail the
@@ -251,35 +269,9 @@ pub(crate) fn default_contract_errors(default: &LangBundle) -> Vec<String> {
     let mut errors = Vec::new();
 
     for msg in &default.messages {
-        let vars: Vec<&str> = msg.variables.iter().map(|v| v.id.as_str()).collect();
-        let bool_vars: Vec<&str> = msg
-            .variables
-            .iter()
-            .filter(|v| v.typ == VarType::Bool)
-            .map(|v| v.id.as_str())
-            .collect();
-        let elements: Vec<(&str, RefKind)> = msg
-            .elements
-            .iter()
-            .map(|e| {
-                let kind = match e.kind {
-                    ElementKind::Variable => RefKind::Variable,
-                    ElementKind::Term => RefKind::Term,
-                };
-                (e.name.as_str(), kind)
-            })
-            .collect();
-
-        let Err(incompatibilities) = check_refs(
-            &vars,
-            &bool_vars,
-            &elements,
-            &msg.pattern_refs,
-            &msg.selectors,
-        ) else {
+        let Err(incompatibilities) = Contract::of(msg).check(msg) else {
             continue;
         };
-
         for incompatibility in incompatibilities {
             match incompatibility {
                 RefsIncompat::BoolSelectorMismatch { variable, found } => errors.push(format!(

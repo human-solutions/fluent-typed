@@ -53,6 +53,41 @@ impl<'a> LineIndex<'a> {
         self.newlines.partition_point(|&nl| nl < offset) + 1
     }
 
+    /// The 1-based `(line, column)` at byte `offset`, the column counted in
+    /// characters. Like [`Self::line_at_byte`], `offset` may fall inside a
+    /// multi-byte character.
+    pub fn line_col_at_byte(&self, offset: usize) -> (usize, usize) {
+        let offset = offset.min(self.src.len());
+        let line = self.line_at_byte(offset);
+        let start = self.line_start(line);
+        // Count the characters before `offset`: every byte that doesn't
+        // continue a multi-byte character starts one.
+        let col = self.src.as_bytes()[start..offset]
+            .iter()
+            .filter(|&&b| b & 0xC0 != 0x80)
+            .count();
+        (line, col + 1)
+    }
+
+    /// The text of 1-based `line`, without its line ending.
+    pub fn line_text(&self, line: usize) -> &'a str {
+        let start = self.line_start(line);
+        let end = self
+            .newlines
+            .get(line - 1)
+            .copied()
+            .unwrap_or(self.src.len());
+        self.src[start..end].trim_end_matches('\r')
+    }
+
+    /// The byte offset where 1-based `line` starts.
+    fn line_start(&self, line: usize) -> usize {
+        match line {
+            0 | 1 => 0,
+            n => self.newlines[n - 2] + 1,
+        }
+    }
+
     /// The 1-based line number of `sub`, a subslice of this index's source.
     ///
     /// `fluent_syntax` parses a `Resource<&str>` whose every `&str` is a
@@ -69,43 +104,20 @@ impl<'a> LineIndex<'a> {
     }
 }
 
-pub trait Traversable {
-    fn gather_all_files(
-        &self,
-        condition: impl Fn(&Path) -> bool,
-    ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>>;
+/// Every `.ftl` file under `dir`, recursively.
+pub fn ftl_files(dir: &Path) -> io::Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    collect_ftl_files(dir, &mut paths)?;
+    Ok(paths)
 }
 
-impl Traversable for Path {
-    fn gather_all_files(
-        &self,
-        condition: impl Fn(&Path) -> bool,
-    ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-        let mut paths = Vec::new();
-
-        if self.is_file() && condition(self) {
-            paths.push(self.to_path_buf());
-        } else if self.is_dir() {
-            gather_paths_recursive(self, &mut paths, &condition)?;
-        }
-
-        Ok(paths)
-    }
-}
-
-fn gather_paths_recursive(
-    dir: &Path,
-    paths: &mut Vec<PathBuf>,
-    condition: &impl Fn(&Path) -> bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let entries = fs::read_dir(dir)?;
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_file() && condition(&path) {
+fn collect_ftl_files(dir: &Path, paths: &mut Vec<PathBuf>) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_ftl_files(&path, paths)?;
+        } else if path.extension().is_some_and(|ext| ext == "ftl") {
             paths.push(path);
-        } else if path.is_dir() {
-            gather_paths_recursive(&path, paths, condition)?;
         }
     }
     Ok(())
@@ -121,4 +133,17 @@ fn line_at_byte_accepts_an_offset_inside_a_multibyte_char() {
     assert_eq!(lines.line_at_byte(6), 2);
     // An out-of-range offset is clamped, not a panic.
     assert_eq!(lines.line_at_byte(999), 3);
+}
+
+#[test]
+fn line_col_counts_characters() {
+    let src = "café\nxé = y\r\n";
+    let lines = LineIndex::new(src);
+    assert_eq!(lines.line_col_at_byte(0), (1, 1));
+    // `é` is two bytes, but one column.
+    assert_eq!(lines.line_col_at_byte(5), (1, 5));
+    assert_eq!(lines.line_col_at_byte(6), (2, 1));
+    assert_eq!(lines.line_col_at_byte(9), (2, 3));
+    assert_eq!(lines.line_text(1), "café");
+    assert_eq!(lines.line_text(2), "xé = y");
 }
