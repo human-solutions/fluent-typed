@@ -11,9 +11,12 @@ use std::collections::HashSet;
 
 use fluent_syntax::ast;
 
-/// A `$variable` or `-term` reference in a message pattern.
+/// A reference in a message pattern: a `$variable`, a `-term`, another
+/// message, or a function call.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Ref {
+    /// The name, without sigil. For a message reference to an attribute it is
+    /// `message.attribute` (message ids can't contain `.`).
     pub name: String,
     pub kind: RefKind,
 }
@@ -22,6 +25,10 @@ pub struct Ref {
 pub enum RefKind {
     Variable,
     Term,
+    /// `{ other }` or `{ other.attribute }`.
+    Message,
+    /// `{ NUMBER($x) }`: the function name.
+    Function,
 }
 
 /// A select expression driven directly by a `$variable`.
@@ -41,17 +48,12 @@ impl Selector {
     }
 }
 
-/// Collect every `$variable` and `-term` reference in a pattern, in document
-/// order, **independent of comments**. Walks selects (selector and every
-/// variant body), call arguments and nested placeables. The result is
-/// intentionally not deduplicated, so a repeated reference (e.g. the same
-/// `(Element)` used twice) is preserved.
-pub fn find_refs(pattern: &ast::Pattern<&str>) -> Vec<Ref> {
-    find_refs_and_selectors(pattern).0
-}
-
-/// Collect references and selectors in one AST traversal. Callers needing
-/// both should use this instead of walking the same pattern twice.
+/// Collect every reference in a pattern (`$variable`, `-term`, message,
+/// function), in document order, **independent of comments**, together with
+/// the selectors. Walks
+/// selects (selector and every variant body), call arguments and nested
+/// placeables. The references are intentionally not deduplicated, so a
+/// repeated reference (e.g. the same `(Element)` used twice) is preserved.
 pub fn find_refs_and_selectors(pattern: &ast::Pattern<&str>) -> (Vec<Ref>, Vec<Selector>) {
     let mut collector = Collector::default();
     collector.pattern(pattern);
@@ -112,13 +114,23 @@ impl Collector {
                     self.call_arguments(arguments);
                 }
             }
-            ast::InlineExpression::FunctionReference { arguments, .. } => {
+            ast::InlineExpression::FunctionReference { id, arguments } => {
+                self.refs.push(Ref {
+                    name: id.name.to_owned(),
+                    kind: RefKind::Function,
+                });
                 self.call_arguments(arguments)
             }
+            ast::InlineExpression::MessageReference { id, attribute } => self.refs.push(Ref {
+                name: match attribute {
+                    Some(a) => format!("{}.{}", id.name, a.name),
+                    None => id.name.to_owned(),
+                },
+                kind: RefKind::Message,
+            }),
             ast::InlineExpression::Placeable { expression } => self.expression(expression),
             ast::InlineExpression::StringLiteral { .. }
-            | ast::InlineExpression::NumberLiteral { .. }
-            | ast::InlineExpression::MessageReference { .. } => {}
+            | ast::InlineExpression::NumberLiteral { .. } => {}
         }
     }
 
@@ -170,7 +182,7 @@ pub enum RefsIncompat {
 ///
 /// `vars` are the contract's argument names and `elements` its exact
 /// `(Element)` marker sequence (empty for a plain message); `refs` are the
-/// candidate pattern's references as returned by [`find_refs`].
+/// candidate pattern's references as returned by [`find_refs_and_selectors`].
 ///
 /// A plain message is compatible when every variable it references is a known
 /// contract argument (referencing *fewer* is fine — a translation may not need
@@ -190,6 +202,7 @@ pub fn check_refs(
         let element_names: Vec<&str> = elements.iter().map(|(n, _)| *n).collect();
         let found: Vec<(String, RefKind)> = refs
             .iter()
+            .filter(|r| matches!(r.kind, RefKind::Variable | RefKind::Term))
             .filter(|r| element_names.contains(&r.name.as_str()))
             .map(|r| (r.name.clone(), r.kind))
             .collect();

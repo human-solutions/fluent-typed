@@ -1,8 +1,50 @@
 use std::collections::{HashMap, HashSet};
 
+use std::borrow::Cow;
+
 use crate::build::LangBundle;
-use crate::build::typed::{ElementKind, Id, Message, RefKind, VarType};
+use crate::build::typed::{ElementKind, Id, Message, Ref, RefKind, VarType};
+use crate::contract::{RefGraph, Resolver};
 use crate::ftl_refs::{RefsIncompat, check_refs};
+
+/// A locale's messages by `(message, attribute)`, which is also how the
+/// reference check looks them up.
+type ById<'b> = HashMap<(&'b str, Option<&'b str>), &'b Message>;
+
+fn key(id: &Id) -> (&str, Option<&str>) {
+    (id.message.as_str(), id.attribute.as_deref())
+}
+
+/// The build's [`RefGraph`] for one locale: the references collected while
+/// parsing, so the check needs no second parse.
+struct BuildGraph<'b> {
+    lang: &'b LangBundle,
+    by_id: ById<'b>,
+}
+
+impl<'b> BuildGraph<'b> {
+    fn new(lang: &'b LangBundle) -> Self {
+        let mut by_id: ById = HashMap::with_capacity(lang.messages.len());
+        for m in &lang.messages {
+            // Keep the first occurrence — significant when duplicate keys are
+            // allowed.
+            by_id.entry(key(&m.id)).or_insert(m);
+        }
+        Self { lang, by_id }
+    }
+}
+
+impl RefGraph for BuildGraph<'_> {
+    fn message_refs(&self, message: &str, attribute: Option<&str>) -> Option<Cow<'_, [Ref]>> {
+        let m = self.by_id.get(&(message, attribute))?;
+        Some(Cow::Borrowed(m.pattern_refs.as_slice()))
+    }
+
+    fn term_refs(&self, name: &str) -> Option<Cow<'_, [Ref]>> {
+        let refs = self.lang.term_refs.get(name)?;
+        Some(Cow::Borrowed(refs.as_slice()))
+    }
+}
 
 /// The result of comparing every locale against the default-locale contract.
 #[derive(Debug)]
@@ -22,21 +64,13 @@ impl Analyzed {
     /// `(Element)` layout). A message is generated only when every other locale
     /// defines it too, with a structurally compatible pattern.
     pub fn from(langs: &[LangBundle], default: &LangBundle) -> Self {
-        // Each non-default locale, paired with its messages indexed by id, so
-        // the per-message contract check below is a hash lookup rather than a
-        // linear scan — keeping the whole analysis O(messages · locales).
-        let others: Vec<(&LangBundle, HashMap<&Id, &Message>)> = langs
+        // Every locale with its messages indexed by id, so the per-message
+        // checks below are hash lookups rather than linear scans — keeping the
+        // whole analysis O(messages · locales).
+        let graphs: Vec<BuildGraph> = langs.iter().map(BuildGraph::new).collect();
+        let others: Vec<&BuildGraph> = graphs
             .iter()
-            .filter(|l| l.language_id != default.language_id)
-            .map(|l| {
-                let mut by_id: HashMap<&Id, &Message> = HashMap::new();
-                for m in &l.messages {
-                    // Keep the first occurrence, matching the previous
-                    // `.find()` — significant when duplicate keys are allowed.
-                    by_id.entry(&m.id).or_insert(m);
-                }
-                (l, by_id)
-            })
+            .filter(|g| g.lang.language_id != default.language_id)
             .collect();
 
         let mut common = HashSet::new();
@@ -47,8 +81,9 @@ impl Analyzed {
             let mut missing_in: Vec<String> = Vec::new();
             let mut incompatible_in: Vec<String> = Vec::new();
 
-            for (lang, by_id) in &others {
-                match by_id.get(id) {
+            for graph in &others {
+                let lang = graph.lang;
+                match graph.by_id.get(&key(id)) {
                     None => missing_in.push(lang.language_id.clone()),
                     Some(msg) if !compatible(contract, msg) => {
                         incompatible_in
@@ -74,7 +109,17 @@ impl Analyzed {
                     incompatible_in.join(", "),
                 ));
             } else {
-                common.insert(id.clone());
+                let unresolved_in = unresolved_references(contract, &graphs);
+                if unresolved_in.is_empty() {
+                    common.insert(id.clone());
+                } else {
+                    warnings.push(format!(
+                        "{}:{}: {id} is not generated — it would fail to format: {}",
+                        contract.file,
+                        contract.line,
+                        unresolved_in.join("; "),
+                    ));
+                }
             }
         }
 
@@ -85,16 +130,61 @@ impl Analyzed {
     }
 }
 
+/// Check, in every locale, that everything `contract`'s pattern references
+/// resolves — the same check [`validate_ftl`](crate::validate_ftl) runs on
+/// external translations. Returns one entry per locale with a problem, naming
+/// the locale, the file and line of its message, and every problem found.
+fn unresolved_references(contract: &Message, graphs: &[BuildGraph]) -> Vec<String> {
+    let allowed: Vec<&str> = contract
+        .variables
+        .iter()
+        .map(|v| v.id.as_str())
+        .chain(
+            contract
+                .elements
+                .iter()
+                .filter(|e| e.kind == ElementKind::Variable)
+                .map(|e| e.name.as_str()),
+        )
+        .collect();
+    let id = &contract.id;
+
+    let mut problems = Vec::new();
+    for graph in graphs {
+        let Some(msg) = graph.by_id.get(&key(id)) else {
+            continue; // missing messages are reported by the caller
+        };
+        let mut resolver = Resolver::new(graph);
+        resolver.check(
+            &id.message,
+            id.attribute.as_deref(),
+            &msg.pattern_refs,
+            &allowed,
+        );
+        let violations = resolver.into_violations();
+        if violations.is_empty() {
+            continue;
+        }
+        let violations: Vec<String> = violations.iter().map(ToString::to_string).collect();
+        problems.push(format!(
+            "{} ({}:{}): {}",
+            graph.lang.language_id,
+            msg.file,
+            msg.line,
+            violations.join(", "),
+        ));
+    }
+    problems
+}
+
 /// Warn about messages that exist in non-default locales but are absent from
 /// the default locale — they have no contract, so no accessor is generated.
-fn orphan_warnings(
-    others: &[(&LangBundle, HashMap<&Id, &Message>)],
-    default: &LangBundle,
-) -> Vec<String> {
+fn orphan_warnings(others: &[&BuildGraph], default: &LangBundle) -> Vec<String> {
     let default_ids: HashSet<&Id> = default.messages.iter().map(|m| &m.id).collect();
     let mut orphans: HashMap<Id, Vec<String>> = HashMap::new();
 
-    for (lang, _) in others {
+    for graph in others {
+        let lang = graph.lang;
         for msg in &lang.messages {
             if !default_ids.contains(&msg.id) {
                 orphans

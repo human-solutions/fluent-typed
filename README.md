@@ -38,16 +38,17 @@ strs.msg_helo("Sam");    // ✗ misspelled key — caught at compile time
 - **Dead translations become warnings.** An unused message accessor raises a compiler
   warning, so stale keys don't quietly accumulate.
 - **Cross-locale safety.** An accessor is generated only for a message present in *every*
-  locale with a matching set of variables — the rest are skipped with a warning naming
-  the `.ftl` file and line.
+  locale with a matching set of variables, and whose references (other messages, terms,
+  functions) resolve everywhere — the rest are skipped with a warning naming the `.ftl`
+  file and line.
 - **A linter for comment mistakes.** Typo'd type keywords, annotations of variables that
   don't exist, comments detached from their message.
 - **Embed or load on demand.** Bake every locale into the binary, or load one language
   at a time — on a server, or downloaded by a client.
 - **Validated runtime loading.** Load an `.ftl` the build never saw — a language added
   after release, or a hot-reloaded translation — checked against the compiled message
-  contract, so a missing message or a wrong variable is rejected when you load it
-  instead of panicking in an accessor.
+  contract, so a missing message, a wrong variable or a broken reference is rejected
+  when you load it instead of panicking in an accessor.
 - **Language negotiation.** `L10n::langneg("fr-CA, en;q=0.5")` picks an available
   language from an `Accept-Language` header, falling back to your default.
 - **Bidi-safe by default.** Interpolated values are wrapped in Unicode isolation marks so

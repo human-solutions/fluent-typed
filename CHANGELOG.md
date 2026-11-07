@@ -78,6 +78,23 @@
   when the pattern references a term. Behavior is unchanged.
 
 ### Fixed
+- **Translations that passed validation could still make an accessor panic.**
+  Neither the build nor `new_external` checked references to other messages
+  (`{ inbox-link }`, `{ other.title }`) or function calls (`{ DATETIME($d) }`;
+  only `NUMBER` is registered), and the build didn't check term references.
+  Each of these passed and then panicked when the message was formatted. Now the
+  build and `validate_ftl` run the same check: every message and term a generated
+  accessor reaches must exist, references must not form a cycle, every function
+  must be `NUMBER()`, and a referenced message may only use variables the accessor
+  passes (it sees the caller's arguments). `ContractViolation` has new variants
+  for these: `UnknownMessageReference`, `UnknownFunction`, `CyclicReference` and
+  `UnknownVariableInReference`.
+
+  **This can remove accessors.** At build time, a message that fails the check in
+  any locale is no longer generated, with a warning naming the file and line,
+  the same way a message missing from a locale is handled. Code calling it stops
+  compiling until the translation is fixed; before, it compiled and panicked at
+  runtime in that locale.
 - **The compressed `load(decompressor)` loaded every language at once.** It passed
   the whole decompressed file, which holds all languages, to one bundle, so any
   project with more than one language failed with `AddResource([Overriding …])`
@@ -99,10 +116,6 @@
   (`playground/docs-check`), and run unless it's a `build.rs` example. Doctests
   are enabled for the API docs. This is how the compressed-load bug above was
   found.
-- The docs no longer claim that a validated translation makes every accessor safe
-  to call. They now list what isn't checked: references to messages that don't
-  exist and functions other than `NUMBER()` (by both the build and
-  `new_external`), and references to terms that don't exist (by the build).
 - Doc comments for `BuildError`, `L10nBundle` and `L10nLanguageVec`.
 
 ## 0.9.0
